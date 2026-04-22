@@ -52,39 +52,7 @@ cameras:
 ### 2. 创建 docker-compose.yaml
 在同级目录下新建 `docker-compose.yaml`：
 
-```yaml
-version: '3.8'
-
-services:
-  recorder:
-    image: r0n9/camkeep:latest  # 替换为你的实际镜像名
-    container_name: camkeep
-    restart: unless-stopped
-    environment:
-      - TZ=Asia/Shanghai
-    volumes:
-      - ./conf.yaml:/app/conf.yaml
-      - ./records:/app/records  # 录像文件存储路径，可挂载到 NAS 大容量机械硬盘上
-    ports:
-      - "9110:9110" # Web 管理后台访问端口
-    depends_on:
-      go2rtc:
-        condition: service_healthy
-
-  go2rtc:
-    image: alexxit/go2rtc:latest
-    container_name: go2rtc
-    restart: unless-stopped
-    ports:
-      - "1984:1984" # API 网关端口
-      - "8555:8555/tcp" # WebRTC TCP 传输
-      - "8555:8555/udp" # WebRTC UDP 传输
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:1984/api/streams"]
-      interval: 2s
-      timeout: 2s
-      retries: 5
-```
+https://raw.githubusercontent.com/r0n9/camkeep/refs/heads/main/docker-compose.yaml
 
 ### 3. 一键启动
 在终端中执行：
