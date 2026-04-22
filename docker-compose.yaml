@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  recorder:
+    image: camkeep:latest
+    container_name: camkeep
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Shanghai
+    volumes:
+      - ./conf.yaml:/app/conf.yaml
+      - ./records:/app/records
+    ports:
+      - "9110:9110" # CamKeep Web控制台端口
+    # 让 recorder 等待 go2rtc 的健康检查通过，而不仅仅是容器启动
+    depends_on:
+      go2rtc:
+        condition: service_healthy
+
+  go2rtc:
+    image: alexxit/go2rtc:latest
+    container_name: go2rtc
+    restart: unless-stopped
+    ports:
+      - "1984:1984" # go2rtc API 端口
+      - "8555:8555/tcp" # WebRTC TCP 传输通道
+      - "8555:8555/udp" # WebRTC UDP 传输通道
+    # 心跳探针，每隔 2 秒请求一次 1984 端口，成功了才算 "healthy"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:1984/api/streams"]
+      interval: 2s       # 每次检查间隔 2 秒
+      timeout: 2s        # 单次请求超时时间 2 秒
+      retries: 5         # 如果连续失败 5 次则判定为不健康
+      start_period: 2s   # 容器启动后等待 2 秒再开始检查

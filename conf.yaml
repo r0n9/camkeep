@@ -1,0 +1,21 @@
+cameras:
+# 普通录制模式 mode=normal
+  - id: "摄像头1"
+    rtsp_url: "rtsp://admin:password@192.168.2.110:554/Streaming/Channels/101"
+    retention_days: 7       # 保留7天
+    segment_duration: 300   # 每段300秒 (5分钟)
+    format: "ts"            # 推荐 ts
+    min_size_kb: 1024       # 小于1MB自动删除
+    record_time: "00:00-23:59" # 录制区间
+    mode: "normal"            # 普通录制模式: "normal" 或 "timelapse"，留空默认为 normal
+
+# 延时录像模式 mode=timelapse，间隔抓拍，能够极大地节省存储，但是比普通模式CPU消耗高
+  - id: "摄像头2"
+    rtsp_url: "rtsp://admin:password@192.168.2.120:554/Streaming/Channels/101"
+    retention_days: 7       # 保留7天
+    segment_duration: 600   # 每段600秒 (10分钟) ，延时录像建议把切片时间设长一点，比如 3600 秒 (1小时)
+    format: "ts"            # 推荐 ts
+    min_size_kb: 1024       # 小于1MB自动删除
+    record_time: "07:00-19:00" # 录制区间
+    mode: "timelapse"            # 模式: "timelapse" 延时录像
+    capture_interval: 1       # 延时录像，抓拍间隔(秒)，例如 5 表示每5秒抓一帧

@@ -1,0 +1,179 @@
+package task
+
+import (
+	"camkeep/constant"
+	"camkeep/service"
+	"camkeep/util"
+	"context"
+	"fmt"
+	"log"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"sync"
+	"time"
+)
+
+type Camera struct {
+	ID              string `yaml:"id"`
+	RTSPUrl         string `yaml:"rtsp_url"`
+	RetentionDays   int    `yaml:"retention_days"`
+	SegmentDuration int    `yaml:"segment_duration"`
+	Format          string `yaml:"format"`
+	MinSizeKb       int64  `yaml:"min_size_kb"`
+	RecordTime      string `yaml:"record_time"`
+	Mode            string `yaml:"mode"`             // 模式: "normal" 或 "timelapse"，留空默认为 normal
+	CaptureInterval int    `yaml:"capture_interval"` // 抓拍间隔(秒)，例如 5 表示每5秒抓一帧
+}
+
+// CameraTask 负责单个摄像头的生命周期管理
+func CameraTask(ctx context.Context, wg *sync.WaitGroup, cam Camera) {
+	defer wg.Done()
+
+	camDir := filepath.Join(constant.RecordBaseDir, cam.ID)
+	os.MkdirAll(camDir, 0755)
+
+	var ffmpegCmd *exec.Cmd
+	var ffmpegCancel context.CancelFunc
+
+	ticker := time.NewTicker(10 * time.Second) // 每10秒检查一次状态
+	defer ticker.Stop()
+
+	service.UpdateStatus(cam.ID, false, cam.Mode)
+
+	for {
+		select {
+		case <-ctx.Done():
+			// 全局退出时，如果 ffmpeg 还在运行，杀掉它
+			if ffmpegCancel != nil {
+				ffmpegCancel()
+			}
+			return
+		case <-ticker.C:
+			// 提前铺路，创建今天和明天的日期目录
+			// 防止跨天时 (00:00:00) FFmpeg 因为目标文件夹不存在而报错崩溃
+			now := time.Now()
+			todayDir := filepath.Join(camDir, now.Format("2006-01-02"))
+			tomorrowDir := filepath.Join(camDir, now.AddDate(0, 0, 1).Format("2006-01-02"))
+			os.MkdirAll(todayDir, 0755)
+			os.MkdirAll(tomorrowDir, 0755)
+
+			inTimeRange := util.IsWithinTimeRange(cam.RecordTime)
+			isRunning := ffmpegCmd != nil && ffmpegCmd.ProcessState == nil
+
+			service.UpdateStatus(cam.ID, isRunning, cam.Mode)
+
+			if inTimeRange && !isRunning {
+				log.Printf("[%s] 启动录制...", cam.ID)
+				var fCtx context.Context
+				fCtx, ffmpegCancel = context.WithCancel(ctx)
+				ffmpegCmd = startFFmpeg(fCtx, cam, camDir)
+
+				go func(c *exec.Cmd) {
+					err := c.Wait()
+					log.Printf("[%s] FFmpeg 进程已退出, err: %v", cam.ID, err)
+				}(ffmpegCmd)
+
+			} else if !inTimeRange && isRunning {
+				log.Printf("[%s] 不在录制时间范围内，停止录制...", cam.ID)
+				ffmpegCancel()
+				ffmpegCmd = nil
+			}
+		}
+	}
+}
+
+// startFFmpeg 构建并启动 FFmpeg 进程
+func startFFmpeg(ctx context.Context, cam Camera, camDir string) *exec.Cmd {
+	fileNamePattern := fmt.Sprintf("%s/%%Y-%%m-%%d/%s_%%Y-%%m-%%d_%%H-%%M-%%S.%s", filepath.ToSlash(camDir), cam.ID, cam.Format)
+
+	var args []string
+
+	// 获取安全转义后的 RTSP URL
+	// safeRTSPUrl := util.EscapeRTSPAuth(cam.RTSPUrl)
+	safeRTSPUrl := fmt.Sprintf("rtsp://%s:8554/%s", constant.Go2rtcHost, cam.ID)
+
+	// 如果未设置模式，默认按 normal 处理
+	if cam.Mode == "" || cam.Mode == "normal" {
+		args = []string{
+			"-loglevel", "error",
+			"-rtsp_transport", "tcp",
+			"-timeout", "5000000",
+			"-max_delay", "500000",
+			"-reorder_queue_size", "1024",
+			"-i", safeRTSPUrl,
+			"-c:v", "copy", // 视频流保持直接拷贝，不消耗 CPU
+			"-c:a", "aac", // 把摄像头的 pcm_alaw 实时转成 MP4 兼容的 AAC 音频
+			"-f", "segment",
+			"-segment_time", fmt.Sprintf("%d", cam.SegmentDuration),
+			"-segment_format", cam.Format,
+			"-reset_timestamps", "1",
+			"-strftime", "1",
+			fileNamePattern,
+		}
+	} else if cam.Mode == "timelapse" {
+		if cam.CaptureInterval <= 0 {
+			cam.CaptureInterval = 1
+		}
+
+		// 定义"逻辑播放帧率"（即一秒钟你想看几张抓拍的图片）
+		// 之前等效于 25，导致画面狂闪。
+		// 推荐值：5 (每张停留 0.2秒，适合非常慢的变化) 或 10 (每张停留 0.1秒，适合常规监控快放)
+		// 建议后续可将此参数暴露到 conf.yaml 中，这里先设为 10
+		logicalPlaybackFPS := 5.0
+
+		// 组装延时录像的视频滤镜：
+		// fps=1/N : 每 N 秒截取一帧
+		// setpts=N/(逻辑帧率*TB) : 告诉 FFmpeg 这些帧应该以多快的速度播放
+		vfFilter := fmt.Sprintf("fps=1/%d,setpts=N/(%.1f*TB)", cam.CaptureInterval, logicalPlaybackFPS)
+
+		// 先通过整数除法，确定这段视频绝对包含的原始抓拍帧数
+		framesPerSegment := cam.SegmentDuration / cam.CaptureInterval
+		if framesPerSegment <= 0 {
+			framesPerSegment = 25
+		}
+
+		// 用逻辑播放帧率反推 FFmpeg 内部的实际切片时间
+		actualFFmpegSegmentTime := float64(framesPerSegment) / logicalPlaybackFPS
+
+		// 输出物理帧率强制保持 25，确保浏览器 DPlayer/WebRTC 的完美兼容
+		outputFPS := 25
+
+		// GOP 大小 = 切片总秒数 * 物理输出帧率
+		gopSize := int(actualFFmpegSegmentTime * float64(outputFPS))
+
+		args = []string{
+			"-loglevel", "error",
+			"-rtsp_transport", "tcp",
+			"-timeout", "5000000",
+			"-i", safeRTSPUrl,
+			"-an",
+			"-vf", vfFilter,
+			"-c:v", "libx264",
+			"-preset", "veryfast",
+			"-crf", "28",
+			"-r", fmt.Sprintf("%d", outputFPS), // 强制输出物理帧率为 25，FFmpeg 会自动复制帧补齐
+			"-g", fmt.Sprintf("%d", gopSize), // 强制关键帧间隔对齐
+			"-sc_threshold", "0",
+			"-f", "segment",
+			"-segment_time", fmt.Sprintf("%.3f", actualFFmpegSegmentTime),
+			"-segment_format", cam.Format,
+			"-reset_timestamps", "1",
+			"-strftime", "1",
+		}
+
+		if cam.Format == "mp4" {
+			args = append(args, "-segment_format_options", "movflags=frag_keyframe+empty_moov")
+		}
+
+		args = append(args, fileNamePattern)
+	}
+
+	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
+		log.Printf("[%s] 启动 FFmpeg 失败: %v", cam.ID, err)
+	}
+
+	return cmd
+}

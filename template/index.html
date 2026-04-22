@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <title>CamKeep 控制中心</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/DPlayer.min.css">
+    <script src="/static/mpegts.min.js"></script>
+    <script src="/static/DPlayer.min.js"></script>
+</head>
+<body class="bg-gray-100 p-4 md:p-8 min-h-screen">
+<div class="max-w-[1400px] mx-auto">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-3xl font-bold text-gray-800 flex items-center">
+            <span class="w-2 h-8 bg-blue-600 mr-3 rounded-full"></span>
+            CamKeep 监控中心
+        </h1>
+        <div class="text-xs text-green-500 font-mono bg-green-100 px-4 py-1.5 rounded-full shadow-sm border border-green-200">系统在线</div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
+
+        <div class="lg:col-span-1 bg-white p-4 rounded-xl shadow-sm border-t-4 border-blue-500 flex flex-col h-[500px]">
+            <h2 class="font-bold mb-4 text-lg text-gray-700 flex items-center">
+                <svg class="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                实时节点
+            </h2>
+            <div id="camList" class="space-y-2 overflow-y-auto flex-1 pr-1 custom-scrollbar">
+                <div class="text-sm text-gray-400 text-center py-10">正在同步设备状态...</div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-3 bg-black rounded-xl shadow-xl overflow-hidden relative h-[500px] flex flex-col justify-center border border-gray-800">
+            <video id="webrtc-player" class="w-full h-full object-contain bg-black hidden" autoplay playsinline controls></video>
+            <div id="dplayer" class="w-full h-full"></div>
+
+            <div class="absolute top-4 left-4 z-10 bg-black/70 text-white px-4 py-2 text-sm rounded-lg shadow-lg backdrop-blur-md border border-white/10">
+                当前焦点: <span id="currentCam" class="text-blue-400 font-bold ml-1">未选择</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white p-6 rounded-xl shadow-sm border-t-4 border-emerald-500">
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="font-bold text-lg text-gray-700 flex items-center">
+                <svg class="w-5 h-5 mr-2 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                历史录像档案
+            </h2>
+            <span id="recordCount" class="text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full border border-gray-200">0 个文件</span>
+        </div>
+
+        <div id="recordList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div class="col-span-full text-center py-12 border-2 border-dashed border-gray-100 rounded-xl">
+                <p class="text-gray-400 text-sm">请点击左侧摄像头行以检索历史录像，点击播放按钮开启直播</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+
+    /* 解决 DPlayer 全屏下可能遮挡自定义 UI 的问题 */
+    .dplayer-video-wrap { background-color: #000 !important; }
+</style>
+
+<script>
+    let dp = null;
+    let pc = null;
+    let currentSelectedCam = null;
+
+    window.onload = function() {
+        if (typeof DPlayer === 'undefined') {
+            alert("播放器组件加载失败，请检查网络！");
+            return;
+        }
+        loadStatus();
+        setInterval(loadStatus, 5000);
+    };
+
+    async function loadStatus() {
+        try {
+            const resp = await fetch('/api/status');
+            const data = await resp.json();
+            const list = document.getElementById('camList');
+            list.innerHTML = '';
+
+            Object.entries(data).forEach(([id, cam]) => {
+                const isRunning = cam.is_running;
+                const isSelected = currentSelectedCam === id;
+
+                const item = document.createElement('div');
+                item.className = `p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between group
+                    ${isSelected ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-100' : 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-sm'}
+                    ${isRunning ? '' : 'grayscale opacity-70'}`;
+
+                // 仅选中查看录像
+                item.onclick = () => selectCamera(id);
+
+                item.innerHTML = `
+                    <div class="flex items-center flex-1">
+                        <div class="w-2.5 h-2.5 rounded-full ${isRunning ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : 'bg-gray-400'} mr-3"></div>
+                        <div class="flex flex-col">
+                            <span class="font-bold text-gray-800 text-sm tracking-tight">CAM-${id}</span>
+                            <span class="text-[10px] text-gray-400 uppercase">${cam.mode || 'Normal'}</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <button onclick="event.stopPropagation(); previewLive('${id}')"
+                                class="flex items-center justify-center w-9 h-9 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-all shadow-md active:scale-95"
+                                title="播放实时直播">
+                            <svg class="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4l12 6-12 6z"></path></svg>
+                        </button>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        } catch (e) {
+            console.error("同步状态失败:", e);
+        }
+    }
+
+    function selectCamera(camId) {
+        currentSelectedCam = camId;
+        document.getElementById('currentCam').innerText = `[已选择] ${camId}`;
+        loadStatus();
+        loadRecords(camId);
+    }
+
+    function previewLive(camId) {
+        currentSelectedCam = camId;
+        document.getElementById('currentCam').innerText = `[直播中] ${camId}`;
+        loadStatus();
+        playVideo(camId, true);
+        loadRecords(camId);
+    }
+
+    function playVideo(source, isLive) {
+        const webrtcPlayer = document.getElementById('webrtc-player');
+        const dplayerContainer = document.getElementById('dplayer');
+
+        if (dp) { dp.destroy(); dp = null; }
+        if (pc) { pc.close(); pc = null; }
+        webrtcPlayer.srcObject = null;
+
+        if (isLive) {
+            dplayerContainer.classList.add('hidden');
+            webrtcPlayer.classList.remove('hidden');
+            pc = new RTCPeerConnection();
+            pc.addTransceiver('video', { direction: 'recvonly' });
+            pc.ontrack = (event) => { webrtcPlayer.srcObject = event.streams[0]; };
+            pc.createOffer()
+                .then(offer => {
+                    pc.setLocalDescription(offer);
+                    return fetch(`/webrtc/${source}`, { method: 'POST', body: offer.sdp });
+                })
+                .then(resp => resp.text())
+                .then(answerSdp => {
+                    pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: answerSdp }));
+                })
+                .catch(err => console.error("WebRTC 失败:", err));
+        } else {
+            webrtcPlayer.classList.add('hidden');
+            dplayerContainer.classList.remove('hidden');
+
+            let videoType = source.endsWith('.ts') ? 'customTs' : 'normal';
+
+            dp = new DPlayer({
+                container: dplayerContainer,
+                video: {
+                    url: source,
+                    type: videoType,
+                    customType: {
+                        customTs: function (video, player) {
+                            const tsPlayer = mpegts.createPlayer({ type: 'm2ts', isLive: false, url: video.src });
+                            tsPlayer.attachMediaElement(video);
+                            tsPlayer.load();
+                            tsPlayer.play();
+                            player.events.on('destroy', () => { tsPlayer.destroy(); });
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    async function loadRecords(camId) {
+        const list = document.getElementById('recordList');
+        const countBadge = document.getElementById('recordCount');
+        list.innerHTML = '<div class="col-span-full text-center py-10 text-gray-400">检索中...</div>';
+
+        try {
+            const resp = await fetch(`/api/records/${camId}`);
+            const files = await resp.json();
+            list.innerHTML = '';
+
+            if (!files || files.length === 0) {
+                countBadge.innerText = '0 个文件';
+                list.innerHTML = '<div class="col-span-full text-center py-12 text-gray-400">该设备暂无历史录像</div>';
+                return;
+            }
+
+            countBadge.innerText = `${files.length} 个文件`;
+
+            const groups = {};
+            files.forEach(file => {
+                const match = file.name.match(/\d{4}-\d{2}-\d{2}/);
+                const dateStr = match ? match[0] : '其他归档';
+                if(!groups[dateStr]) groups[dateStr] = [];
+                groups[dateStr].push(file);
+            });
+
+            const sortedDates = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+
+            sortedDates.forEach((date, index) => {
+                const dateFiles = groups[date];
+                dateFiles.sort((a, b) => b.name.localeCompare(a.name));
+
+                const groupId = `date-${index}`;
+                const isFirst = index === 0;
+
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'flex flex-col bg-gray-50 border border-gray-200 rounded-xl overflow-hidden shadow-sm';
+
+                const header = document.createElement('div');
+                header.className = 'flex justify-between items-center p-3.5 bg-white border-b border-gray-200 cursor-pointer hover:bg-blue-50 transition-colors select-none';
+                header.onclick = () => {
+                    document.getElementById(`content-${groupId}`).classList.toggle('hidden');
+                    document.getElementById(`icon-${groupId}`).classList.toggle('rotate-90');
+                };
+
+                header.innerHTML = `
+                    <div class="flex items-center">
+                        <span class="text-sm font-bold text-gray-700">${date}</span>
+                        <span class="ml-2 text-[10px] font-bold bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">${dateFiles.length}</span>
+                    </div>
+                    <svg id="icon-${groupId}" class="w-4 h-4 text-gray-400 transition-transform ${isFirst ? 'rotate-90' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                `;
+
+                const content = document.createElement('div');
+                content.id = `content-${groupId}`;
+                content.className = `flex flex-col space-y-1 p-2 max-h-[300px] overflow-y-auto custom-scrollbar ${isFirst ? '' : 'hidden'}`;
+
+                dateFiles.forEach(file => {
+                    const timeMatch = file.name.match(/\d{2}-\d{2}-\d{2}\.(ts|mp4)$/);
+                    let timeDisplay = timeMatch ? timeMatch[0].replace(/\.(ts|mp4)$/, '').replace(/-/g, ':') : file.name;
+                    const ext = file.name.split('.').pop().toUpperCase();
+
+                    const item = document.createElement('div');
+                    item.className = 'flex justify-between items-center p-2.5 text-xs rounded-lg bg-white border border-gray-100 hover:border-blue-400 hover:text-blue-600 cursor-pointer transition-all shadow-sm';
+                    item.onclick = () => {
+                        document.getElementById('currentCam').innerText = `[回放] ${camId} (${timeDisplay})`;
+                        playVideo(file.url, false);
+                    };
+                    item.innerHTML = `
+                        <div class="flex items-center">
+                            <span class="mr-2">🎬</span>
+                            <span class="font-mono font-bold">${timeDisplay}</span>
+                        </div>
+                        <span class="text-[9px] px-1 bg-gray-50 text-gray-400 rounded border border-gray-100 font-bold">${ext}</span>
+                    `;
+                    content.appendChild(item);
+                });
+
+                groupDiv.appendChild(header);
+                groupDiv.appendChild(content);
+                list.appendChild(groupDiv);
+            });
+        } catch (e) {
+            list.innerHTML = '<div class="col-span-full text-center py-10 text-red-400">获取录像列表失败</div>';
+        }
+    }
+</script>
+</body>
+</html>
