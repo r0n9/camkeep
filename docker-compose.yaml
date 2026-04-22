@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   recorder:
-    image: camkeep:latest
+    image: r0n9/camkeep:latest
     container_name: camkeep
     restart: unless-stopped
     environment:
