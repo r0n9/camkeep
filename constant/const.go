@@ -1,4 +1,4 @@
 package constant
 
 const RecordBaseDir = "./records"
-const Go2rtcHost = "go2rtc"
+const Go2rtcHost = "127.0.0.1"
