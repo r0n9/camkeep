@@ -111,7 +111,7 @@
             descEl.innerHTML = `
                 <p class="mb-2">此操作将<b>无视配置中的时间表</b>，立刻开始录像。</p>
                 <p class="mb-2">摄像头将<b>一直保持录制状态</b>，直到您手动点击“停录”或恢复“计划”。</p>
-                <p class="text-xs text-green-600 font-bold mt-3 border-t pt-2">⚡ 确认后立即生效</p>
+                <p class="text-xs text-green-600 font-bold mt-3 border-t pt-2">⚡ 确认后稍后即生效</p>
             `;
             btnEl.className = "px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold shadow transition-all";
             btnEl.innerText = "确认强录";
@@ -122,7 +122,7 @@
             descEl.innerHTML = `
                 <p class="mb-2">此操作将<b>立即中断当前的录像任务</b>。</p>
                 <p class="mb-2">摄像头将<b>一直保持不录像状态</b>（即使在计划时间内也不会录），直到您手动点击“强制录”或恢复“计划”。</p>
-                <p class="text-xs text-red-500 font-bold mt-3 border-t pt-2">⚡ 确认后立即生效</p>
+                <p class="text-xs text-red-500 font-bold mt-3 border-t pt-2">⚡ 确认后稍后即生效</p>
             `;
             btnEl.className = "px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold shadow transition-all";
             btnEl.innerText = "确认停录";

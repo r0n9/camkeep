@@ -63,14 +63,14 @@ func main() {
 	// 初始化流
 	initGo2rtcStreams(currentConfig)
 
+	// 启动实时流状态轮询任务
+	go pollGo2rtcStatus()
+
 	// 启动 Web 路由
 	go startWebServer()
 
 	// 启动后台录制与清理任务
 	startTasks()
-
-	// 启动实时流状态轮询任务
-	go pollGo2rtcStatus()
 
 	// 监听退出信号
 	sigChan := make(chan os.Signal, 1)
@@ -485,6 +485,7 @@ func pollGo2rtcStatus() {
 
 					if hasProducers && len(producers) > 0 {
 						// 1. 有 producer，深入检查其健康度
+						isConnecting := false
 						for _, p := range producers {
 							if prod, ok := p.(map[string]interface{}); ok {
 								// 如果存在错误字段，说明连接正在报错 (如 i/o timeout)
@@ -498,8 +499,15 @@ func pollGo2rtcStatus() {
 								if bytesRecv > 0 || (hasMedias && len(medias) > 0) {
 									streamState = "online"
 									break
+								} else {
+									// 没报错且没数据，说明正在握手连接中
+									isConnecting = true
 								}
 							}
+						}
+
+						if streamState != "online" && isConnecting {
+							streamState = "online"
 						}
 					} else if (!hasProducers || len(producers) == 0) && (!hasConsumers || len(consumers) == 0) {
 						// 2. 没有生产者也没消费者：属于 go2rtc 的“按需休眠”状态，属于正常预期
