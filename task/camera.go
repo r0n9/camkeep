@@ -36,9 +36,14 @@ func SetOverride(camID, action string) {
 	overrideMux.Lock()
 	if action == "auto" {
 		delete(overrides, camID) // 恢复自动
-	} else {
+	} else if action == "start" {
 		overrides[camID] = action
+		service.UpdateRecordStatus(camID, true) // 立刻更新当前status
+	} else if action == "stop" {
+		overrides[camID] = action
+		service.UpdateRecordStatus(camID, false)
 	}
+
 	overrideMux.Unlock()
 }
 

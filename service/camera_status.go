@@ -29,6 +29,15 @@ func UpdateStatus(id string, isRunning bool, mode string) {
 	StatusMap[id].Mode = mode
 }
 
+func UpdateRecordStatus(id string, isRunning bool) {
+	StatusMux.Lock()
+	defer StatusMux.Unlock()
+	if _, exists := StatusMap[id]; !exists {
+		StatusMap[id] = &CameraStatus{StreamState: "offline"} // 默认状态
+	}
+	StatusMap[id].IsRunning = isRunning
+}
+
 // UpdateOnlineStatus 更新实时流状态
 func UpdateOnlineStatus(id string, state string) {
 	StatusMux.Lock()
