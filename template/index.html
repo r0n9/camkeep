@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="/static/DPlayer.min.css">
     <script src="/static/mpegts.min.js"></script>
     <script src="/static/DPlayer.min.js"></script>
+    <link rel="icon" href="/static/camkeep_w200.png">
 </head>
 <body class="bg-gray-100 p-4 md:p-8 min-h-screen">
 <div class="max-w-[1400px] mx-auto">
@@ -15,26 +16,53 @@
             <span class="w-2 h-8 bg-blue-600 mr-3 rounded-full"></span>
             CamKeep 监控中心
         </h1>
-        <div class="text-xs text-green-500 font-mono bg-green-100 px-4 py-1.5 rounded-full shadow-sm border border-green-200">系统在线</div>
+        <div class="flex space-x-3 items-center">
+            <button onclick="openConfig()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-full text-sm font-bold shadow transition-all">⚙️ 配置管理</button>
+            <div class="text-xs text-green-500 font-mono bg-green-100 px-4 py-1.5 rounded-full shadow-sm border border-green-200">系统在线</div>
+        </div>
+    </div>
+
+    <div id="configModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white p-6 rounded-2xl w-[80%] max-w-[95%] shadow-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">系统配置 (conf.yaml)</h2>
+                <button onclick="closeConfig()" class="text-gray-400 hover:text-gray-700">✕</button>
+            </div>
+            <p class="text-xs text-gray-500 mb-2">修改保存后，系统将会自动热重启录像任务并应用新配置。</p>
+            <textarea id="configYaml" class="w-full h-[400px] p-4 border border-gray-300 rounded-lg font-mono text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none" spellcheck="false"></textarea>
+            <div class="flex justify-end space-x-3 mt-4">
+                <button onclick="closeConfig()" class="px-5 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-bold transition-all">取消</button>
+                <button onclick="saveConfig()" class="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold shadow transition-all">保存并应用</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="confirmModal" class="hidden fixed inset-0 bg-black/60 z-[60] flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white p-6 rounded-2xl w-[420px] max-w-[95%] shadow-2xl transform transition-all">
+            <div class="flex items-center mb-3">
+                <div id="confirmIcon" class="w-10 h-10 rounded-full flex items-center justify-center mr-3 text-white">
+                </div>
+                <h2 class="text-xl font-bold text-gray-800" id="confirmTitle">操作确认</h2>
+            </div>
+            <div class="text-sm text-gray-600 mb-6 pl-13" id="confirmDesc">描述信息</div>
+            <div class="flex justify-end space-x-3">
+                <button onclick="closeConfirm()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-bold transition-all">取消</button>
+                <button id="confirmBtn" onclick="executeConfirmAction()" class="px-4 py-2 text-white rounded-lg font-bold shadow transition-all">确认执行</button>
+            </div>
+        </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
-
         <div class="lg:col-span-1 bg-white p-4 rounded-xl shadow-sm border-t-4 border-blue-500 flex flex-col h-[500px]">
-            <h2 class="font-bold mb-4 text-lg text-gray-700 flex items-center">
-                <svg class="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-                实时节点
-            </h2>
+            <h2 class="font-bold mb-4 text-lg text-gray-700 flex items-center">实时节点</h2>
             <div id="camList" class="space-y-2 overflow-y-auto flex-1 pr-1 custom-scrollbar">
                 <div class="text-sm text-gray-400 text-center py-10">正在同步设备状态...</div>
             </div>
         </div>
-
         <div class="lg:col-span-3 bg-black rounded-xl shadow-xl overflow-hidden relative h-[500px] flex flex-col justify-center border border-gray-800">
             <video id="webrtc-player" class="w-full h-full object-contain bg-black hidden" autoplay playsinline controls></video>
             <div id="dplayer" class="w-full h-full"></div>
-
-            <div class="absolute top-4 left-4 z-10 bg-black/70 text-white px-4 py-2 text-sm rounded-lg shadow-lg backdrop-blur-md border border-white/10">
+            <div class="absolute top-4 left-4 z-10 bg-black/10 text-white px-4 py-2 text-sm rounded-lg shadow-xs backdrop-blur-xs border border-white/10 transition-all hover:bg-black/30">
                 当前焦点: <span id="currentCam" class="text-blue-400 font-bold ml-1">未选择</span>
             </div>
         </div>
@@ -42,18 +70,10 @@
 
     <div class="bg-white p-6 rounded-xl shadow-sm border-t-4 border-emerald-500">
         <div class="flex items-center justify-between mb-6">
-            <h2 class="font-bold text-lg text-gray-700 flex items-center">
-                <svg class="w-5 h-5 mr-2 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                历史录像档案
-            </h2>
+            <h2 class="font-bold text-lg text-gray-700">历史录像档案</h2>
             <span id="recordCount" class="text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full border border-gray-200">0 个文件</span>
         </div>
-
-        <div id="recordList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            <div class="col-span-full text-center py-12 border-2 border-dashed border-gray-100 rounded-xl">
-                <p class="text-gray-400 text-sm">请点击左侧摄像头行以检索历史录像，点击播放按钮开启直播</p>
-            </div>
-        </div>
+        <div id="recordList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>
     </div>
 </div>
 
@@ -62,8 +82,6 @@
     .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
     .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
-
-    /* 解决 DPlayer 全屏下可能遮挡自定义 UI 的问题 */
     .dplayer-video-wrap { background-color: #000 !important; }
 </style>
 
@@ -73,13 +91,101 @@
     let currentSelectedCam = null;
 
     window.onload = function() {
-        if (typeof DPlayer === 'undefined') {
-            alert("播放器组件加载失败，请检查网络！");
-            return;
-        }
+        if (typeof DPlayer === 'undefined') { alert("播放器组件加载失败，请检查网络！"); return; }
         loadStatus();
         setInterval(loadStatus, 5000);
     };
+
+    let pendingAction = null;
+
+    // 打开确认弹窗并动态渲染文案
+    function confirmCamAction(camId, action) {
+        pendingAction = { camId, action };
+        const titleEl = document.getElementById('confirmTitle');
+        const descEl = document.getElementById('confirmDesc');
+        const btnEl = document.getElementById('confirmBtn');
+        const iconEl = document.getElementById('confirmIcon');
+
+        if (action === 'start') {
+            titleEl.innerText = `强制开启录像 (CAM-${camId})`;
+            descEl.innerHTML = `
+                <p class="mb-2">此操作将<b>无视配置中的时间表</b>，立刻开始录像。</p>
+                <p class="mb-2">摄像头将<b>一直保持录制状态</b>，直到您手动点击“停录”或恢复“计划”。</p>
+                <p class="text-xs text-green-600 font-bold mt-3 border-t pt-2">⚡ 确认后立即生效</p>
+            `;
+            btnEl.className = "px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold shadow transition-all";
+            btnEl.innerText = "确认强录";
+            iconEl.className = "w-10 h-10 rounded-full flex items-center justify-center mr-3 text-white bg-green-500 shadow-lg shadow-green-200";
+            iconEl.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>`;
+        } else if (action === 'stop') {
+            titleEl.innerText = `强制停止录像 (CAM-${camId})`;
+            descEl.innerHTML = `
+                <p class="mb-2">此操作将<b>立即中断当前的录像任务</b>。</p>
+                <p class="mb-2">摄像头将<b>一直保持不录像状态</b>（即使在计划时间内也不会录），直到您手动点击“强制录”或恢复“计划”。</p>
+                <p class="text-xs text-red-500 font-bold mt-3 border-t pt-2">⚡ 确认后立即生效</p>
+            `;
+            btnEl.className = "px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold shadow transition-all";
+            btnEl.innerText = "确认停录";
+            iconEl.className = "w-10 h-10 rounded-full flex items-center justify-center mr-3 text-white bg-red-500 shadow-lg shadow-red-200";
+            iconEl.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path></svg>`;
+        } else if (action === 'auto') {
+            titleEl.innerText = `恢复自动计划 (CAM-${camId})`;
+            descEl.innerHTML = `
+                <p class="mb-2">解除强制状态，将摄像头的录像控制权交还给系统。</p>
+                <p class="mb-2">系统将严格按照 conf.yaml 中的 <code>record_time</code> 时间表自动启停录像。</p>
+                <p class="text-xs text-blue-500 font-bold mt-3 border-t pt-2">⚡ 确认后立即应用计划逻辑</p>
+            `;
+            btnEl.className = "px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold shadow transition-all";
+            btnEl.innerText = "恢复计划";
+            iconEl.className = "w-10 h-10 rounded-full flex items-center justify-center mr-3 text-white bg-blue-500 shadow-lg shadow-blue-200";
+            iconEl.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>`;
+        }
+
+        document.getElementById('confirmModal').classList.remove('hidden');
+    }
+
+    function closeConfirm() {
+        document.getElementById('confirmModal').classList.add('hidden');
+        pendingAction = null;
+    }
+
+    async function executeConfirmAction() {
+        if (!pendingAction) return;
+        const { camId, action } = pendingAction;
+
+        // 按钮进入 loading 状态 (可选优化)
+        const btn = document.getElementById('confirmBtn');
+        const originText = btn.innerText;
+        btn.innerText = "执行中...";
+        btn.disabled = true;
+
+        await fetch(`/api/camera/${camId}/${action}`, { method: 'POST' });
+
+        btn.innerText = originText;
+        btn.disabled = false;
+        closeConfirm();
+        loadStatus();
+    }
+
+    // 配置弹窗逻辑
+    async function openConfig() {
+        const resp = await fetch('/api/config');
+        document.getElementById('configYaml').value = await resp.text();
+        document.getElementById('configModal').classList.remove('hidden');
+    }
+    function closeConfig() { document.getElementById('configModal').classList.add('hidden'); }
+    async function saveConfig() {
+        const yamlText = document.getElementById('configYaml').value;
+        const resp = await fetch('/api/config', { method: 'POST', body: yamlText });
+        if (resp.ok) {
+            alert('配置已生效并自动重启任务！');
+            closeConfig();
+            loadStatus();
+        } else {
+            const err = await resp.json();
+            alert('保存失败: ' + err.error);
+        }
+    }
 
     async function loadStatus() {
         try {
@@ -91,29 +197,57 @@
             Object.entries(data).forEach(([id, cam]) => {
                 const isRunning = cam.is_running;
                 const isSelected = currentSelectedCam === id;
+                const streamState = cam.stream_state || 'offline';
+                let streamLight, streamText;
+                if (streamState === 'online') {
+                    streamLight = 'bg-green-500 shadow-[0_0_5px_#22c55e]';
+                    streamText = '<span class="text-[10px] text-green-600 font-bold">流在线</span>';
+                } else if (streamState === 'idle') {
+                    streamLight = 'bg-blue-400 shadow-[0_0_5px_#60a5fa]';
+                    streamText = '<span class="text-[10px] text-blue-500 font-bold">按需休眠</span>';
+                } else {
+                    streamLight = 'bg-red-500 shadow-[0_0_5px_#ef4444]';
+                    streamText = '<span class="text-[10px] text-red-500 font-bold">流断线</span>';
+                }
 
                 const item = document.createElement('div');
-                item.className = `p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between group
+                item.className = `p-3 rounded-xl border cursor-pointer transition-all flex flex-col group
                     ${isSelected ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-100' : 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-sm'}
-                    ${isRunning ? '' : 'grayscale opacity-70'}`;
+                    ${isRunning ? '' : 'opacity-80'}`;
 
-                // 仅选中查看录像
                 item.onclick = () => selectCamera(id);
 
                 item.innerHTML = `
-                    <div class="flex items-center flex-1">
-                        <div class="w-2.5 h-2.5 rounded-full ${isRunning ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : 'bg-gray-400'} mr-3"></div>
-                        <div class="flex flex-col">
-                            <span class="font-bold text-gray-800 text-sm tracking-tight">CAM-${id}</span>
-                            <span class="text-[10px] text-gray-400 uppercase">${cam.mode || 'Normal'}</span>
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center">
+                            <div class="flex flex-col mr-3 space-y-1.5 border-r border-gray-100 pr-3 min-w-[65px]">
+                                <div class="flex items-center" title="摄像机实时流状态">
+                                    <div class="w-2 h-2 rounded-full ${streamLight} mr-1.5 shrink-0"></div>
+                                    ${streamText}
+                                </div>
+                                <div class="flex items-center" title="本地录制状态">
+                                    <div class="w-2 h-2 rounded-full ${isRunning ? 'bg-red-500 shadow-[0_0_5px_#ef4444] animate-pulse' : 'bg-gray-300'} mr-1.5 shrink-0"></div>
+                                    <span class="text-[10px] ${isRunning ? 'text-gray-700' : 'text-gray-400'} font-bold">${isRunning ? '录制中' : '未录像'}</span>
+                                </div>
+                            </div>
+
+                            <div class="flex flex-col">
+                                <span class="font-bold text-gray-800 text-sm tracking-tight">CAM-${id}</span>
+                                <span class="text-[10px] text-gray-400 uppercase">${cam.mode || 'Normal'}</span>
+                            </div>
                         </div>
-                    </div>
-                    <div class="flex items-center">
                         <button onclick="event.stopPropagation(); previewLive('${id}')"
-                                class="flex items-center justify-center w-9 h-9 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-all shadow-md active:scale-95"
-                                title="播放实时直播">
-                            <svg class="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4l12 6-12 6z"></path></svg>
-                        </button>
+                                class="w-8 h-8 flex items-center justify-center rounded bg-blue-600 hover:bg-blue-700 text-white shadow transition-colors"
+                                title="主动拉流直播">▶</button>
+                    </div>
+
+                    <div class="flex justify-between items-center border-t border-gray-100 pt-2 mt-1">
+                        <span class="text-[10px] text-gray-400">录像控制:</span>
+                        <div class="flex space-x-1 text-xs">
+                            <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'start')" class="px-2 py-1 bg-green-50 text-green-600 hover:bg-green-100 rounded border border-green-200 transition-colors">强制录</button>
+                            <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'stop')" class="px-2 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded border border-red-200 transition-colors">停录</button>
+                            <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'auto')" class="px-2 py-1 bg-gray-50 text-gray-600 hover:bg-gray-200 rounded border border-gray-200 transition-colors">计划</button>
+                        </div>
                     </div>
                 `;
                 list.appendChild(item);
@@ -123,6 +257,7 @@
         }
     }
 
+    // 后续的播放代码逻辑与原版基本一致，此处折叠保留
     function selectCamera(camId) {
         currentSelectedCam = camId;
         document.getElementById('currentCam').innerText = `[已选择] ${camId}`;
@@ -158,16 +293,13 @@
                     return fetch(`/webrtc/${source}`, { method: 'POST', body: offer.sdp });
                 })
                 .then(resp => resp.text())
-                .then(answerSdp => {
-                    pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: answerSdp }));
-                })
+                .then(answerSdp => { pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: answerSdp })); })
                 .catch(err => console.error("WebRTC 失败:", err));
         } else {
             webrtcPlayer.classList.add('hidden');
             dplayerContainer.classList.remove('hidden');
 
             let videoType = source.endsWith('.ts') ? 'customTs' : 'normal';
-
             dp = new DPlayer({
                 container: dplayerContainer,
                 video: {
@@ -188,6 +320,7 @@
     }
 
     async function loadRecords(camId) {
+        // [原有逻辑代码保留一致即可...]
         const list = document.getElementById('recordList');
         const countBadge = document.getElementById('recordCount');
         list.innerHTML = '<div class="col-span-full text-center py-10 text-gray-400">检索中...</div>';
@@ -204,7 +337,6 @@
             }
 
             countBadge.innerText = `${files.length} 个文件`;
-
             const groups = {};
             files.forEach(file => {
                 const match = file.name.match(/\d{4}-\d{2}-\d{2}/);
@@ -214,14 +346,11 @@
             });
 
             const sortedDates = Object.keys(groups).sort((a, b) => b.localeCompare(a));
-
             sortedDates.forEach((date, index) => {
                 const dateFiles = groups[date];
                 dateFiles.sort((a, b) => b.name.localeCompare(a.name));
-
                 const groupId = `date-${index}`;
                 const isFirst = index === 0;
-
                 const groupDiv = document.createElement('div');
                 groupDiv.className = 'flex flex-col bg-gray-50 border border-gray-200 rounded-xl overflow-hidden shadow-sm';
 
@@ -231,7 +360,6 @@
                     document.getElementById(`content-${groupId}`).classList.toggle('hidden');
                     document.getElementById(`icon-${groupId}`).classList.toggle('rotate-90');
                 };
-
                 header.innerHTML = `
                     <div class="flex items-center">
                         <span class="text-sm font-bold text-gray-700">${date}</span>
@@ -248,7 +376,6 @@
                     const timeMatch = file.name.match(/\d{2}-\d{2}-\d{2}\.(ts|mp4)$/);
                     let timeDisplay = timeMatch ? timeMatch[0].replace(/\.(ts|mp4)$/, '').replace(/-/g, ':') : file.name;
                     const ext = file.name.split('.').pop().toUpperCase();
-
                     const item = document.createElement('div');
                     item.className = 'flex justify-between items-center p-2.5 text-xs rounded-lg bg-white border border-gray-100 hover:border-blue-400 hover:text-blue-600 cursor-pointer transition-all shadow-sm';
                     item.onclick = () => {
@@ -264,7 +391,6 @@
                     `;
                     content.appendChild(item);
                 });
-
                 groupDiv.appendChild(header);
                 groupDiv.appendChild(content);
                 list.appendChild(groupDiv);

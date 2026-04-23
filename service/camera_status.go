@@ -6,10 +6,11 @@ import (
 )
 
 type CameraStatus struct {
-	ID        string    `json:"id"`
-	IsRunning bool      `json:"is_running"`
-	StartTime time.Time `json:"start_time"`
-	Mode      string    `json:"mode"`
+	ID          string    `json:"id"`
+	IsRunning   bool      `json:"is_running"`
+	StartTime   time.Time `json:"start_time"`
+	Mode        string    `json:"mode"`
+	StreamState string    `json:"stream_state"` // 流状态: online(在线), offline(断线), idle(按需休眠)
 }
 
 var (
@@ -17,7 +18,7 @@ var (
 	StatusMux sync.RWMutex
 )
 
-// UpdateStatus 开放给 task 包调用，实时更新摄像头状态
+// UpdateStatus 更新录像状态
 func UpdateStatus(id string, running bool, mode string) {
 	StatusMux.Lock()
 	defer StatusMux.Unlock()
@@ -27,4 +28,14 @@ func UpdateStatus(id string, running bool, mode string) {
 		StartTime: time.Now(),
 		Mode:      mode,
 	}
+}
+
+// UpdateOnlineStatus 更新实时流状态
+func UpdateOnlineStatus(id string, state string) {
+	StatusMux.Lock()
+	defer StatusMux.Unlock()
+	if _, exists := StatusMap[id]; !exists {
+		StatusMap[id] = &CameraStatus{}
+	}
+	StatusMap[id].StreamState = state
 }

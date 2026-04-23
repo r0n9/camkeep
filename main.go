@@ -32,61 +32,139 @@ type Config struct {
 	Cameras []task.Camera `yaml:"cameras"`
 }
 
+var (
+	currentConfig Config
+	configMux     sync.RWMutex
+	reloadCancel  context.CancelFunc
+	taskWg        sync.WaitGroup
+	ctxGlobal     context.Context
+)
+
 func main() {
-
-	// 注册 .ts 格式，确保后端返回正确的 Content-Type
 	mime.AddExtensionType(".ts", "video/mp2t")
+	slog.Init()
 
-	slog.Init() // 日志初始化
+	// 1. 读取或初始化配置 (如果不存在则创建空配置)
+	currentConfig = loadOrInitConfig()
 
-	// 1. 读取配置
-	data, err := os.ReadFile("conf.yaml")
-	if err != nil {
-		log.Fatalf("读取配置文件失败: %v", err)
-	}
-	var config Config
-	if err := yaml.Unmarshal(data, &config); err != nil {
-		log.Fatalf("解析配置文件失败: %v", err)
-	}
-
-	// 2. 创建基础录像目录
 	os.MkdirAll(constant.RecordBaseDir, 0755)
 
-	// 3. 设置全局 Context，用于平滑退出
-	ctx, cancel := context.WithCancel(context.Background())
-	var wg sync.WaitGroup
+	// 设置全局 Context
+	var cancelGlobal context.CancelFunc
+	ctxGlobal, cancelGlobal = context.WithCancel(context.Background())
 
-	// 启动前统一初始化 go2rtc 流
-	initGo2rtcStreams(config)
+	// 初始化流
+	initGo2rtcStreams(currentConfig)
 
-	// 启动 Web 服务器后台协程
-	go startWebServer(config)
+	// 启动 Web 路由
+	go startWebServer()
 
-	// 4. 启动全局清理守护进程
-	wg.Add(1)
-	go task.CleanupTask(ctx, &wg, config.Cameras)
+	// 启动后台录制与清理任务
+	startTasks()
 
-	// 5. 启动各个摄像头的录制调度任务
-	for _, cam := range config.Cameras {
-		wg.Add(1)
-		go task.CameraTask(ctx, &wg, cam)
-	}
+	// 启动实时流状态轮询任务
+	go pollGo2rtcStatus()
 
-	// 6. 监听系统中断信号 (Ctrl+C, Docker stop)
+	// 监听退出信号
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	<-sigChan
-	log.Println("接收到退出信号，正在停止所有录制任务...")
+	log.Println("接收到退出信号，正在停止所有任务...")
 
-	cleanupGo2rtcStreams(config)
-
-	cancel()  // 通知所有 Goroutine 退出
-	wg.Wait() // 等待所有资源清理完毕
+	cleanupGo2rtcStreams(currentConfig)
+	cancelGlobal() // 通知所有层级的 Context 退出
+	taskWg.Wait()  // 等待所有任务完成
 	log.Println("程序已安全退出。")
 }
 
-func startWebServer(config Config) {
-	// 设置 Gin 为发布模式，减少控制台日志干扰
+// loadOrInitConfig 如果配置文件不存在则生成一个带示例的默认配置
+func loadOrInitConfig() Config {
+	const configName = "conf.yaml"
+	data, err := os.ReadFile(configName)
+	if err != nil {
+		if os.IsNotExist(err) {
+			log.Println("conf.yaml 不存在，自动创建默认模板配置...")
+
+			// 定义默认配置模板
+			defaultCfg := Config{
+				Cameras: []task.Camera{
+					{
+						ID:              "摄像头1",
+						RTSPUrl:         "rtsp://admin:password@192.168.1.100:554/live",
+						RetentionDays:   7,
+						SegmentDuration: 600,
+						Format:          "ts",
+						MinSizeKb:       1024,
+						RecordTime:      "00:00-23:59",
+						Mode:            "normal",
+					},
+				},
+			}
+
+			// 将默认配置序列化为 YAML
+			out, err := yaml.Marshal(defaultCfg)
+			if err != nil {
+				log.Printf("生成默认配置失败: %v", err)
+				return defaultCfg
+			}
+
+			// 可以在文件开头写入一些注释说明（可选）
+			header := []byte("# CamKeep 配置文件\n# mode: normal (普通录制), timelapse (延时摄影)\n")
+			finalOut := append(header, out...)
+
+			if err := os.WriteFile(configName, finalOut, 0644); err != nil {
+				log.Printf("写入配置文件失败: %v", err)
+			}
+
+			return defaultCfg
+		}
+		log.Fatalf("读取配置文件失败: %v", err)
+	}
+
+	var c Config
+	if err := yaml.Unmarshal(data, &c); err != nil {
+		log.Fatalf("解析配置文件失败: %v", err)
+	}
+	return c
+}
+
+// startTasks 启动或重启所有的摄像头监控任务
+func startTasks() {
+	var ctx context.Context
+	ctx, reloadCancel = context.WithCancel(ctxGlobal)
+
+	configMux.RLock()
+	cams := currentConfig.Cameras
+	configMux.RUnlock()
+
+	taskWg.Add(1)
+	go task.CleanupTask(ctx, &taskWg, cams)
+
+	for _, cam := range cams {
+		taskWg.Add(1)
+		go task.CameraTask(ctx, &taskWg, cam)
+	}
+}
+
+// restartTasks 热重启任务 (用于保存配置后生效)
+func restartTasks(newConfig Config) {
+	log.Println("检测到配置更改，正在重启底层任务...")
+	if reloadCancel != nil {
+		reloadCancel() // 取消旧的任务
+	}
+	taskWg.Wait() // 阻塞等待旧任务全部安全退出
+
+	configMux.Lock()
+	cleanupGo2rtcStreams(currentConfig)
+	currentConfig = newConfig
+	initGo2rtcStreams(currentConfig)
+	configMux.Unlock()
+
+	startTasks()
+	log.Println("任务热重启完成！")
+}
+
+func startWebServer() {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 
@@ -94,6 +172,7 @@ func startWebServer(config Config) {
 
 	// 1. 渲染前端页面
 	r.LoadHTMLGlob("template/*")
+
 	r.GET("/", func(c *gin.Context) {
 		c.HTML(http.StatusOK, "index.html", nil)
 	})
@@ -105,7 +184,39 @@ func startWebServer(config Config) {
 		c.JSON(200, service.StatusMap)
 	})
 
-	// 3. 录像文件列表 API (修正路径返回，方便前端直接播放)
+	// 获取配置文件内容
+	r.GET("/api/config", func(c *gin.Context) {
+		data, _ := os.ReadFile("conf.yaml")
+		c.String(200, string(data))
+	})
+
+	// 保存并应用配置文件
+	r.POST("/api/config", func(c *gin.Context) {
+		yamlBytes, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			c.JSON(400, gin.H{"error": "读取请求失败"})
+			return
+		}
+		var newConfig Config
+		if err := yaml.Unmarshal(yamlBytes, &newConfig); err != nil {
+			c.JSON(400, gin.H{"error": "YAML 格式有误: " + err.Error()})
+			return
+		}
+		os.WriteFile("conf.yaml", yamlBytes, 0644)
+
+		// 异步重启任务，不阻塞前端请求
+		go restartTasks(newConfig)
+		c.JSON(200, gin.H{"msg": "配置已保存，系统正在热重启"})
+	})
+
+	// 摄像头手动控制启停
+	r.POST("/api/camera/:id/:action", func(c *gin.Context) {
+		id := c.Param("id")
+		action := c.Param("action") // start, stop, auto
+		task.SetOverride(id, action)
+		c.JSON(200, gin.H{"msg": "指令已下发"})
+	})
+
 	r.GET("/api/records/:id", func(c *gin.Context) {
 		camID := c.Param("id")
 		type RecordFile struct {
@@ -132,21 +243,22 @@ func startWebServer(config Config) {
 		c.JSON(200, files)
 	})
 
-	// 4. 静态资源服务 (录像播放)
 	r.StaticFS("/play", http.Dir(constant.RecordBaseDir))
 
 	// 5. 【全新】WebRTC 代理接口 (替代原来的 FLV 转码)
 	r.POST("/webrtc/:id", func(c *gin.Context) {
 		camID := c.Param("id")
 
-		// 检查配置中是否存在该摄像头
+		configMux.RLock()
 		var targetCam *task.Camera
-		for _, cam := range config.Cameras {
+		for _, cam := range currentConfig.Cameras {
 			if cam.ID == camID {
 				targetCam = &cam
 				break
 			}
 		}
+		configMux.RUnlock()
+
 		if targetCam == nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "找不到该摄像头"})
 			return
@@ -227,7 +339,6 @@ func initGo2rtcStreams(config Config) {
 			}
 			resp.Body.Close()
 
-			// 3. 将 yaml 配置中的流批量注册到 go2rtc
 			for _, cam := range config.Cameras {
 				addStreamURL := fmt.Sprintf("%s/api/streams?name=%s&src=%s", go2rtcHost, cam.ID, url.QueryEscape(cam.RTSPUrl))
 				reqAdd, _ := http.NewRequest("PUT", addStreamURL, nil)
@@ -280,4 +391,87 @@ func cleanupGo2rtcStreams(config Config) {
 		}
 	}
 	log.Println("go2rtc 视频流清理完毕。")
+}
+
+// pollGo2rtcStatus 定期轮询 go2rtc 接口，深度判断流的真实健康度
+func pollGo2rtcStatus() {
+	go2rtcHost := fmt.Sprintf("http://%s:1984", constant.Go2rtcHost)
+	ticker := time.NewTicker(3 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		<-ticker.C
+		resp, err := http.Get(go2rtcHost + "/api/streams")
+		if err != nil {
+			markAllStreamOffline()
+			continue
+		}
+
+		var result map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			resp.Body.Close()
+			continue
+		}
+		resp.Body.Close()
+
+		var streams map[string]interface{}
+		if s, ok := result["streams"].(map[string]interface{}); ok {
+			streams = s
+		} else {
+			streams = result
+		}
+
+		configMux.RLock()
+		var camIDs []string
+		for _, cam := range currentConfig.Cameras {
+			camIDs = append(camIDs, cam.ID)
+		}
+		configMux.RUnlock()
+
+		for _, id := range camIDs {
+			streamState := "offline" // 默认假设为离线
+
+			if camData, exists := streams[id]; exists {
+				if data, ok := camData.(map[string]interface{}); ok {
+					producers, hasProducers := data["producers"].([]interface{})
+					consumers, hasConsumers := data["consumers"].([]interface{})
+
+					if hasProducers && len(producers) > 0 {
+						// 1. 有 producer，深入检查其健康度
+						for _, p := range producers {
+							if prod, ok := p.(map[string]interface{}); ok {
+								// 如果存在错误字段，说明连接正在报错 (如 i/o timeout)
+								if errStr, hasErr := prod["error"].(string); hasErr && errStr != "" {
+									continue
+								}
+								// 检查是否真正收到了数据(bytes_recv) 或 成功解析了媒体轨(medias)
+								bytesRecv, _ := prod["bytes_recv"].(float64)
+								medias, hasMedias := prod["medias"].([]interface{})
+
+								if bytesRecv > 0 || (hasMedias && len(medias) > 0) {
+									streamState = "online"
+									break
+								}
+							}
+						}
+					} else if (!hasProducers || len(producers) == 0) && (!hasConsumers || len(consumers) == 0) {
+						// 2. 没有生产者也没消费者：属于 go2rtc 的“按需休眠”状态，属于正常预期
+						streamState = "idle"
+					} else if (!hasProducers || len(producers) == 0) && (hasConsumers && len(consumers) > 0) {
+						// 3. 有人在请求流(比如FFmpeg在跑)，但 producer 却没建起来，说明彻底连不上
+						streamState = "offline"
+					}
+				}
+			}
+			service.UpdateOnlineStatus(id, streamState)
+		}
+	}
+}
+
+func markAllStreamOffline() {
+	configMux.RLock()
+	defer configMux.RUnlock()
+	for _, cam := range currentConfig.Cameras {
+		service.UpdateOnlineStatus(cam.ID, "offline")
+	}
 }

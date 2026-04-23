@@ -26,6 +26,29 @@ type Camera struct {
 	CaptureInterval int    `yaml:"capture_interval"` // 抓拍间隔(秒)，例如 5 表示每5秒抓一帧
 }
 
+var (
+	overrideMux sync.RWMutex
+	overrides   = make(map[string]string) // key: 摄像头ID, value: "start", "stop", 或空("auto")
+)
+
+// SetOverride 设置手动录像指令
+func SetOverride(camID, action string) {
+	overrideMux.Lock()
+	if action == "auto" {
+		delete(overrides, camID) // 恢复自动
+	} else {
+		overrides[camID] = action
+	}
+	overrideMux.Unlock()
+}
+
+// getOverride 获取当前的手动指令
+func getOverride(camID string) string {
+	overrideMux.RLock()
+	defer overrideMux.RUnlock()
+	return overrides[camID]
+}
+
 // CameraTask 负责单个摄像头的生命周期管理
 func CameraTask(ctx context.Context, wg *sync.WaitGroup, cam Camera) {
 	defer wg.Done()
@@ -58,12 +81,36 @@ func CameraTask(ctx context.Context, wg *sync.WaitGroup, cam Camera) {
 			os.MkdirAll(todayDir, 0755)
 			os.MkdirAll(tomorrowDir, 0755)
 
+			// 判断逻辑接入覆写
+			control := getOverride(cam.ID)
 			inTimeRange := util.IsWithinTimeRange(cam.RecordTime)
+
+			service.StatusMux.RLock()
+			streamState := "offline" // 默认为断开
+			if st, ok := service.StatusMap[cam.ID]; ok {
+				streamState = st.StreamState
+			}
+			service.StatusMux.RUnlock()
+
+			shouldRun := false
+			if control == "start" {
+				shouldRun = true
+			} else if control == "stop" {
+				shouldRun = false
+			} else {
+				shouldRun = inTimeRange
+			}
+
+			// 注意：如果状态是 "idle" (按需休眠) 是可以启动的，只有明确的 "offline" 才拦截
+			if streamState == "offline" {
+				shouldRun = false
+			}
+
 			isRunning := ffmpegCmd != nil && ffmpegCmd.ProcessState == nil
 
 			service.UpdateStatus(cam.ID, isRunning, cam.Mode)
 
-			if inTimeRange && !isRunning {
+			if shouldRun && !isRunning {
 				log.Printf("[%s] 启动录制...", cam.ID)
 				var fCtx context.Context
 				fCtx, ffmpegCancel = context.WithCancel(ctx)
@@ -74,8 +121,13 @@ func CameraTask(ctx context.Context, wg *sync.WaitGroup, cam Camera) {
 					log.Printf("[%s] FFmpeg 进程已退出, err: %v", cam.ID, err)
 				}(ffmpegCmd)
 
-			} else if !inTimeRange && isRunning {
-				log.Printf("[%s] 不在录制时间范围内，停止录制...", cam.ID)
+			} else if !shouldRun && isRunning {
+				// 细化日志输出，方便排查是时间到了还是流断了
+				if streamState == "offline" {
+					log.Printf("[%s] 检测到流状态离线 (Offline)，已强制中断录制...", cam.ID)
+				} else {
+					log.Printf("[%s] 录制条件不符 (或已被手动停止)，停止录制...", cam.ID)
+				}
 				ffmpegCancel()
 				ffmpegCmd = nil
 			}
