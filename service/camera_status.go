@@ -19,15 +19,14 @@ var (
 )
 
 // UpdateStatus 更新录像状态
-func UpdateStatus(id string, running bool, mode string) {
+func UpdateStatus(id string, isRunning bool, mode string) {
 	StatusMux.Lock()
 	defer StatusMux.Unlock()
-	StatusMap[id] = &CameraStatus{
-		ID:        id,
-		IsRunning: running,
-		StartTime: time.Now(),
-		Mode:      mode,
+	if _, exists := StatusMap[id]; !exists {
+		StatusMap[id] = &CameraStatus{StreamState: "offline"} // 默认状态
 	}
+	StatusMap[id].IsRunning = isRunning
+	StatusMap[id].Mode = mode
 }
 
 // UpdateOnlineStatus 更新实时流状态

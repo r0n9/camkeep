@@ -27,6 +27,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+var httpClient = &http.Client{
+	Timeout: 3 * time.Second, // 3秒超时，防止任何请求卡死
+}
+
 const ConfigFilePath = "config/conf.yaml" // 定义统一的配置文件路径
 
 // Config 对应 yaml 配置文件
@@ -37,6 +41,7 @@ type Config struct {
 var (
 	currentConfig Config
 	configMux     sync.RWMutex
+	restartMux    sync.Mutex // 热重启专属防并发锁
 	reloadCancel  context.CancelFunc
 	taskWg        sync.WaitGroup
 	ctxGlobal     context.Context
@@ -151,20 +156,55 @@ func startTasks() {
 
 // restartTasks 热重启任务 (用于保存配置后生效)
 func restartTasks(newConfig Config) {
+	// restartMux 互斥锁，防并发重启
+	restartMux.Lock()
+	defer restartMux.Unlock()
+
 	log.Println("检测到配置更改，正在重启底层任务...")
 	if reloadCancel != nil {
-		reloadCancel() // 取消旧的任务
+		reloadCancel() // 取消旧的录像和清理任务
 	}
-	taskWg.Wait() // 阻塞等待旧任务全部安全退出
+	taskWg.Wait() // 阻塞等待旧任务全部安全退出 (此时录像已停)
 
+	// 1. 获取旧配置的快照 (用于注销旧流)，极速释放锁
+	configMux.RLock()
+	oldConfig := currentConfig
+	configMux.RUnlock()
+
+	// 2. 执行耗时的网络请求操作 (千万不要在这里加锁！)
+	cleanupGo2rtcStreams(oldConfig)
+	initGo2rtcStreams(newConfig)
+
+	// 3. 极速替换新配置 (只锁赋值这一瞬间)
 	configMux.Lock()
-	cleanupGo2rtcStreams(currentConfig)
 	currentConfig = newConfig
-	initGo2rtcStreams(currentConfig)
 	configMux.Unlock()
 
+	// 4. 【新增】清理内存中被删除的“幽灵”摄像头状态
+	cleanGhostStatus(newConfig)
+
+	// 5. 启动新任务
 	startTasks()
 	log.Println("任务热重启完成！")
+}
+
+// cleanGhostStatus 清理掉已经被移出配置的摄像头状态
+func cleanGhostStatus(newConfig Config) {
+	// 建立新配置的 ID 索引
+	validIDs := make(map[string]bool)
+	for _, cam := range newConfig.Cameras {
+		validIDs[cam.ID] = true
+	}
+
+	// 遍历内存状态，如果不在新配置中，则直接删除
+	service.StatusMux.Lock()
+	defer service.StatusMux.Unlock()
+	for id := range service.StatusMap {
+		if !validIDs[id] {
+			delete(service.StatusMap, id)
+			log.Printf("已清理移除的摄像头状态: %s", id)
+		}
+	}
 }
 
 func startWebServer() {
@@ -229,15 +269,16 @@ func startWebServer() {
 		var files []RecordFile
 		baseDir := filepath.Join(constant.RecordBaseDir, camID)
 
-		filepath.Walk(baseDir, func(path string, info os.FileInfo, err error) error {
+		// 【修改为 WalkDir】
+		filepath.WalkDir(baseDir, func(path string, d os.DirEntry, err error) error {
 			if err != nil {
 				return nil
 			}
-			if !info.IsDir() && (strings.HasSuffix(path, ".ts") || strings.HasSuffix(path, ".mp4")) {
-				// 将本地路径转换为网络 URL 路径 (例如: records/110/... -> /play/110/...)
+			// 使用 d.IsDir() 替代 info.IsDir()，大幅节省 I/O 资源
+			if !d.IsDir() && (strings.HasSuffix(path, ".ts") || strings.HasSuffix(path, ".mp4")) {
 				relPath, _ := filepath.Rel(constant.RecordBaseDir, path)
 				files = append(files, RecordFile{
-					Name: filepath.Base(path),
+					Name: filepath.Base(path), // filepath.Base 直接处理字符串，性能极高
 					Url:  "/play/" + filepath.ToSlash(relPath),
 				})
 			}
@@ -311,7 +352,7 @@ func initGo2rtcStreams(config Config) {
 
 	// 1. 等待 go2rtc 服务就绪 (最多等待 10 秒)
 	for i := 0; i < 10; i++ {
-		resp, err := http.Get(go2rtcHost + "/api/streams")
+		resp, err := httpClient.Get(go2rtcHost + "/api/streams")
 		if err == nil && resp.StatusCode == http.StatusOK {
 			// 2. 获取并清理所有存在的历史流
 			var result map[string]interface{}
@@ -332,7 +373,7 @@ func initGo2rtcStreams(config Config) {
 				// 发送 DELETE 请求清理旧流
 				for _, streamName := range streamKeys {
 					reqDel, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/api/streams?src=%s", go2rtcHost, streamName), nil)
-					if respDel, errDel := http.DefaultClient.Do(reqDel); errDel == nil {
+					if respDel, errDel := httpClient.Do(reqDel); errDel == nil {
 						respDel.Body.Close()
 					}
 				}
@@ -404,8 +445,11 @@ func pollGo2rtcStatus() {
 
 	for {
 		<-ticker.C
-		resp, err := http.Get(go2rtcHost + "/api/streams")
-		if err != nil {
+		resp, err := httpClient.Get(go2rtcHost + "/api/streams")
+		if err != nil || resp.StatusCode != http.StatusOK { // 加入状态码判断
+			if resp != nil && resp.Body != nil {
+				resp.Body.Close()
+			}
 			markAllStreamOffline()
 			continue
 		}
