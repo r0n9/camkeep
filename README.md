@@ -28,7 +28,7 @@ CamKeep 是一款基于 Go 语言开发，深度集成 **go2rtc** 和 **FFmpeg**
 
 > 💡v1.1.0之后版本，这一步可以忽略，支持通过Web控制台更新并应用配置
 
-在你的 NAS 或服务器上创建一个目录，并新建配置文件 `conf.yaml`：
+在你的 NAS 或服务器上创建一个目录，并新建配置文件 `config/conf.yaml`：
 
 ```yaml
 cameras:
@@ -54,6 +54,14 @@ cameras:
 
 ### 2. 创建 docker-compose.yaml
 在同级目录下新建 `docker-compose.yaml`：
+
+同级目录下即存在 `config` 目录和 `docker-compose.yaml` 文件
+```
+.
+├── config
+│   └── conf.yaml
+├── docker-compose.yaml
+```
 
 https://raw.githubusercontent.com/r0n9/camkeep/refs/heads/main/docker-compose.yaml
 
