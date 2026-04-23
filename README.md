@@ -30,7 +30,7 @@ CamKeep 是一款基于 Go 语言开发，深度集成 **go2rtc** 和 **FFmpeg**
 
 在你的 NAS 或服务器上创建一个目录，并新建配置文件 `config/conf.yaml`：
 
-具体配置项说明，请阅览：https://raw.githubusercontent.com/r0n9/camkeep/refs/heads/main/conf_usage.md
+具体配置项说明，请阅览：https://github.com/r0n9/camkeep/blob/main/conf_usage.md
 
 ```yaml
 cameras:
