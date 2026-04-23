@@ -6,7 +6,7 @@ services:
     environment:
       - TZ=Asia/Shanghai
     volumes:
-      - ./conf.yaml:/app/conf.yaml
+      - ./config:/app/config
       - ./records:/app/records
     network_mode: host
     # 让 recorder 等待 go2rtc 的健康检查通过，而不仅仅是容器启动

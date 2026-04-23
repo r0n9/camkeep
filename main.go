@@ -27,6 +27,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const ConfigFilePath = "config/conf.yaml" // 定义统一的配置文件路径
+
 // Config 对应 yaml 配置文件
 type Config struct {
 	Cameras []task.Camera `yaml:"cameras"`
@@ -79,8 +81,9 @@ func main() {
 
 // loadOrInitConfig 如果配置文件不存在则生成一个带示例的默认配置
 func loadOrInitConfig() Config {
-	const configName = "conf.yaml"
-	data, err := os.ReadFile(configName)
+	os.MkdirAll(filepath.Dir(ConfigFilePath), 0755)
+
+	data, err := os.ReadFile(ConfigFilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			log.Println("conf.yaml 不存在，自动创建默认模板配置...")
@@ -112,7 +115,7 @@ func loadOrInitConfig() Config {
 			header := []byte("# CamKeep 配置文件\n# mode: normal (普通录制), timelapse (延时摄影)\n")
 			finalOut := append(header, out...)
 
-			if err := os.WriteFile(configName, finalOut, 0644); err != nil {
+			if err := os.WriteFile(ConfigFilePath, finalOut, 0644); err != nil {
 				log.Printf("写入配置文件失败: %v", err)
 			}
 
