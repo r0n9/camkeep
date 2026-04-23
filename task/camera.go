@@ -113,8 +113,6 @@ func CameraTask(ctx context.Context, wg *sync.WaitGroup, cam Camera) {
 
 			isRunning := ffmpegCmd != nil && ffmpegCmd.ProcessState == nil
 
-			service.UpdateStatus(cam.ID, isRunning, cam.Mode)
-
 			if shouldRun && !isRunning {
 				log.Printf("[%s] 启动录制...", cam.ID)
 				var fCtx context.Context
@@ -126,6 +124,8 @@ func CameraTask(ctx context.Context, wg *sync.WaitGroup, cam Camera) {
 					log.Printf("[%s] FFmpeg 进程已退出, err: %v", cam.ID, err)
 				}(ffmpegCmd)
 
+				isRunning = true
+
 			} else if !shouldRun && isRunning {
 				// 细化日志输出，方便排查是时间到了还是流断了
 				if streamState == "offline" {
@@ -135,7 +135,11 @@ func CameraTask(ctx context.Context, wg *sync.WaitGroup, cam Camera) {
 				}
 				ffmpegCancel()
 				ffmpegCmd = nil
+
+				isRunning = false
 			}
+
+			service.UpdateStatus(cam.ID, isRunning, cam.Mode)
 		}
 	}
 }
