@@ -189,7 +189,7 @@ func startWebServer() {
 
 	// 获取配置文件内容
 	r.GET("/api/config", func(c *gin.Context) {
-		data, _ := os.ReadFile("conf.yaml")
+		data, _ := os.ReadFile(ConfigFilePath) // 【修改】
 		c.String(200, string(data))
 	})
 
@@ -205,7 +205,7 @@ func startWebServer() {
 			c.JSON(400, gin.H{"error": "YAML 格式有误: " + err.Error()})
 			return
 		}
-		os.WriteFile("conf.yaml", yamlBytes, 0644)
+		os.WriteFile(ConfigFilePath, yamlBytes, 0644)
 
 		// 异步重启任务，不阻塞前端请求
 		go restartTasks(newConfig)
