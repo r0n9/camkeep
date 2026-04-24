@@ -170,8 +170,15 @@ func startFFmpeg(ctx context.Context, cam Camera, camDir string) *exec.Cmd {
 			"-segment_format", cam.Format,
 			"-reset_timestamps", "1",
 			"-strftime", "1",
-			fileNamePattern,
 		}
+
+		// 如果普通模式是 mp4，加上 fMP4 标记，让浏览器可以流式播放
+		if cam.Format == "mp4" {
+			args = append(args, "-segment_format_options", "movflags=frag_keyframe+empty_moov")
+		}
+
+		// 最后统一追加文件名
+		args = append(args, fileNamePattern)
 	} else if cam.Mode == "timelapse" {
 		if cam.CaptureInterval <= 0 {
 			cam.CaptureInterval = 1
