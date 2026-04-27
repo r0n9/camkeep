@@ -450,18 +450,24 @@
                     let timeDisplay = timeMatch ? timeMatch[0].replace(/\.(ts|mp4)$/, '').replace(/-/g, ':') : file.name;
                     const ext = file.name.split('.').pop().toUpperCase();
                     const item = document.createElement('div');
-                    item.className = 'flex justify-between items-center p-2.5 text-xs rounded-lg bg-white border border-gray-100 hover:border-blue-400 hover:text-blue-600 cursor-pointer transition-all shadow-sm';
+                    item.className = 'flex justify-between items-center p-2.5 text-xs rounded-lg bg-white border border-gray-100 hover:border-blue-400 hover:text-blue-600 cursor-pointer transition-all shadow-sm group';
                     item.onclick = () => {
                         document.getElementById('currentCam').innerText = `[回放] ${camId} (${timeDisplay})`;
                         playVideo(file.url, false);
                     };
                     item.innerHTML = `
-                        <div class="flex items-center">
-                            <span class="mr-2">🎬</span>
-                            <span class="font-mono font-bold">${timeDisplay}</span>
-                        </div>
+                    <div class="flex items-center">
+                        <span class="mr-2">🎬</span>
+                        <span class="font-mono font-bold">${timeDisplay}</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-[10px] text-gray-400 font-mono">${file.size}</span>
                         <span class="text-[9px] px-1 bg-gray-50 text-gray-400 rounded border border-gray-100 font-bold">${ext}</span>
-                    `;
+                        <button onclick="deleteRecord(event, '${camId}', '${file.path}')" class="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity px-1" title="永久删除该录像">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </div>
+                `;
                     content.appendChild(item);
                 });
                 groupDiv.appendChild(header);
@@ -470,6 +476,27 @@
             });
         } catch (e) {
             list.innerHTML = '<div class="col-span-full text-center py-10 text-red-400">获取录像列表失败</div>';
+        }
+    }
+
+    // 录像删除操作控制
+    async function deleteRecord(e, camId, filePath) {
+        // 阻止事件冒泡，防止点击删除按钮时触发整个条目的“播放”动作
+        e.stopPropagation();
+
+        if(!confirm('确定要永久删除此录像文件吗？释放的空间不可恢复。')) return;
+
+        try {
+            const resp = await fetch(`/api/record?path=${encodeURIComponent(filePath)}`, { method: 'DELETE' });
+            if (resp.ok) {
+                // 删除成功后，静默刷新当前摄像头的录像列表
+                loadRecords(camId);
+            } else {
+                const err = await resp.json();
+                alert('操作失败: ' + err.error);
+            }
+        } catch(err) {
+            alert('网络请求失败，请检查 NAS 连接状态');
         }
     }
 </script>

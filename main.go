@@ -263,29 +263,58 @@ func startWebServer() {
 
 	r.GET("/api/records/:id", func(c *gin.Context) {
 		camID := c.Param("id")
+
+		// 1. 结构体
 		type RecordFile struct {
 			Name string `json:"name"`
 			Url  string `json:"url"`
+			Size string `json:"size"` // 文件大小字符串
+			Path string `json:"path"` // 相对路径，用于删除文件
 		}
 		var files []RecordFile
 		baseDir := filepath.Join(constant.DefaultRecordBaseDir, camID)
 
-		// 【修改为 WalkDir】
 		filepath.WalkDir(baseDir, func(path string, d os.DirEntry, err error) error {
 			if err != nil {
 				return nil
 			}
-			// 使用 d.IsDir() 替代 info.IsDir()，大幅节省 I/O 资源
 			if !d.IsDir() && (strings.HasSuffix(path, ".ts") || strings.HasSuffix(path, ".mp4")) {
 				relPath, _ := filepath.Rel(constant.DefaultRecordBaseDir, path)
+
+				// 2. 读取并格式化文件大小
+				info, _ := d.Info()
+				sizeMB := float64(info.Size()) / (1024 * 1024)
+				sizeStr := fmt.Sprintf("%.1f MB", sizeMB)
+
 				files = append(files, RecordFile{
-					Name: filepath.Base(path), // filepath.Base 直接处理字符串，性能极高
+					Name: filepath.Base(path),
 					Url:  "/play/" + filepath.ToSlash(relPath),
+					Size: sizeStr,
+					Path: filepath.ToSlash(relPath),
 				})
 			}
 			return nil
 		})
 		c.JSON(200, files)
+	})
+
+	r.DELETE("/api/record", func(c *gin.Context) {
+		targetPath := c.Query("path")
+
+		// 基础安全校验，防止路径穿越攻击 (防范 ../../../etc/passwd 这类请求)
+		if targetPath == "" || strings.Contains(targetPath, "..") {
+			c.JSON(400, gin.H{"error": "非法的路径参数"})
+			return
+		}
+
+		fullPath := filepath.Join(constant.DefaultRecordBaseDir, targetPath)
+
+		if err := os.Remove(fullPath); err != nil {
+			c.JSON(500, gin.H{"error": "删除失败，文件可能已被清理"})
+			return
+		}
+
+		c.JSON(200, gin.H{"msg": "录像删除成功"})
 	})
 
 	r.StaticFS("/play", http.Dir(constant.DefaultRecordBaseDir))
