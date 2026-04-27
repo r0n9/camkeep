@@ -38,7 +38,7 @@ func CleanupTask(ctx context.Context, wg *sync.WaitGroup, cameras []Camera) {
 }
 
 func cleanCameraFiles(cam Camera) {
-	camDir := filepath.Join(constant.RecordBaseDir, cam.ID)
+	camDir := filepath.Join(constant.DefaultRecordBaseDir, cam.ID)
 
 	var items []FileItem
 

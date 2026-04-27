@@ -58,7 +58,7 @@ func getOverride(camID string) string {
 func CameraTask(ctx context.Context, wg *sync.WaitGroup, cam Camera) {
 	defer wg.Done()
 
-	camDir := filepath.Join(constant.RecordBaseDir, cam.ID)
+	camDir := filepath.Join(constant.DefaultRecordBaseDir, cam.ID)
 	os.MkdirAll(camDir, 0755)
 
 	var ffmpegCmd *exec.Cmd
@@ -152,7 +152,7 @@ func startFFmpeg(ctx context.Context, cam Camera, camDir string) *exec.Cmd {
 
 	// 获取安全转义后的 RTSP URL
 	// safeRTSPUrl := util.EscapeRTSPAuth(cam.RTSPUrl)
-	safeRTSPUrl := fmt.Sprintf("rtsp://%s:8554/%s", constant.Go2rtcHost, cam.ID)
+	safeRTSPUrl := fmt.Sprintf("rtsp://%s:8554/%s", constant.DefaultGo2rtcHost, cam.ID)
 
 	// 如果未设置模式，默认按 normal 处理
 	if cam.Mode == "" || cam.Mode == "normal" {

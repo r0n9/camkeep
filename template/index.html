@@ -17,27 +17,42 @@
             CamKeep 监控中心
         </h1>
         <div class="flex space-x-3 items-center">
-            <button onclick="openConfig()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-full text-sm font-bold shadow transition-all">⚙️ 配置管理</button>
-            <div class="text-xs text-green-500 font-mono bg-green-100 px-4 py-1.5 rounded-full shadow-sm border border-green-200">系统在线</div>
+            <button onclick="openConfig()"
+                    class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-full text-sm font-bold shadow transition-all">
+                ⚙️ 配置管理
+            </button>
+            <div class="text-xs text-green-500 font-mono bg-green-100 px-4 py-1.5 rounded-full shadow-sm border border-green-200">
+                系统在线
+            </div>
         </div>
     </div>
 
-    <div id="configModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm">
+    <div id="configModal"
+         class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm">
         <div class="bg-white p-6 rounded-2xl w-[80%] max-w-[95%] shadow-2xl">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-xl font-bold text-gray-800">系统配置 (conf.yaml)</h2>
                 <button onclick="closeConfig()" class="text-gray-400 hover:text-gray-700">✕</button>
             </div>
             <p class="text-xs text-gray-500 mb-2">修改保存后，系统将会自动热重启录像任务并应用新配置。</p>
-            <textarea id="configYaml" class="w-full h-[400px] p-4 border border-gray-300 rounded-lg font-mono text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none" spellcheck="false"></textarea>
+            <textarea id="configYaml"
+                      class="w-full h-[400px] p-4 border border-gray-300 rounded-lg font-mono text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none"
+                      spellcheck="false"></textarea>
             <div class="flex justify-end space-x-3 mt-4">
-                <button onclick="closeConfig()" class="px-5 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-bold transition-all">取消</button>
-                <button onclick="saveConfig()" class="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold shadow transition-all">保存并应用</button>
+                <button onclick="closeConfig()"
+                        class="px-5 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-bold transition-all">
+                    取消
+                </button>
+                <button onclick="saveConfig()"
+                        class="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold shadow transition-all">
+                    保存并应用
+                </button>
             </div>
         </div>
     </div>
 
-    <div id="confirmModal" class="hidden fixed inset-0 bg-black/60 z-[60] flex items-center justify-center backdrop-blur-sm">
+    <div id="confirmModal"
+         class="hidden fixed inset-0 bg-black/60 z-[60] flex items-center justify-center backdrop-blur-sm">
         <div class="bg-white p-6 rounded-2xl w-[420px] max-w-[95%] shadow-2xl transform transition-all">
             <div class="flex items-center mb-3">
                 <div id="confirmIcon" class="w-10 h-10 rounded-full flex items-center justify-center mr-3 text-white">
@@ -46,8 +61,13 @@
             </div>
             <div class="text-sm text-gray-600 mb-6 pl-13" id="confirmDesc">描述信息</div>
             <div class="flex justify-end space-x-3">
-                <button onclick="closeConfirm()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-bold transition-all">取消</button>
-                <button id="confirmBtn" onclick="executeConfirmAction()" class="px-4 py-2 text-white rounded-lg font-bold shadow transition-all">确认执行</button>
+                <button onclick="closeConfirm()"
+                        class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-bold transition-all">
+                    取消
+                </button>
+                <button id="confirmBtn" onclick="executeConfirmAction()"
+                        class="px-4 py-2 text-white rounded-lg font-bold shadow transition-all">确认执行
+                </button>
             </div>
         </div>
     </div>
@@ -60,8 +80,10 @@
             </div>
         </div>
         <div class="lg:col-span-3 bg-black rounded-xl shadow-xl overflow-hidden relative h-[500px] flex flex-col justify-center border border-gray-800">
-            <video id="webrtc-player" class="w-full h-full object-contain bg-black hidden" autoplay playsinline controls></video>
+            <iframe id="live-iframe" class="w-full h-full bg-black hidden border-0"
+                    allow="autoplay; fullscreen; microphone; camera"></iframe>
             <div id="dplayer" class="w-full h-full"></div>
+            <video id="native-player" class="w-full h-full object-contain bg-black hidden" playsinline controls></video>
             <div class="absolute top-4 left-4 z-10 bg-black/10 text-white px-4 py-2 text-sm rounded-lg shadow-xs backdrop-blur-xs border border-white/10 transition-all hover:bg-black/30">
                 当前焦点: <span id="currentCam" class="text-blue-400 font-bold ml-1">未选择</span>
             </div>
@@ -71,18 +93,34 @@
     <div class="bg-white p-6 rounded-xl shadow-sm border-t-4 border-emerald-500">
         <div class="flex items-center justify-between mb-6">
             <h2 class="font-bold text-lg text-gray-700">历史录像档案</h2>
-            <span id="recordCount" class="text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full border border-gray-200">0 个文件</span>
+            <span id="recordCount"
+                  class="text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full border border-gray-200">0 个文件</span>
         </div>
         <div id="recordList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>
     </div>
 </div>
 
 <style>
-    .custom-scrollbar::-webkit-scrollbar { width: 5px; }
-    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
-    .dplayer-video-wrap { background-color: #000 !important; }
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 5px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #e2e8f0;
+        border-radius: 10px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #cbd5e1;
+    }
+
+    .dplayer-video-wrap {
+        background-color: #000 !important;
+    }
 </style>
 
 <script>
@@ -90,8 +128,11 @@
     let pc = null;
     let currentSelectedCam = null;
 
-    window.onload = function() {
-        if (typeof DPlayer === 'undefined') { alert("播放器组件加载失败，请检查网络！"); return; }
+    window.onload = function () {
+        if (typeof DPlayer === 'undefined') {
+            alert("播放器组件加载失败，请检查网络！");
+            return;
+        }
         loadStatus();
         setInterval(loadStatus, 5000);
     };
@@ -100,7 +141,7 @@
 
     // 打开确认弹窗并动态渲染文案
     function confirmCamAction(camId, action) {
-        pendingAction = { camId, action };
+        pendingAction = {camId, action};
         const titleEl = document.getElementById('confirmTitle');
         const descEl = document.getElementById('confirmDesc');
         const btnEl = document.getElementById('confirmBtn');
@@ -151,7 +192,7 @@
 
     async function executeConfirmAction() {
         if (!pendingAction) return;
-        const { camId, action } = pendingAction;
+        const {camId, action} = pendingAction;
 
         // 按钮进入 loading 状态 (可选优化)
         const btn = document.getElementById('confirmBtn');
@@ -159,7 +200,7 @@
         btn.innerText = "执行中...";
         btn.disabled = true;
 
-        await fetch(`/api/camera/${camId}/${action}`, { method: 'POST' });
+        await fetch(`/api/camera/${camId}/${action}`, {method: 'POST'});
 
         btn.innerText = originText;
         btn.disabled = false;
@@ -173,10 +214,14 @@
         document.getElementById('configYaml').value = await resp.text();
         document.getElementById('configModal').classList.remove('hidden');
     }
-    function closeConfig() { document.getElementById('configModal').classList.add('hidden'); }
+
+    function closeConfig() {
+        document.getElementById('configModal').classList.add('hidden');
+    }
+
     async function saveConfig() {
         const yamlText = document.getElementById('configYaml').value;
-        const resp = await fetch('/api/config', { method: 'POST', body: yamlText });
+        const resp = await fetch('/api/config', {method: 'POST', body: yamlText});
         if (resp.ok) {
             alert('配置已生效并自动重启任务！');
             closeConfig();
@@ -274,53 +319,81 @@
     }
 
     function playVideo(source, isLive) {
-        const webrtcPlayer = document.getElementById('webrtc-player');
+        const liveIframe = document.getElementById('live-iframe');
         const dplayerContainer = document.getElementById('dplayer');
+        const nativePlayer = document.getElementById('native-player');
 
-        if (dp) { dp.destroy(); dp = null; }
-        if (pc) { pc.close(); pc = null; }
-        webrtcPlayer.srcObject = null;
+        // 销毁回放器实例
+        if (dp) {
+            dp.destroy();
+            dp = null;
+        }
+
+        // 【清理遗留】清理原版 JS 中的 pc 变量（如果你把 let pc = null 保留在了顶部）
+        if (typeof pc !== 'undefined' && pc) {
+            pc.close();
+            pc = null;
+        }
 
         if (isLive) {
             dplayerContainer.classList.add('hidden');
-            webrtcPlayer.classList.remove('hidden');
-            pc = new RTCPeerConnection();
-            pc.addTransceiver('video', { direction: 'recvonly' });
-            pc.ontrack = (event) => { webrtcPlayer.srcObject = event.streams[0]; };
-            pc.createOffer()
-                .then(offer => {
-                    pc.setLocalDescription(offer);
-                    return fetch(`/webrtc/${source}`, { method: 'POST', body: offer.sdp });
-                })
-                .then(resp => resp.text())
-                .then(answerSdp => { pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: answerSdp })); })
-                .catch(err => console.error("WebRTC 失败:", err));
-        } else {
-            webrtcPlayer.classList.add('hidden');
-            dplayerContainer.classList.remove('hidden');
+            nativePlayer.classList.add('hidden');
+            liveIframe.classList.remove('hidden');
 
-            let videoType = source.endsWith('.ts') ? 'customTs' : 'normal';
-            dp = new DPlayer({
-                container: dplayerContainer,
-                video: {
-                    url: source,
-                    type: videoType,
-                    customType: {
-                        customTs: function (video, player) {
-                            const tsPlayer = mpegts.createPlayer({ type: 'm2ts', isLive: false, url: video.src });
-                            tsPlayer.attachMediaElement(video);
-                            tsPlayer.load();
-                            tsPlayer.play();
-                            player.events.on('destroy', () => { tsPlayer.destroy(); });
+            // 直接加载代理过来的 go2rtc 原生流媒体协商页面
+            // 它会自动根据 PC/iOS/Android 情况，在 WebRTC/MSE/MP4/HLS 中自适应降级播放
+            liveIframe.src = `/stream.html?src=${source}`;
+
+        } else {
+            liveIframe.classList.add('hidden');
+            liveIframe.src = ''; // 清空 src 阻断底层直播数据流拉取，节约性能
+
+            // 判断是否是苹果生态设备 (iOS/Mac Safari)
+            const isApple = /Mac|iPod|iPhone|iPad/.test(navigator.platform) ||
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ||
+                /Safari/i.test(navigator.userAgent) && !/Chrome/i.test(navigator.userAgent);
+
+            if (isApple) {
+                // 苹果设备：直接弃用 DPlayer，使用原生 Video 组件
+                dplayerContainer.classList.add('hidden');
+                nativePlayer.classList.remove('hidden');
+
+                let playUrl = source;
+                if (source.endsWith('.ts')) {
+                    // 黑科技：将请求路由替换为我们刚写的伪装接口，触发 iOS 原生硬件解码
+                    playUrl = source.replace('/play/', '/play_hls/');
+                }
+
+                nativePlayer.src = playUrl;
+                nativePlayer.play().catch(e => console.log("等待用户点击播放"));
+            } else {
+                // 💻 PC及安卓设备：继续使用 DPlayer + mpegts.js
+                nativePlayer.classList.add('hidden');
+                dplayerContainer.classList.remove('hidden');
+                let videoType = source.endsWith('.ts') ? 'customTs' : 'normal';
+                dp = new DPlayer({
+                    container: dplayerContainer,
+                    video: {
+                        url: source,
+                        type: videoType,
+                        customType: {
+                            customTs: function (video, player) {
+                                const tsPlayer = mpegts.createPlayer({type: 'm2ts', isLive: false, url: video.src});
+                                tsPlayer.attachMediaElement(video);
+                                tsPlayer.load();
+                                tsPlayer.play();
+                                player.events.on('destroy', () => {
+                                    tsPlayer.destroy();
+                                });
+                            }
                         }
                     }
-                }
-            });
+                });
+            }
         }
     }
 
     async function loadRecords(camId) {
-        // [原有逻辑代码保留一致即可...]
         const list = document.getElementById('recordList');
         const countBadge = document.getElementById('recordCount');
         list.innerHTML = '<div class="col-span-full text-center py-10 text-gray-400">检索中...</div>';
@@ -341,7 +414,7 @@
             files.forEach(file => {
                 const match = file.name.match(/\d{4}-\d{2}-\d{2}/);
                 const dateStr = match ? match[0] : '其他归档';
-                if(!groups[dateStr]) groups[dateStr] = [];
+                if (!groups[dateStr]) groups[dateStr] = [];
                 groups[dateStr].push(file);
             });
 

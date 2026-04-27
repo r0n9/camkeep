@@ -13,6 +13,7 @@ import (
 	"log"
 	"mime"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"os"
 	"os/signal"
@@ -54,7 +55,7 @@ func main() {
 	// 1. 读取或初始化配置 (如果不存在则创建空配置)
 	currentConfig = loadOrInitConfig()
 
-	os.MkdirAll(constant.RecordBaseDir, 0755)
+	os.MkdirAll(constant.DefaultRecordBaseDir, 0755)
 
 	// 设置全局 Context
 	var cancelGlobal context.CancelFunc
@@ -267,7 +268,7 @@ func startWebServer() {
 			Url  string `json:"url"`
 		}
 		var files []RecordFile
-		baseDir := filepath.Join(constant.RecordBaseDir, camID)
+		baseDir := filepath.Join(constant.DefaultRecordBaseDir, camID)
 
 		// 【修改为 WalkDir】
 		filepath.WalkDir(baseDir, func(path string, d os.DirEntry, err error) error {
@@ -276,7 +277,7 @@ func startWebServer() {
 			}
 			// 使用 d.IsDir() 替代 info.IsDir()，大幅节省 I/O 资源
 			if !d.IsDir() && (strings.HasSuffix(path, ".ts") || strings.HasSuffix(path, ".mp4")) {
-				relPath, _ := filepath.Rel(constant.RecordBaseDir, path)
+				relPath, _ := filepath.Rel(constant.DefaultRecordBaseDir, path)
 				files = append(files, RecordFile{
 					Name: filepath.Base(path), // filepath.Base 直接处理字符串，性能极高
 					Url:  "/play/" + filepath.ToSlash(relPath),
@@ -287,7 +288,38 @@ func startWebServer() {
 		c.JSON(200, files)
 	})
 
-	r.StaticFS("/play", http.Dir(constant.RecordBaseDir))
+	r.StaticFS("/play", http.Dir(constant.DefaultRecordBaseDir))
+
+	r.GET("/play_hls/*filepath", func(c *gin.Context) {
+		tsPath := c.Param("filepath") // 获取路径，例如: /front-door/2026-04-27/12-00-00.ts
+		if !strings.HasSuffix(tsPath, ".ts") {
+			c.String(400, "仅支持 ts 格式转换为 HLS")
+			return
+		}
+
+		// 构造一个只包含单一文件的虚拟 M3U8 列表，欺骗 iOS 原生播放器
+		m3u8Content := fmt.Sprintf("#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:3600\n#EXTINF:3600.0,\n/play%s\n#EXT-X-ENDLIST\n", tsPath)
+
+		c.Header("Content-Type", "application/vnd.apple.mpegurl")
+		c.Header("Cache-Control", "no-cache")
+		c.String(200, m3u8Content)
+	})
+
+	// 让 CamKeep 作为统一网关，直接代理 go2rtc 的全能自适应直播功能
+	go2rtcURL, _ := url.Parse(fmt.Sprintf("http://%s:%d", constant.DefaultGo2rtcHost, constant.DefaultGo2rtcApiPort))
+	go2rtcProxy := httputil.NewSingleHostReverseProxy(go2rtcURL)
+
+	// 1. 代理 go2rtc 的自适应播放器页面及内部依赖的 JS (解决跨域和单端口问题)
+	r.GET("/stream.html", gin.WrapH(go2rtcProxy))
+	r.GET("/video-stream.js", gin.WrapH(go2rtcProxy))
+	r.GET("/video-rtc.js", gin.WrapH(go2rtcProxy))
+	r.GET("/webrtc.html", gin.WrapH(go2rtcProxy))
+
+	// 2. 代理流媒体协商相关的 API (含 WebSocket 支持，自动兼容不同浏览器的降级)
+	r.Any("/api/ws", gin.WrapH(go2rtcProxy))
+	r.Any("/api/webrtc", gin.WrapH(go2rtcProxy))
+	r.Any("/api/stream.mp4", gin.WrapH(go2rtcProxy))
+	r.Any("/api/stream.m3u8", gin.WrapH(go2rtcProxy))
 
 	// 5. 【全新】WebRTC 代理接口 (替代原来的 FLV 转码)
 	r.POST("/webrtc/:id", func(c *gin.Context) {
@@ -315,7 +347,7 @@ func startWebServer() {
 			return
 		}
 
-		go2rtcHost := fmt.Sprintf("http://%s:1984", constant.Go2rtcHost)
+		go2rtcHost := fmt.Sprintf("http://%s:%d", constant.DefaultGo2rtcHost, constant.DefaultGo2rtcApiPort)
 
 		// 接口被调用时不再需要发送 PUT 注册流，因为启动时已经统一注册好了！
 		// 直接发起 WebRTC 握手：
@@ -347,7 +379,7 @@ func startWebServer() {
 
 // initGo2rtcStreams 负责在启动时清理 go2rtc 历史流，并注册当前配置的所有流
 func initGo2rtcStreams(config Config) {
-	go2rtcHost := fmt.Sprintf("http://%s:1984", constant.Go2rtcHost)
+	go2rtcHost := fmt.Sprintf("http://%s:%d", constant.DefaultGo2rtcHost, constant.DefaultGo2rtcApiPort)
 	log.Println("正在连接 go2rtc 并初始化视频流...")
 
 	// 1. 等待 go2rtc 服务就绪 (最多等待 10 秒)
@@ -414,7 +446,7 @@ func initGo2rtcStreams(config Config) {
 // cleanupGo2rtcStreams 在程序退出前注销已注册的视频流
 func cleanupGo2rtcStreams(config Config) {
 	// 注意这里使用我们在上一步修改的 go2rtc 容器名地址
-	go2rtcHost := fmt.Sprintf("http://%s:1984", constant.Go2rtcHost)
+	go2rtcHost := fmt.Sprintf("http://%s:%d", constant.DefaultGo2rtcHost, constant.DefaultGo2rtcApiPort)
 	log.Println("正在从 go2rtc 注销视频流...")
 
 	for _, cam := range config.Cameras {
@@ -439,7 +471,7 @@ func cleanupGo2rtcStreams(config Config) {
 
 // pollGo2rtcStatus 定期轮询 go2rtc 接口，深度判断流的真实健康度
 func pollGo2rtcStatus() {
-	go2rtcHost := fmt.Sprintf("http://%s:1984", constant.Go2rtcHost)
+	go2rtcHost := fmt.Sprintf("http://%s:%d", constant.DefaultGo2rtcHost, constant.DefaultGo2rtcApiPort)
 	ticker := time.NewTicker(3 * time.Second)
 	defer ticker.Stop()
 

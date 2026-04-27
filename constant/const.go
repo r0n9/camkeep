@@ -1,4 +1,5 @@
 package constant
 
-const RecordBaseDir = "./records"
-const Go2rtcHost = "127.0.0.1"
+const DefaultRecordBaseDir = "./records"
+const DefaultGo2rtcHost = "127.0.0.1"
+const DefaultGo2rtcApiPort = 1984
