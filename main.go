@@ -43,6 +43,9 @@ func main() {
 
 	os.MkdirAll(constant.DefaultRecordBaseDir, 0755)
 
+	// 加载持久化的手动录像覆盖指令
+	task.LoadOverrides()
+
 	// 设置全局 Context
 	var cancelGlobal context.CancelFunc
 	ctxGlobal, cancelGlobal = context.WithCancel(context.Background())
@@ -120,6 +123,9 @@ func loadOrInitConfig() constant.Config {
 	if err := yaml.Unmarshal(data, &c); err != nil {
 		log.Fatalf("解析配置文件失败: %v", err)
 	}
+
+	// 启动时如果发现文件里有重复 ID，自动去重
+	c = validateAndFixConfig(c)
 	return c
 }
 
@@ -232,6 +238,12 @@ func startWebServer() {
 			c.JSON(400, gin.H{"error": "YAML 格式有误: " + err.Error()})
 			return
 		}
+
+		if err := checkDuplicateIDs(newConfig); err != nil {
+			c.JSON(400, gin.H{"error": err.Error()})
+			return
+		}
+
 		os.WriteFile(constant.ConfigFilePath, yamlBytes, 0644)
 
 		// 异步重启任务，不阻塞前端请求
@@ -390,4 +402,40 @@ func startWebServer() {
 
 	log.Println("Web 管理后台已启动: http://localhost:9110")
 	r.Run(":9110")
+}
+
+// checkDuplicateIDs 检查配置中是否有重复的摄像头ID (用于 API 严格校验)
+func checkDuplicateIDs(cfg constant.Config) error {
+	seen := make(map[string]bool)
+	for _, cam := range cfg.Cameras {
+		if cam.ID == "" {
+			return fmt.Errorf("摄像头 ID 不能为空")
+		}
+		if seen[cam.ID] {
+			return fmt.Errorf("发现重复的摄像头 ID: %s", cam.ID)
+		}
+		seen[cam.ID] = true
+	}
+	return nil
+}
+
+// validateAndFixConfig 修复文件读取时的配置 (用于启动时静默去重防崩溃)
+func validateAndFixConfig(cfg constant.Config) constant.Config {
+	seen := make(map[string]bool)
+	var uniqueCams []constant.Camera
+
+	for _, cam := range cfg.Cameras {
+		if cam.ID == "" {
+			log.Println("警告: 发现空 ID 的摄像头配置，已跳过")
+			continue
+		}
+		if seen[cam.ID] {
+			log.Printf("警告: 发现重复的摄像头 ID [%s]，已自动去重", cam.ID)
+			continue
+		}
+		seen[cam.ID] = true
+		uniqueCams = append(uniqueCams, cam)
+	}
+	cfg.Cameras = uniqueCams
+	return cfg
 }
