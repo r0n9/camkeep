@@ -63,6 +63,9 @@ cameras:
 ├── config
 │   └── conf.yaml
 ├── docker-compose.yaml
+├── records
+│   └── cam1
+│   └── cam2
 ```
 
 https://raw.githubusercontent.com/r0n9/camkeep/refs/heads/main/docker-compose.yaml
@@ -74,15 +77,16 @@ docker-compose up -d
 ```
 启动成功后，在浏览器中访问 `http://<你的NAS IP>:9110` 即可进入监控中心。
 
----
-
-## 🛠️ 架构简析
-
-CamKeep 充当了摄像头的“中枢大脑”：
-1. **统一网关拉流**：由底层性能极佳的 `go2rtc` 充当网关，统一向真实摄像头拉取 RTSP 流，保护 IPC（网络摄像机）的连接数上限。
-2. **WebRTC 分发**：当前端用户在网页上点击预览时，通过网关将 RTSP 秒转 WebRTC 进行极低延迟渲染。
-3. **录像守护进程**：后端的 Go 程序根据配置的时间表和规则，调度内置的 FFmpeg 从同网段的 go2rtc 网关无损抓取码流，写入 NAS 磁盘。
-
 ## 📄 开源协议
 
 本项目基于 **MIT License** 开源。欢迎大家提交 Issue 和 PR 共同完善这款属于个人的 NAS 监控系统。
+
+---
+
+<a href="https://www.star-history.com/?repos=r0n9%2Fcamkeep&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=r0n9/camkeep&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=r0n9/camkeep&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=r0n9/camkeep&type=date&legend=top-left" />
+ </picture>
+</a>
