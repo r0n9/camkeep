@@ -19,7 +19,7 @@ type FileItem struct {
 }
 
 // CleanupTask 定期清理过期和过小的文件
-func CleanupTask(ctx context.Context, wg *sync.WaitGroup, cameras []Camera) {
+func CleanupTask(ctx context.Context, wg *sync.WaitGroup, cameras []constant.Camera) {
 	defer wg.Done()
 	ticker := time.NewTicker(1 * time.Hour) // 每小时执行一次清理
 	defer ticker.Stop()
@@ -37,7 +37,7 @@ func CleanupTask(ctx context.Context, wg *sync.WaitGroup, cameras []Camera) {
 	}
 }
 
-func cleanCameraFiles(cam Camera) {
+func cleanCameraFiles(cam constant.Camera) {
 	camDir := filepath.Join(constant.DefaultRecordBaseDir, cam.ID)
 
 	var items []FileItem

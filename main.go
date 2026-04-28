@@ -7,7 +7,6 @@ import (
 	"camkeep/slog"
 	"camkeep/task"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -21,27 +20,16 @@ import (
 	"strings"
 	"sync"
 	"syscall"
-	"time"
 
 	"gopkg.in/yaml.v3"
 
 	"github.com/gin-gonic/gin"
 )
 
-var httpClient = &http.Client{
-	Timeout: 3 * time.Second, // 3秒超时，防止任何请求卡死
-}
-
 const ConfigFilePath = "config/conf.yaml" // 定义统一的配置文件路径
 
-// Config 对应 yaml 配置文件
-type Config struct {
-	Cameras []task.Camera `yaml:"cameras"`
-}
-
 var (
-	currentConfig Config
-	configMux     sync.RWMutex
+	currentConfig constant.Config
 	restartMux    sync.Mutex // 热重启专属防并发锁
 	reloadCancel  context.CancelFunc
 	taskWg        sync.WaitGroup
@@ -62,10 +50,10 @@ func main() {
 	ctxGlobal, cancelGlobal = context.WithCancel(context.Background())
 
 	// 初始化流
-	initGo2rtcStreams(currentConfig)
+	task.InitGo2rtcStreams(currentConfig)
 
 	// 启动实时流状态轮询任务
-	go pollGo2rtcStatus()
+	go task.PollGo2rtcStatus(currentConfig)
 
 	// 启动 Web 路由
 	go startWebServer()
@@ -79,14 +67,14 @@ func main() {
 	<-sigChan
 	log.Println("接收到退出信号，正在停止所有任务...")
 
-	cleanupGo2rtcStreams(currentConfig)
+	task.CleanupGo2rtcStreams(currentConfig)
 	cancelGlobal() // 通知所有层级的 Context 退出
 	taskWg.Wait()  // 等待所有任务完成
 	log.Println("程序已安全退出。")
 }
 
 // loadOrInitConfig 如果配置文件不存在则生成一个带示例的默认配置
-func loadOrInitConfig() Config {
+func loadOrInitConfig() constant.Config {
 	os.MkdirAll(filepath.Dir(ConfigFilePath), 0755)
 
 	data, err := os.ReadFile(ConfigFilePath)
@@ -95,8 +83,8 @@ func loadOrInitConfig() Config {
 			log.Println("conf.yaml 不存在，自动创建默认模板配置...")
 
 			// 定义默认配置模板
-			defaultCfg := Config{
-				Cameras: []task.Camera{
+			defaultCfg := constant.Config{
+				Cameras: []constant.Camera{
 					{
 						ID:              "摄像头1",
 						RTSPUrl:         "rtsp://admin:password@192.168.1.100:554/live",
@@ -130,7 +118,7 @@ func loadOrInitConfig() Config {
 		log.Fatalf("读取配置文件失败: %v", err)
 	}
 
-	var c Config
+	var c constant.Config
 	if err := yaml.Unmarshal(data, &c); err != nil {
 		log.Fatalf("解析配置文件失败: %v", err)
 	}
@@ -142,9 +130,9 @@ func startTasks() {
 	var ctx context.Context
 	ctx, reloadCancel = context.WithCancel(ctxGlobal)
 
-	configMux.RLock()
+	constant.ConfigMux.RLock()
 	cams := currentConfig.Cameras
-	configMux.RUnlock()
+	constant.ConfigMux.RUnlock()
 
 	taskWg.Add(1)
 	go task.CleanupTask(ctx, &taskWg, cams)
@@ -156,7 +144,7 @@ func startTasks() {
 }
 
 // restartTasks 热重启任务 (用于保存配置后生效)
-func restartTasks(newConfig Config) {
+func restartTasks(newConfig constant.Config) {
 	// restartMux 互斥锁，防并发重启
 	restartMux.Lock()
 	defer restartMux.Unlock()
@@ -168,18 +156,18 @@ func restartTasks(newConfig Config) {
 	taskWg.Wait() // 阻塞等待旧任务全部安全退出 (此时录像已停)
 
 	// 1. 获取旧配置的快照 (用于注销旧流)，极速释放锁
-	configMux.RLock()
+	constant.ConfigMux.RLock()
 	oldConfig := currentConfig
-	configMux.RUnlock()
+	constant.ConfigMux.RUnlock()
 
 	// 2. 执行耗时的网络请求操作 (千万不要在这里加锁！)
-	cleanupGo2rtcStreams(oldConfig)
-	initGo2rtcStreams(newConfig)
+	task.CleanupGo2rtcStreams(oldConfig)
+	task.InitGo2rtcStreams(newConfig)
 
 	// 3. 极速替换新配置 (只锁赋值这一瞬间)
-	configMux.Lock()
+	constant.ConfigMux.Lock()
 	currentConfig = newConfig
-	configMux.Unlock()
+	constant.ConfigMux.Unlock()
 
 	// 4. 【新增】清理内存中被删除的“幽灵”摄像头状态
 	cleanGhostStatus(newConfig)
@@ -190,7 +178,7 @@ func restartTasks(newConfig Config) {
 }
 
 // cleanGhostStatus 清理掉已经被移出配置的摄像头状态
-func cleanGhostStatus(newConfig Config) {
+func cleanGhostStatus(newConfig constant.Config) {
 	// 建立新配置的 ID 索引
 	validIDs := make(map[string]bool)
 	for _, cam := range newConfig.Cameras {
@@ -241,7 +229,7 @@ func startWebServer() {
 			c.JSON(400, gin.H{"error": "读取请求失败"})
 			return
 		}
-		var newConfig Config
+		var newConfig constant.Config
 		if err := yaml.Unmarshal(yamlBytes, &newConfig); err != nil {
 			c.JSON(400, gin.H{"error": "YAML 格式有误: " + err.Error()})
 			return
@@ -354,15 +342,15 @@ func startWebServer() {
 	r.POST("/webrtc/:id", func(c *gin.Context) {
 		camID := c.Param("id")
 
-		configMux.RLock()
-		var targetCam *task.Camera
+		constant.ConfigMux.RLock()
+		var targetCam *constant.Camera
 		for _, cam := range currentConfig.Cameras {
 			if cam.ID == camID {
 				targetCam = &cam
 				break
 			}
 		}
-		configMux.RUnlock()
+		constant.ConfigMux.RUnlock()
 
 		if targetCam == nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "找不到该摄像头"})
@@ -404,190 +392,4 @@ func startWebServer() {
 
 	log.Println("Web 管理后台已启动: http://localhost:9110")
 	r.Run(":9110")
-}
-
-// initGo2rtcStreams 负责在启动时清理 go2rtc 历史流，并注册当前配置的所有流
-func initGo2rtcStreams(config Config) {
-	go2rtcHost := fmt.Sprintf("http://%s:%d", constant.DefaultGo2rtcHost, constant.DefaultGo2rtcApiPort)
-	log.Println("正在连接 go2rtc 并初始化视频流...")
-
-	// 1. 等待 go2rtc 服务就绪 (最多等待 10 秒)
-	for i := 0; i < 10; i++ {
-		resp, err := httpClient.Get(go2rtcHost + "/api/streams")
-		if err == nil && resp.StatusCode == http.StatusOK {
-			// 2. 获取并清理所有存在的历史流
-			var result map[string]interface{}
-			if err := json.NewDecoder(resp.Body).Decode(&result); err == nil {
-				var streamKeys []string
-
-				// 兼容不同版本的 go2rtc API 数据结构
-				if streamsObj, ok := result["streams"].(map[string]interface{}); ok {
-					for k := range streamsObj {
-						streamKeys = append(streamKeys, k)
-					}
-				} else {
-					for k := range result {
-						streamKeys = append(streamKeys, k)
-					}
-				}
-
-				// 发送 DELETE 请求清理旧流
-				for _, streamName := range streamKeys {
-					reqDel, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/api/streams?src=%s", go2rtcHost, streamName), nil)
-					if respDel, errDel := httpClient.Do(reqDel); errDel == nil {
-						respDel.Body.Close()
-					}
-				}
-				if len(streamKeys) > 0 {
-					log.Printf("已清理 go2rtc 中的 %d 个历史流", len(streamKeys))
-				}
-			}
-			resp.Body.Close()
-
-			for _, cam := range config.Cameras {
-				addStreamURL := fmt.Sprintf("%s/api/streams?name=%s&src=%s", go2rtcHost, cam.ID, url.QueryEscape(cam.RTSPUrl))
-				reqAdd, _ := http.NewRequest("PUT", addStreamURL, nil)
-				respAdd, errAdd := http.DefaultClient.Do(reqAdd)
-
-				if errAdd != nil {
-					log.Printf("[%s] 注册到 go2rtc 失败: %v", cam.ID, errAdd)
-				} else if respAdd != nil {
-					if respAdd.StatusCode >= 400 {
-						log.Printf("[%s] 注册失败，状态码: %d", cam.ID, respAdd.StatusCode)
-					} else {
-						log.Printf("[%s] 已成功注册到 go2rtc", cam.ID)
-					}
-					respAdd.Body.Close()
-				}
-			}
-			log.Println("go2rtc 视频流初始化完毕！")
-			return // 初始化成功，退出循环
-		}
-
-		if i == 0 {
-			log.Println("等待 go2rtc 服务启动...")
-		}
-		time.Sleep(1 * time.Second)
-	}
-	log.Println("警告：无法连接到 go2rtc，流初始化超时，请确保 go2rtc 已启动！")
-}
-
-// cleanupGo2rtcStreams 在程序退出前注销已注册的视频流
-func cleanupGo2rtcStreams(config Config) {
-	// 注意这里使用我们在上一步修改的 go2rtc 容器名地址
-	go2rtcHost := fmt.Sprintf("http://%s:%d", constant.DefaultGo2rtcHost, constant.DefaultGo2rtcApiPort)
-	log.Println("正在从 go2rtc 注销视频流...")
-
-	for _, cam := range config.Cameras {
-		deleteURL := fmt.Sprintf("%s/api/streams?src=%s", go2rtcHost, cam.ID)
-		reqDel, err := http.NewRequest("DELETE", deleteURL, nil)
-		if err != nil {
-			continue
-		}
-
-		// 设置较短的超时时间，防止退出时卡死
-		client := &http.Client{Timeout: 2 * time.Second}
-		resp, errDel := client.Do(reqDel)
-		if errDel == nil {
-			resp.Body.Close()
-			log.Printf("[%s] go2rtc 视频流已注销", cam.ID)
-		} else {
-			log.Printf("[%s] go2rtc 视频流注销失败: %v", cam.ID, errDel)
-		}
-	}
-	log.Println("go2rtc 视频流清理完毕。")
-}
-
-// pollGo2rtcStatus 定期轮询 go2rtc 接口，深度判断流的真实健康度
-func pollGo2rtcStatus() {
-	go2rtcHost := fmt.Sprintf("http://%s:%d", constant.DefaultGo2rtcHost, constant.DefaultGo2rtcApiPort)
-	ticker := time.NewTicker(3 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		<-ticker.C
-		resp, err := httpClient.Get(go2rtcHost + "/api/streams")
-		if err != nil || resp.StatusCode != http.StatusOK { // 加入状态码判断
-			if resp != nil && resp.Body != nil {
-				resp.Body.Close()
-			}
-			markAllStreamOffline()
-			continue
-		}
-
-		var result map[string]interface{}
-		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-			resp.Body.Close()
-			continue
-		}
-		resp.Body.Close()
-
-		var streams map[string]interface{}
-		if s, ok := result["streams"].(map[string]interface{}); ok {
-			streams = s
-		} else {
-			streams = result
-		}
-
-		configMux.RLock()
-		var camIDs []string
-		for _, cam := range currentConfig.Cameras {
-			camIDs = append(camIDs, cam.ID)
-		}
-		configMux.RUnlock()
-
-		for _, id := range camIDs {
-			streamState := "offline" // 默认假设为离线
-
-			if camData, exists := streams[id]; exists {
-				if data, ok := camData.(map[string]interface{}); ok {
-					producers, hasProducers := data["producers"].([]interface{})
-					consumers, hasConsumers := data["consumers"].([]interface{})
-
-					if hasProducers && len(producers) > 0 {
-						// 1. 有 producer，深入检查其健康度
-						isConnecting := false
-						for _, p := range producers {
-							if prod, ok := p.(map[string]interface{}); ok {
-								// 如果存在错误字段，说明连接正在报错 (如 i/o timeout)
-								if errStr, hasErr := prod["error"].(string); hasErr && errStr != "" {
-									continue
-								}
-								// 检查是否真正收到了数据(bytes_recv) 或 成功解析了媒体轨(medias)
-								bytesRecv, _ := prod["bytes_recv"].(float64)
-								medias, hasMedias := prod["medias"].([]interface{})
-
-								if bytesRecv > 0 || (hasMedias && len(medias) > 0) {
-									streamState = "online"
-									break
-								} else {
-									// 没报错且没数据，说明正在握手连接中
-									isConnecting = true
-								}
-							}
-						}
-
-						if streamState != "online" && isConnecting {
-							streamState = "online"
-						}
-					} else if (!hasProducers || len(producers) == 0) && (!hasConsumers || len(consumers) == 0) {
-						// 2. 没有生产者也没消费者：属于 go2rtc 的“按需休眠”状态，属于正常预期
-						streamState = "idle"
-					} else if (!hasProducers || len(producers) == 0) && (hasConsumers && len(consumers) > 0) {
-						// 3. 有人在请求流(比如FFmpeg在跑)，但 producer 却没建起来，说明彻底连不上
-						streamState = "offline"
-					}
-				}
-			}
-			service.UpdateOnlineStatus(id, streamState)
-		}
-	}
-}
-
-func markAllStreamOffline() {
-	configMux.RLock()
-	defer configMux.RUnlock()
-	for _, cam := range currentConfig.Cameras {
-		service.UpdateOnlineStatus(cam.ID, "offline")
-	}
 }

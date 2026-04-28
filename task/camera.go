@@ -14,18 +14,6 @@ import (
 	"time"
 )
 
-type Camera struct {
-	ID              string `yaml:"id"`
-	RTSPUrl         string `yaml:"rtsp_url"`
-	RetentionDays   int    `yaml:"retention_days"`
-	SegmentDuration int    `yaml:"segment_duration"`
-	Format          string `yaml:"format"`
-	MinSizeKb       int64  `yaml:"min_size_kb"`
-	RecordTime      string `yaml:"record_time"`
-	Mode            string `yaml:"mode"`             // 模式: "normal" 或 "timelapse"，留空默认为 normal
-	CaptureInterval int    `yaml:"capture_interval"` // 抓拍间隔(秒)，例如 5 表示每5秒抓一帧
-}
-
 var (
 	overrideMux sync.RWMutex
 	overrides   = make(map[string]string) // key: 摄像头ID, value: "start", "stop", 或空("auto")
@@ -55,7 +43,7 @@ func getOverride(camID string) string {
 }
 
 // CameraTask 负责单个摄像头的生命周期管理
-func CameraTask(ctx context.Context, wg *sync.WaitGroup, cam Camera) {
+func CameraTask(ctx context.Context, wg *sync.WaitGroup, cam constant.Camera) {
 	defer wg.Done()
 
 	camDir := filepath.Join(constant.DefaultRecordBaseDir, cam.ID)
@@ -145,7 +133,7 @@ func CameraTask(ctx context.Context, wg *sync.WaitGroup, cam Camera) {
 }
 
 // startFFmpeg 构建并启动 FFmpeg 进程
-func startFFmpeg(ctx context.Context, cam Camera, camDir string) *exec.Cmd {
+func startFFmpeg(ctx context.Context, cam constant.Camera, camDir string) *exec.Cmd {
 	fileNamePattern := fmt.Sprintf("%s/%%Y-%%m-%%d/%s_%%Y-%%m-%%d_%%H-%%M-%%S.%s", filepath.ToSlash(camDir), cam.ID, cam.Format)
 
 	var args []string
