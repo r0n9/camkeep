@@ -26,8 +26,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const ConfigFilePath = "config/conf.yaml" // 定义统一的配置文件路径
-
 var (
 	currentConfig constant.Config
 	restartMux    sync.Mutex // 热重启专属防并发锁
@@ -75,9 +73,9 @@ func main() {
 
 // loadOrInitConfig 如果配置文件不存在则生成一个带示例的默认配置
 func loadOrInitConfig() constant.Config {
-	os.MkdirAll(filepath.Dir(ConfigFilePath), 0755)
+	os.MkdirAll(filepath.Dir(constant.ConfigFilePath), 0755)
 
-	data, err := os.ReadFile(ConfigFilePath)
+	data, err := os.ReadFile(constant.ConfigFilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			log.Println("conf.yaml 不存在，自动创建默认模板配置...")
@@ -109,7 +107,7 @@ func loadOrInitConfig() constant.Config {
 			header := []byte("# CamKeep 配置文件\n# mode: normal (普通录制), timelapse (延时摄影)\n")
 			finalOut := append(header, out...)
 
-			if err := os.WriteFile(ConfigFilePath, finalOut, 0644); err != nil {
+			if err := os.WriteFile(constant.ConfigFilePath, finalOut, 0644); err != nil {
 				log.Printf("写入配置文件失败: %v", err)
 			}
 
@@ -218,7 +216,7 @@ func startWebServer() {
 
 	// 获取配置文件内容
 	r.GET("/api/config", func(c *gin.Context) {
-		data, _ := os.ReadFile(ConfigFilePath) // 【修改】
+		data, _ := os.ReadFile(constant.ConfigFilePath) // 【修改】
 		c.String(200, string(data))
 	})
 
@@ -234,7 +232,7 @@ func startWebServer() {
 			c.JSON(400, gin.H{"error": "YAML 格式有误: " + err.Error()})
 			return
 		}
-		os.WriteFile(ConfigFilePath, yamlBytes, 0644)
+		os.WriteFile(constant.ConfigFilePath, yamlBytes, 0644)
 
 		// 异步重启任务，不阻塞前端请求
 		go restartTasks(newConfig)
