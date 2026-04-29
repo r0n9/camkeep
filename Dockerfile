@@ -24,6 +24,7 @@ FROM --platform=$BUILDPLATFORM golang:1.25.4-alpine AS builder
 
 # 声明架构变量给 Go 编译器使用
 ARG TARGETARCH
+ARG VERSION=dev
 
 ENV GO111MODULE=on \
     GOPROXY=https://goproxy.cn,direct
@@ -32,7 +33,7 @@ WORKDIR /app
 COPY . .
 
 # 加入 GOARCH=${TARGETARCH} 让 Go 编译器知道目标架构
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -ldflags="-s -w -X 'main.Version=${VERSION}'" -o camkeep main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -ldflags="-s -w -X main.Version=${VERSION}" -o camkeep main.go
 
 # --- 阶段二：构建最终运行环境 ---
 FROM alpine:latest
