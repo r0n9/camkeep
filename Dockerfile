@@ -32,7 +32,7 @@ WORKDIR /app
 COPY . .
 
 # 加入 GOARCH=${TARGETARCH} 让 Go 编译器知道目标架构
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -ldflags="-s -w -X main.Version=${VERSION}" -o camkeep main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -ldflags="-s -w -X 'main.Version=${VERSION}'" -o camkeep main.go
 
 # --- 阶段二：构建最终运行环境 ---
 FROM alpine:latest
