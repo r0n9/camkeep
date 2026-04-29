@@ -160,7 +160,7 @@ func CleanupGo2rtcStreams(config constant.Config) {
 }
 
 // PollGo2rtcStatus 定期轮询 go2rtc 接口，深度判断流的真实健康度
-func PollGo2rtcStatus(currentConfig constant.Config) {
+func PollGo2rtcStatus(cfg *constant.Config) {
 	go2rtcHost := fmt.Sprintf("http://%s:%d", constant.DefaultGo2rtcHost, constant.DefaultGo2rtcApiPort)
 	ticker := time.NewTicker(3 * time.Second)
 	defer ticker.Stop()
@@ -172,7 +172,7 @@ func PollGo2rtcStatus(currentConfig constant.Config) {
 			if resp != nil && resp.Body != nil {
 				resp.Body.Close()
 			}
-			markAllStreamOffline(currentConfig)
+			markAllStreamOffline(cfg)
 			continue
 		}
 
@@ -192,21 +192,21 @@ func PollGo2rtcStatus(currentConfig constant.Config) {
 
 		// === 自愈逻辑开始 ===
 		constant.ConfigMux.RLock()
-		cams := currentConfig.Cameras
+		cams := cfg.Cameras
 		constant.ConfigMux.RUnlock()
 
 		// 如果我们配置了摄像头，但 go2rtc 里一条流都没有，说明 go2rtc 重启失忆了
 		if len(cams) > 0 && len(streams) == 0 {
 			log.Println("检测到 go2rtc 丢失所有流配置(可能已重启)，正在重新注入...")
 			// 异步重新注入，避免阻塞轮询
-			go initGo2rtcStreams(currentConfig)
-			return // 跳过本次状态更新，等下一轮
+			go initGo2rtcStreams(*cfg)
+			continue // 跳过本次状态更新，等下一轮
 		}
 		// === 自愈逻辑结束 ===
 
 		constant.ConfigMux.RLock()
 		var camIDs []string
-		for _, cam := range currentConfig.Cameras {
+		for _, cam := range cfg.Cameras {
 			camIDs = append(camIDs, cam.ID)
 		}
 		constant.ConfigMux.RUnlock()
@@ -325,7 +325,7 @@ func initGo2rtcStreams(config constant.Config) {
 	log.Println("警告：无法连接到 go2rtc，流初始化超时，请确保 go2rtc 已启动！")
 }
 
-func markAllStreamOffline(currentConfig constant.Config) {
+func markAllStreamOffline(currentConfig *constant.Config) {
 	constant.ConfigMux.RLock()
 	defer constant.ConfigMux.RUnlock()
 	for _, cam := range currentConfig.Cameras {
