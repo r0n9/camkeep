@@ -35,6 +35,8 @@ var (
 	ctxGlobal     context.Context
 )
 
+var Version = "dev"
+
 func main() {
 	mime.AddExtensionType(".ts", "video/mp2t")
 	slog.Init()
@@ -221,7 +223,9 @@ func startWebServer() {
 	r.LoadHTMLGlob("template/*")
 
 	r.GET("/", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "index.html", nil)
+		c.HTML(http.StatusOK, "index.html", gin.H{
+			"Version": Version,
+		})
 	})
 
 	// 2. 获取所有摄像头状态

@@ -38,6 +38,9 @@ jobs:
 
       - name: Build and Package
         run: |
+          # 提取当前触发流水的 tag (例如 v1.1.0)
+          VERSION=${{ github.ref_name }}
+          
           # 1. 创建打包专用的临时目录
           PACKAGE_DIR="camkeep_${{ matrix.os }}_${{ matrix.arch }}"
           mkdir -p dist/$PACKAGE_DIR
@@ -55,7 +58,7 @@ jobs:
           fi
           
           # 2. 编译 CamKeep 二进制
-          CGO_ENABLED=0 GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -trimpath -ldflags="-s -w" -o dist/$PACKAGE_DIR/$BINARY_NAME ./main.go
+          CGO_ENABLED=0 GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -trimpath -ldflags="-s -w -X main.Version=$VERSION" -o dist/$PACKAGE_DIR/$BINARY_NAME ./main.go
           
           # 3. 下载对应架构的底层流媒体引擎 (go2rtc)
           echo "正在下载 go2rtc: $GO2RTC_DL_NAME"
@@ -137,3 +140,6 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # 将 tag 作为 VERSION 变量传递给 Dockerfile
+          build-args: |
+            VERSION=${{ github.ref_name }}

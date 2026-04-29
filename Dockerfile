@@ -4,12 +4,18 @@ FROM alpine:latest AS go2rtc-downloader
 # 声明引入 Docker 内置的架构变量
 ARG TARGETARCH
 
+# 接收从外部传入的版本号参数
+ARG VERSION="dev"
+
+# go2rtc 版本
+ARG Go2rtcVersion="v1.9.14"
+
 RUN apk add --no-cache wget
 
 # 使用 ${TARGETARCH} 动态拼接下载链接
 # Docker 会自动将 TARGETARCH 替换为 amd64, arm64 或 arm
 RUN echo "正在为 linux_${TARGETARCH} 下载 go2rtc..." && \
-    wget -O /go2rtc https://github.com/AlexxIT/go2rtc/releases/download/v1.9.14/go2rtc_linux_${TARGETARCH} && \
+    wget -O /go2rtc https://github.com/AlexxIT/go2rtc/releases/download/${Go2rtcVersion}/go2rtc_linux_${TARGETARCH} && \
     chmod +x /go2rtc
 
 # --- 阶段一：编译 CamKeep ---
@@ -26,7 +32,7 @@ WORKDIR /app
 COPY . .
 
 # 加入 GOARCH=${TARGETARCH} 让 Go 编译器知道目标架构
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -ldflags="-s -w" -o camkeep main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -ldflags="-s -w -X main.Version=${VERSION}" -o camkeep main.go
 
 # --- 阶段二：构建最终运行环境 ---
 FROM alpine:latest
