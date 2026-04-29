@@ -56,12 +56,8 @@ cameras:
 docker run -d \
   --name camkeep \
   --restart unless-stopped \
+  --network host \
   -e TZ=Asia/Shanghai \
-  -p 9110:9110 \
-  -p 1984:1984 \
-  -p 8554:8554 \
-  -p 8555:8555/tcp \
-  -p 8555:8555/udp \
   -v ${PWD}/config:/app/config \
   -v ${PWD}/records:/app/records \
   r0n9/camkeep:latest  # 若网络不佳，可替换为 ghcr.io/r0n9/camkeep:latest
@@ -74,21 +70,21 @@ docker run -d \
 ```yaml
 services:
   camkeep:
-    # 默认使用 Docker Hub。若遇网络问题，请修改为 image: ghcr.io/r0n9/camkeep:latest
     image: r0n9/camkeep:latest
     container_name: camkeep
     restart: unless-stopped
+    network_mode: "host" # 建议使用 host 网络，否则WebRTC可能握手失败
     environment:
       - TZ=Asia/Shanghai
     volumes:
       - ./config:/app/config
       - ./records:/app/records
-    ports:
-      - "9110:9110"      # CamKeep Web 控制台
-      - "1984:1984"      # go2rtc API 端口
-      - "8554:8554"      # RTSP 服务端口
-      - "8555:8555/tcp"  # WebRTC 端口 (必须暴露，否则无画面)
-      - "8555:8555/udp"
+#    ports:
+#      - "9110:9110"      # CamKeep Web 控制台
+#      - "1984:1984"      # go2rtc API 端口
+#      - "8554:8554"      # RTSP 服务端口
+#      - "8555:8555/tcp"  # WebRTC 端口 (必须暴露，否则无画面)
+#      - "8555:8555/udp"
 ```
 
 然后执行：
