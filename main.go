@@ -20,6 +20,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
@@ -34,9 +35,21 @@ var (
 	ctxGlobal     context.Context
 )
 
+var Version = "dev"
+
 func main() {
 	mime.AddExtensionType(".ts", "video/mp2t")
 	slog.Init()
+
+	// 在 CamKeep 业务逻辑启动前，先拉起底座进程
+	task.StartGo2rtcDaemon()
+	// 动态轮询等待，确保 go2rtc API 彻底就绪（最大等待 10 秒）
+	log.Println("等待底层流媒体引擎 go2rtc 启动...")
+	if err := task.WaitForGo2rtcReady(10 * time.Second); err != nil {
+		// 如果 10 秒了还没起来，说明底座进程严重故障，直接让主程序退出
+		log.Fatalf("致命错误: 无法连接到底层引擎: %v", err)
+	}
+	log.Println("go2rtc 底座已完美就绪！")
 
 	// 1. 读取或初始化配置 (如果不存在则创建空配置)
 	currentConfig = loadOrInitConfig()
@@ -210,7 +223,9 @@ func startWebServer() {
 	r.LoadHTMLGlob("template/*")
 
 	r.GET("/", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "index.html", nil)
+		c.HTML(http.StatusOK, "index.html", gin.H{
+			"Version": Version,
+		})
 	})
 
 	// 2. 获取所有摄像头状态
