@@ -9,7 +9,8 @@ services:
       - ./config:/app/config
       - ./records:/app/records
     ports:
-      - "9110:9110"  # CamKeep Web 控制台
-      - "1984:1984"  # go2rtc API (可选暴露)
-      - "8554:8554"  # RTSP 端口 (可选暴露)
-      - "8555:8555"  # WebRTC 端口 (必须暴露，否则 Web 播放可能没有画面)
+      - "9110:9110"      # CamKeep Web 控制台
+      - "1984:1984"      # go2rtc API 端口
+      - "8554:8554"      # RTSP 服务端口
+      - "8555:8555/tcp"  # WebRTC 端口 (必须暴露，否则无画面)
+      - "8555:8555/udp"
