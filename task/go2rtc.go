@@ -1,8 +1,6 @@
 package task
 
 import (
-	"camkeep/constant"
-	"camkeep/service"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -11,6 +9,9 @@ import (
 	"os"
 	"os/exec"
 	"time"
+
+	"github.com/r0n9/camkeep/constant"
+	"github.com/r0n9/camkeep/service"
 )
 
 var httpClient = &http.Client{

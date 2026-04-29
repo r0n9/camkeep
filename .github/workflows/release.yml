@@ -58,7 +58,7 @@ jobs:
           fi
           
           # 2. 编译 CamKeep 二进制
-          CGO_ENABLED=0 GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -trimpath -ldflags="-s -w -X main.Version=$VERSION" -o dist/$PACKAGE_DIR/$BINARY_NAME .
+          CGO_ENABLED=0 GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -a -trimpath -ldflags="-s -w -X main.Version=${{ github.ref_name }}" -o dist/$PACKAGE_DIR/$BINARY_NAME .
           
           # 3. 下载对应架构的底层流媒体引擎 (go2rtc)
           echo "正在下载 go2rtc: $GO2RTC_DL_NAME"

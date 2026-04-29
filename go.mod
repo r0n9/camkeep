@@ -1,4 +1,4 @@
-module camkeep
+module github.com/r0n9/camkeep
 
 go 1.25.4
 

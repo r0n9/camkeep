@@ -2,10 +2,6 @@ package main
 
 import (
 	"bytes"
-	"camkeep/constant"
-	"camkeep/service"
-	"camkeep/slog"
-	"camkeep/task"
 	"context"
 	"fmt"
 	"io"
@@ -22,6 +18,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/r0n9/camkeep/constant"
+	"github.com/r0n9/camkeep/service"
+	"github.com/r0n9/camkeep/slog"
+	"github.com/r0n9/camkeep/task"
+
 	"gopkg.in/yaml.v3"
 
 	"github.com/gin-gonic/gin"
@@ -35,11 +36,13 @@ var (
 	ctxGlobal     context.Context
 )
 
-var Version = "dev"
+var Version string = "dev"
 
 func main() {
 	mime.AddExtensionType(".ts", "video/mp2t")
 	slog.Init()
+
+	log.Printf("CamKeep version=%s", Version)
 
 	// 在 CamKeep 业务逻辑启动前，先拉起底座进程
 	task.StartGo2rtcDaemon()

@@ -1,9 +1,6 @@
 package task
 
 import (
-	"camkeep/constant"
-	"camkeep/service"
-	"camkeep/util"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -13,6 +10,10 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/r0n9/camkeep/constant"
+	"github.com/r0n9/camkeep/service"
+	"github.com/r0n9/camkeep/util"
 )
 
 var (
