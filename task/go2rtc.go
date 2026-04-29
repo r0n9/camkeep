@@ -39,6 +39,34 @@ func StartGo2rtcDaemon() {
 	}()
 }
 
+// WaitForGo2rtcReady 轮询探测 go2rtc API 是否就绪
+// timeout: 最大容忍的等待时间
+func WaitForGo2rtcReady(timeout time.Duration) error {
+	go2rtcAPI := fmt.Sprintf("http://%s:%d/api/streams", constant.DefaultGo2rtcHost, constant.DefaultGo2rtcApiPort)
+
+	client := &http.Client{
+		Timeout: 500 * time.Millisecond, // 单词请求超时设短一点，方便快速重试
+	}
+
+	deadline := time.Now().Add(timeout)
+
+	for time.Now().Before(deadline) {
+		resp, err := client.Get(go2rtcAPI)
+		if err == nil && resp.StatusCode == http.StatusOK {
+			resp.Body.Close()
+			return nil // 成功访问，确认彻底就绪
+		}
+		if resp != nil {
+			resp.Body.Close()
+		}
+
+		// 间隔 200 毫秒再次探测，既不吃 CPU 也能毫秒级响应就绪状态
+		time.Sleep(200 * time.Millisecond)
+	}
+
+	return fmt.Errorf("等待 go2rtc 启动超时 (%v)", timeout)
+}
+
 // InitGo2rtcStreams 负责在启动时清理 go2rtc 历史流，并注册当前配置的所有流
 func InitGo2rtcStreams(config constant.Config) {
 	go2rtcHost := fmt.Sprintf("http://%s:%d", constant.DefaultGo2rtcHost, constant.DefaultGo2rtcApiPort)
