@@ -20,6 +20,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
@@ -37,6 +38,12 @@ var (
 func main() {
 	mime.AddExtensionType(".ts", "video/mp2t")
 	slog.Init()
+
+	// 1. 在 CamKeep 业务逻辑启动前，先拉起底座进程
+	task.StartGo2rtcDaemon()
+
+	// 稍微等一小会儿，确保 go2rtc 的 1984 端口准备就绪
+	time.Sleep(1 * time.Second)
 
 	// 1. 读取或初始化配置 (如果不存在则创建空配置)
 	currentConfig = loadOrInitConfig()

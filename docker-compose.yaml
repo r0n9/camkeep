@@ -1,5 +1,5 @@
 services:
-  recorder:
+  camkeep:
     image: r0n9/camkeep:latest
     container_name: camkeep
     restart: unless-stopped
@@ -8,21 +8,8 @@ services:
     volumes:
       - ./config:/app/config
       - ./records:/app/records
-    network_mode: host
-    # 让 recorder 等待 go2rtc 的健康检查通过，而不仅仅是容器启动
-    depends_on:
-      go2rtc:
-        condition: service_healthy
-
-  go2rtc:
-    image: alexxit/go2rtc:latest
-    container_name: go2rtc
-    restart: unless-stopped
-    network_mode: host
-    # 心跳探针，每隔 2 秒请求一次 1984 端口，成功了才算 "healthy"
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:1984/api/streams"]
-      interval: 2s       # 每次检查间隔 2 秒
-      timeout: 2s        # 单次请求超时时间 2 秒
-      retries: 5         # 如果连续失败 5 次则判定为不健康
-      start_period: 2s   # 容器启动后等待 2 秒再开始检查
+    ports:
+      - "9110:9110"  # CamKeep Web 控制台
+      - "1984:1984"  # go2rtc API (可选暴露)
+      - "8554:8554"  # RTSP 端口 (可选暴露)
+      - "8555:8555"  # WebRTC 端口 (必须暴露，否则 Web 播放可能没有画面)
