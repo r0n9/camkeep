@@ -64,7 +64,7 @@ docker run -d \
   -p 8555:8555/udp \
   -v ${PWD}/config:/app/config \
   -v ${PWD}/records:/app/records \
-  r0n9/camkeep:latest
+  r0n9/camkeep:latest  # 若网络不佳，可替换为 ghcr.io/r0n9/camkeep:latest
 ```
 
 #### 方式二：Docker-Compose
@@ -74,6 +74,7 @@ docker run -d \
 ```yaml
 services:
   camkeep:
+    # 默认使用 Docker Hub。若遇网络问题，请修改为 image: ghcr.io/r0n9/camkeep:latest
     image: r0n9/camkeep:latest
     container_name: camkeep
     restart: unless-stopped
