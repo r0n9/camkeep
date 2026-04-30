@@ -333,6 +333,10 @@ func checkCameraTCPAlive(rawURL string) bool {
 	}
 
 	host := u.Hostname()
+	if host == "" {
+		return false
+	}
+
 	port := u.Port()
 	if port == "" {
 		port = "554" // RTSP 协议默认端口
