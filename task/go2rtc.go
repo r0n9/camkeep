@@ -210,6 +210,7 @@ func PollGo2rtcStatus(cfg *constant.Config) {
 		for _, id := range camIDs {
 			streamState := "offline" // 默认假设为离线
 			isIdle := false          // 标记是否进入了“薛定谔”的待机状态
+			var probeURL string      // 存放真实的探活物理地址
 
 			if camData, exists := streams[id]; exists {
 				if data, ok := camData.(map[string]interface{}); ok {
@@ -228,6 +229,11 @@ func PollGo2rtcStatus(cfg *constant.Config) {
 
 						for _, p := range producers {
 							if prod, ok := p.(map[string]interface{}); ok {
+								// 优先从 go2rtc 底层状态中提取真实物理 URL
+								if u, hasU := prod["url"].(string); hasU && u != "" {
+									probeURL = u
+								}
+
 								// 1. 检查是否存在明确报错（只有在有人看，且拉流失败时才会出现）
 								if errStr, hasErr := prod["error"].(string); hasErr && errStr != "" {
 									hasError = true
@@ -279,18 +285,20 @@ func PollGo2rtcStatus(cfg *constant.Config) {
 					// go2rtc 会报错产生 error 进而被上面的逻辑打回 offline。
 					streamState = "idle"
 				} else {
-					constant.ConfigMux.RLock()
-					var rtspURL string
-					for _, c := range cfg.Cameras {
-						if c.ID == id {
-							rtspURL = c.RTSPUrl
-							break
+					// 如果 go2rtc 里真没给 URL，才去 conf.yaml 兜底
+					if probeURL == "" {
+						constant.ConfigMux.RLock()
+						for _, c := range cfg.Cameras {
+							if c.ID == id {
+								probeURL = c.RTSPUrl
+								break
+							}
 						}
+						constant.ConfigMux.RUnlock()
 					}
-					constant.ConfigMux.RUnlock()
 
 					// 发起毫秒级轻量探活
-					if checkCameraTCPAlive(rtspURL) {
+					if checkCameraTCPAlive(probeURL) {
 						streamState = "idle" // 端口通，才是真休眠
 					} else {
 						streamState = "offline" // 端口不通（如断网/断电），伪装成休眠也没用，标记为离线
@@ -307,6 +315,10 @@ func PollGo2rtcStatus(cfg *constant.Config) {
 func checkCameraTCPAlive(rawURL string) bool {
 	if rawURL == "" {
 		return false
+	}
+
+	if rawURL == "managed_by_go2rtc" {
+		return true
 	}
 
 	// 如果配置了 ffmpeg 实时转码 (例如 ffmpeg:rtsp://...)，需要剥离前缀

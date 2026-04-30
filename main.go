@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -333,6 +334,50 @@ func startWebServer() {
 		c.JSON(200, gin.H{"msg": "录像删除成功"})
 	})
 
+	r.GET("/api/go2rtc/unmanaged", func(c *gin.Context) {
+		go2rtcHost := fmt.Sprintf("http://%s:%d", constant.DefaultGo2rtcHost, constant.DefaultGo2rtcApiPort)
+		resp, err := http.Get(go2rtcHost + "/api/streams")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "无法连接到 go2rtc"})
+			return
+		}
+		defer resp.Body.Close()
+
+		var result map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "解析 go2rtc 响应失败"})
+			return
+		}
+
+		var streamKeys []string
+		if streamsObj, ok := result["streams"].(map[string]interface{}); ok {
+			for k := range streamsObj {
+				streamKeys = append(streamKeys, k)
+			}
+		} else {
+			for k := range result {
+				streamKeys = append(streamKeys, k)
+			}
+		}
+
+		// 过滤掉已经在 conf.yaml 中被 CamKeep 管理的流
+		constant.ConfigMux.RLock()
+		managed := make(map[string]bool)
+		for _, cam := range currentConfig.Cameras {
+			managed[cam.ID] = true
+		}
+		constant.ConfigMux.RUnlock()
+
+		var unmanaged []string
+		for _, k := range streamKeys {
+			if !managed[k] {
+				unmanaged = append(unmanaged, k)
+			}
+		}
+
+		c.JSON(http.StatusOK, unmanaged)
+	})
+
 	r.StaticFS("/play", http.Dir(constant.DefaultRecordBaseDir))
 
 	r.GET("/play_hls/*filepath", func(c *gin.Context) {
@@ -452,6 +497,27 @@ func validateAndFixConfig(cfg constant.Config) constant.Config {
 			continue
 		}
 		seen[cam.ID] = true
+
+		// 预置默认录像策略。如果用户在 conf.yaml 中没写，就走这里的兜底。
+		if cam.RetentionDays == 0 {
+			cam.RetentionDays = 7
+		}
+		if cam.SegmentDuration == 0 {
+			cam.SegmentDuration = 600
+		}
+		if cam.Format == "" {
+			cam.Format = "ts"
+		}
+		if cam.MinSizeKb == 0 {
+			cam.MinSizeKb = 1024
+		}
+		if cam.RecordTime == "" {
+			cam.RecordTime = "00:00-23:59"
+		}
+		if cam.Mode == "" {
+			cam.Mode = "normal" // 普通录制模式
+		}
+
 		uniqueCams = append(uniqueCams, cam)
 	}
 	cfg.Cameras = uniqueCams
