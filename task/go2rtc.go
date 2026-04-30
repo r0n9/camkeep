@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/r0n9/camkeep/constant"
@@ -214,50 +216,131 @@ func PollGo2rtcStatus(cfg *constant.Config) {
 
 		for _, id := range camIDs {
 			streamState := "offline" // 默认假设为离线
+			isIdle := false          // 标记是否进入了“薛定谔”的待机状态
 
 			if camData, exists := streams[id]; exists {
 				if data, ok := camData.(map[string]interface{}); ok {
 					producers, hasProducers := data["producers"].([]interface{})
 					consumers, hasConsumers := data["consumers"].([]interface{})
 
+					consumerCount := 0
+					if hasConsumers && consumers != nil {
+						consumerCount = len(consumers)
+					}
+
+					// go2rtc 只要注册了流，hasProducers 就是 true，且至少包含一条 {"url": "..."}
 					if hasProducers && len(producers) > 0 {
-						// 1. 有 producer，深入检查其健康度
-						isConnecting := false
+						isActive := false // 是否有真实数据在流动
+						hasError := false // 是否有明确的拉流报错 (如 i/o timeout)
+
 						for _, p := range producers {
 							if prod, ok := p.(map[string]interface{}); ok {
-								// 如果存在错误字段，说明连接正在报错 (如 i/o timeout)
+								// 1. 检查是否存在明确报错（只有在有人看，且拉流失败时才会出现）
 								if errStr, hasErr := prod["error"].(string); hasErr && errStr != "" {
+									hasError = true
 									continue
 								}
-								// 检查是否真正收到了数据(bytes_recv) 或 成功解析了媒体轨(medias)
+
+								// 2. 检查是否正在真实收发数据
 								bytesRecv, _ := prod["bytes_recv"].(float64)
 								medias, hasMedias := prod["medias"].([]interface{})
 
 								if bytesRecv > 0 || (hasMedias && len(medias) > 0) {
-									streamState = "online"
+									isActive = true
 									break
-								} else {
-									// 没报错且没数据，说明正在握手连接中
-									isConnecting = true
 								}
 							}
 						}
 
-						if streamState != "online" && isConnecting {
-							streamState = "online"
+						// 状态仲裁
+						if isActive {
+							streamState = "online" // 数据流转中，绝对健康
+						} else if hasError {
+							streamState = "offline" // 有明确报错，离线
+						} else {
+							// 既没报错也没数据，说明 `producer` 里只剩下一个干瘪的 {"url": "..."}
+							if consumerCount > 0 {
+								// 有人在请求，但还没拿到数据/也没报错，说明“正在握手建联中”
+								streamState = "online"
+							} else {
+								// 没人请求，也没数据。进入了 go2rtc 无法分辨的盲区
+								isIdle = true
+							}
 						}
-					} else if (!hasProducers || len(producers) == 0) && (!hasConsumers || len(consumers) == 0) {
-						// 2. 没有生产者也没消费者：属于 go2rtc 的“按需休眠”状态，属于正常预期
-						streamState = "idle"
-					} else if (!hasProducers || len(producers) == 0) && (hasConsumers && len(consumers) > 0) {
-						// 3. 有人在请求流(比如FFmpeg在跑)，但 producer 却没建起来，说明彻底连不上
-						streamState = "offline"
 					}
 				}
 			}
+			if isIdle {
+				// 1. 安全地读取该摄像头上一次的状态
+				service.StatusMux.RLock()
+				prevState := "offline"
+				if status, exists := service.StatusMap[id]; exists {
+					prevState = status.StreamState
+				}
+				service.StatusMux.RUnlock()
+
+				// 2. 根据历史状态决定是否需要发起真实探活
+				if prevState == "idle" {
+					// 如果之前已经是休眠状态，直接继承，跳过 TCP 探活。
+					// 如果它真的在此期间断电了，等到下次有业务拉流时，
+					// go2rtc 会报错产生 error 进而被上面的逻辑打回 offline。
+					streamState = "idle"
+				} else {
+					constant.ConfigMux.RLock()
+					var rtspURL string
+					for _, c := range cfg.Cameras {
+						if c.ID == id {
+							rtspURL = c.RTSPUrl
+							break
+						}
+					}
+					constant.ConfigMux.RUnlock()
+
+					// 发起毫秒级轻量探活
+					if checkCameraTCPAlive(rtspURL) {
+						streamState = "idle" // 端口通，才是真休眠
+					} else {
+						streamState = "offline" // 端口不通（如断网/断电），伪装成休眠也没用，标记为离线
+					}
+				}
+			}
+
 			service.UpdateOnlineStatus(id, streamState)
 		}
 	}
+}
+
+// checkCameraTCPAlive 极低损耗的旁路探活：仅验证摄像头的 RTSP 端口是否存活
+func checkCameraTCPAlive(rawURL string) bool {
+	if rawURL == "" {
+		return false
+	}
+
+	// 如果配置了 ffmpeg 实时转码 (例如 ffmpeg:rtsp://...)，需要剥离前缀
+	cleanURL := rawURL
+	if strings.HasPrefix(cleanURL, "ffmpeg:") {
+		cleanURL = strings.TrimPrefix(cleanURL, "ffmpeg:")
+	}
+
+	u, err := url.Parse(cleanURL)
+	if err != nil {
+		return false
+	}
+
+	host := u.Hostname()
+	port := u.Port()
+	if port == "" {
+		port = "554" // RTSP 协议默认端口
+	}
+
+	// 1秒超时，不占用 CPU，只进行 TCP 握手
+	conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, port), 1*time.Second)
+	if err != nil {
+		return false
+	}
+
+	conn.Close()
+	return true
 }
 
 // initGo2rtcStreams 负责在启动时清理 go2rtc 历史流，并注册当前配置的所有流
