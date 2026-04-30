@@ -8,62 +8,65 @@
     <script src="/static/mpegts.min.js"></script>
     <script src="/static/DPlayer.min.js"></script>
     <link rel="icon" href="/static/camkeep_w200.png">
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        .dplayer-video-wrap {
+            background-color: #000 !important;
+        }
+    </style>
 </head>
 <body class="bg-gray-100 p-4 md:p-8 min-h-screen">
 <div class="max-w-[1400px] mx-auto">
+
     <div class="flex items-center justify-between mb-6">
         <h1 class="text-3xl font-bold text-gray-800 flex items-center">
             <span class="w-2 h-8 bg-blue-600 mr-3 rounded-full shadow-sm"></span>
-
             CamKeep 监控中心
-
             <div class="ml-4 flex items-center space-x-3">
                 <span class="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10 shadow-sm font-mono">
                     <svg class="w-3.5 h-3.5 mr-1.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
                     </svg>
                     {{ .Version }}
                 </span>
-
-                <a href="https://github.com/r0n9/camkeep"
-                   target="_blank"
-                   class="text-gray-400 hover:text-gray-600 transition-colors flex items-center"
-                   title="查看 GitHub 源码">
+                <a href="https://github.com/r0n9/camkeep" target="_blank" class="text-gray-400 hover:text-gray-600 transition-colors flex items-center" title="查看 GitHub 源码">
                     <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                        <path fill-rule="evenodd"
-                              d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
-                              clip-rule="evenodd"></path>
+                        <path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"></path>
                     </svg>
                 </a>
             </div>
         </h1>
         <div class="flex items-center space-x-4">
-            <button onclick="openConfig()"
-                    class="group flex items-center space-x-2 bg-white hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold border border-gray-200 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 active:scale-95">
-                <svg class="w-4 h-4 text-gray-500 group-hover:rotate-90 transition-transform duration-500" fill="none"
-                     stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            <button onclick="openConfig()" class="group flex items-center space-x-2 bg-white hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold border border-gray-200 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 active:scale-95">
+                <svg class="w-4 h-4 text-gray-500 group-hover:rotate-90 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                 </svg>
                 <span>配置管理</span>
             </button>
-
             <div class="flex items-center px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-xl shadow-inner">
-        <span class="relative flex h-2.5 w-2.5 mr-3">
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-        </span>
+                <span class="relative flex h-2.5 w-2.5 mr-3">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
                 <span class="text-xs font-bold text-emerald-700 tracking-widest uppercase">系统在线</span>
             </div>
         </div>
     </div>
 
-    <div id="configModal"
-         class="hidden fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center backdrop-blur-md transition-opacity duration-300">
-
+    <div id="configModal" class="hidden fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center backdrop-blur-md transition-opacity duration-300">
         <div class="bg-white rounded-2xl w-[80%] max-w-[95%] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] border border-white/50 transform transition-all flex flex-col overflow-hidden my-6 max-h-[90vh]">
 
             <div class="px-6 py-5 border-b border-slate-100 flex justify-between items-start bg-slate-50/50">
@@ -74,7 +77,6 @@
                     </h2>
                     <p class="text-xs text-slate-500 mt-1.5 font-medium">修改保存后，系统将会自动热重启录像任务并应用新配置。</p>
                 </div>
-
                 <button onclick="closeConfig()" class="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/50 rounded-full transition-colors focus:outline-none">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
@@ -86,29 +88,21 @@
                     <div class="p-4 sm:p-5 flex flex-col sm:flex-row justify-between gap-4 pl-5 sm:pl-6">
                         <div class="flex items-start">
                             <div class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center mr-3.5 text-blue-600 shadow-sm mt-0.5">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                                </svg>
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                             </div>
                             <div>
-                                <h3 class="text-sm font-bold text-slate-800 tracking-tight">发现未接入设备</h3>
+                                <h3 class="text-sm font-bold text-slate-800 tracking-tight">发现未接入的摄像头源</h3>
                                 <p class="text-xs text-slate-500 mt-1 leading-relaxed">
                                     点击“扫描设备”，快速检索并添加底层未接入的摄像头源。
                                 </p>
                             </div>
                         </div>
-
                         <div class="flex items-center space-x-3 shrink-0">
-                            <button onclick="window.open(window.location.protocol + '//' + window.location.hostname + ':1984/add.html', '_blank')"
-                                    class="group flex items-center px-4 py-2 bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50 text-xs font-semibold rounded-lg shadow-sm transition-all duration-200 active:scale-95"
-                                    title="在新窗口打开 go2rtc 控制台">
-                                <svg class="w-3.5 h-3.5 mr-1.5 text-slate-400 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-                                </svg>
+                            <button onclick="window.open(window.location.protocol + '//' + window.location.hostname + ':1984/add.html', '_blank')" class="group flex items-center px-4 py-2 bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50 text-xs font-semibold rounded-lg shadow-sm transition-all duration-200 active:scale-95" title="在新窗口打开 go2rtc 控制台">
+                                <svg class="w-3.5 h-3.5 mr-1.5 text-slate-400 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
                                 去 go2rtc 添加
                             </button>
-                            <button onclick="scanUnmanagedStreams()"
-                                    class="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-[0_2px_10px_-3px_rgba(37,99,235,0.4)] hover:shadow-[0_4px_14px_-4px_rgba(37,99,235,0.6)] transition-all duration-200 active:scale-95">
+                            <button onclick="scanUnmanagedStreams()" class="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-[0_2px_10px_-3px_rgba(37,99,235,0.4)] hover:shadow-[0_4px_14px_-4px_rgba(37,99,235,0.6)] transition-all duration-200 active:scale-95">
                                 扫描设备
                             </button>
                         </div>
@@ -128,116 +122,102 @@
                         </div>
                         <span class="text-[10px] text-slate-400 font-medium">YAML</span>
                     </div>
-                    <textarea id="configYaml"
-                              class="w-full h-[350px] p-4 font-mono text-[13px] leading-relaxed text-slate-700 bg-transparent outline-none resize-none custom-scrollbar"
-                              spellcheck="false"></textarea>
+                    <textarea id="configYaml" class="w-full h-[350px] p-4 font-mono text-[13px] leading-relaxed text-slate-700 bg-transparent outline-none resize-none custom-scrollbar" spellcheck="false"></textarea>
                 </div>
             </div>
 
             <div class="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex justify-end space-x-3 shrink-0">
-                <button onclick="closeConfig()"
-                        class="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 hover:text-slate-900 shadow-sm transition-all active:scale-95">
+                <button onclick="closeConfig()" class="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 hover:text-slate-900 shadow-sm transition-all active:scale-95">
                     取消
                 </button>
-                <button onclick="saveConfig()"
-                        class="px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-bold shadow-[0_4px_12px_rgba(37,99,235,0.3)] hover:shadow-[0_6px_16px_rgba(37,99,235,0.4)] hover:-translate-y-0.5 transition-all active:scale-95 flex items-center">
+                <button onclick="saveConfig()" class="px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-bold shadow-[0_4px_12px_rgba(37,99,235,0.3)] hover:shadow-[0_6px_16px_rgba(37,99,235,0.4)] hover:-translate-y-0.5 transition-all active:scale-95 flex items-center">
                     <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
                     保存并应用
                 </button>
             </div>
-
         </div>
     </div>
 
-    <div id="confirmModal"
-         class="hidden fixed inset-0 bg-black/60 z-[60] flex items-center justify-center backdrop-blur-sm">
+    <div id="confirmModal" class="hidden fixed inset-0 bg-black/60 z-[60] flex items-center justify-center backdrop-blur-sm transition-opacity duration-300">
         <div class="bg-white p-6 rounded-2xl w-[420px] max-w-[95%] shadow-2xl transform transition-all">
             <div class="flex items-center mb-3">
-                <div id="confirmIcon" class="w-10 h-10 rounded-full flex items-center justify-center mr-3 text-white">
-                </div>
+                <div id="confirmIcon" class="w-10 h-10 rounded-full flex items-center justify-center mr-3 text-white"></div>
                 <h2 class="text-xl font-bold text-gray-800" id="confirmTitle">操作确认</h2>
             </div>
             <div class="text-sm text-gray-600 mb-6 pl-13" id="confirmDesc">描述信息</div>
             <div class="flex justify-end space-x-3">
-                <button onclick="closeConfirm()"
-                        class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-bold transition-all">
-                    取消
-                </button>
-                <button id="confirmBtn" onclick="executeConfirmAction()"
-                        class="px-4 py-2 text-white rounded-lg font-bold shadow transition-all">确认执行
-                </button>
+                <button onclick="closeConfirm()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-bold transition-all">取消</button>
+                <button id="confirmBtn" onclick="executeConfirmAction()" class="px-4 py-2 text-white rounded-lg font-bold shadow transition-all">确认执行</button>
             </div>
         </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
+
         <div class="lg:col-span-1 bg-white p-4 rounded-xl shadow-sm border-t-4 border-blue-500 flex flex-col h-[500px]">
             <h2 class="font-bold mb-4 text-lg text-gray-700 flex items-center">实时节点</h2>
             <div id="camList" class="space-y-2 overflow-y-auto flex-1 pr-1 custom-scrollbar">
                 <div class="text-sm text-gray-400 text-center py-10">正在同步设备状态...</div>
             </div>
         </div>
-        <div class="lg:col-span-3 bg-black rounded-xl shadow-xl overflow-hidden relative h-[500px] flex flex-col justify-center border border-gray-800">
-            <iframe id="live-iframe" class="w-full h-full bg-black hidden border-0"
-                    allow="autoplay; fullscreen; microphone; camera"></iframe>
-            <div id="dplayer" class="w-full h-full"></div>
-            <video id="native-player" class="w-full h-full object-contain bg-black hidden" playsinline controls></video>
-            <div class="absolute top-4 left-4 z-10 bg-black/10 text-white px-4 py-2 text-sm rounded-lg shadow-xs backdrop-blur-xs border border-white/10 transition-all hover:bg-black/30">
-                当前焦点: <span id="currentCam" class="text-blue-400 font-bold ml-1">未选择</span>
+
+        <div id="video-wrapper" class="lg:col-span-3 bg-gray-900 rounded-xl shadow-xl overflow-hidden relative h-[500px] flex flex-col border border-gray-800 transition-all duration-300">
+            <div class="absolute top-4 left-4 right-4 z-20 flex justify-between items-center pointer-events-none">
+                <div class="bg-black/60 backdrop-blur-md text-white px-3 py-1.5 text-xs font-bold rounded-lg shadow-sm border border-white/10 pointer-events-auto transition-colors" id="focusIndicator">
+                    当前焦点: <span id="currentCam" class="text-blue-400 ml-1">窗口 1</span>
+                </div>
+                <div class="flex bg-black/60 p-1 rounded-lg backdrop-blur-md border border-white/10 shadow-lg pointer-events-auto items-center">
+                    <button onclick="setLayout(1)" id="btn-layout-1" class="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/10 transition-all" title="单画面">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" stroke-width="2"></rect></svg>
+                    </button>
+                    <button onclick="setLayout(4)" id="btn-layout-4" class="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/10 transition-all" title="四画面">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"></path></svg>
+                    </button>
+                    <button onclick="setLayout(6)" id="btn-layout-6" class="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/10 transition-all" title="六画面">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4h4v7H4zM10 4h4v7h-4zM16 4h4v7h-4zM4 13h4v7H4zM10 13h4v7h-4zM16 13h4v7h-4z"></path></svg>
+                    </button>
+
+                    <div class="w-px h-5 bg-gray-600 mx-1.5"></div>
+
+                    <button onclick="toggleMatrixFullscreen()" class="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/10 transition-all" title="多宫格全屏 (Esc退出)">
+                        <svg id="icon-fullscreen-enter" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+                        <svg id="icon-fullscreen-exit" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 14h4v4M4 14l5 5M20 14h-4v4m0-4l5 5M4 10h4V6M4 10l5-5M20 10h-4V6m0 4l5-5"></path></svg>
+                    </button>
+                </div>
             </div>
+            <div id="video-grid" class="w-full h-full p-1 bg-black grid gap-1 transition-all duration-300"></div>
         </div>
     </div>
 
     <div class="bg-white p-6 rounded-xl shadow-sm border-t-4 border-emerald-500">
         <div class="flex items-center justify-between mb-6">
             <h2 class="font-bold text-lg text-gray-700">历史录像档案</h2>
-            <span id="recordCount"
-                  class="text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full border border-gray-200">0 个文件</span>
+            <span id="recordCount" class="text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full border border-gray-200">0 个文件</span>
         </div>
         <div id="recordList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>
     </div>
 </div>
 
-<style>
-    .custom-scrollbar::-webkit-scrollbar {
-        width: 5px;
-    }
-
-    .custom-scrollbar::-webkit-scrollbar-track {
-        background: transparent;
-    }
-
-    .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: #e2e8f0;
-        border-radius: 10px;
-    }
-
-    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        background: #cbd5e1;
-    }
-
-    .dplayer-video-wrap {
-        background-color: #000 !important;
-    }
-</style>
-
 <script>
-    let dp = null;
-    let pc = null;
+    // === 播放矩阵状态管理 ===
+    let currentLayout = 1;
+    let activeCell = 0;
+    let dpInstances = new Array(6).fill(null);
+    let cellData = new Array(6).fill(null);
     let currentSelectedCam = null;
+    let pendingAction = null;
 
     window.onload = function () {
         if (typeof DPlayer === 'undefined') {
             alert("播放器组件加载失败，请检查网络！");
             return;
         }
+        setLayout(1);
         loadStatus();
         setInterval(loadStatus, 5000);
     };
 
-    let pendingAction = null;
-
-    // 打开确认弹窗并动态渲染文案
+    // --- 控制面板动作弹窗 ---
     function confirmCamAction(camId, action) {
         pendingAction = {camId, action};
         const titleEl = document.getElementById('confirmTitle');
@@ -246,40 +226,36 @@
         const iconEl = document.getElementById('confirmIcon');
 
         if (action === 'start') {
-            titleEl.innerText = `强制开启录像 (${camId})`;
+            titleEl.innerText = `强制开启录像 (CAM-${camId})`;
             descEl.innerHTML = `
                 <p class="mb-2">此操作将<b>无视配置中的时间表</b>，立刻开始录像。</p>
                 <p class="mb-2">摄像头将<b>一直保持录制状态</b>，直到您手动点击“停录”或恢复“计划”。</p>
-                <p class="text-xs text-green-600 font-bold mt-3 border-t pt-2">⚡ 确认后稍后即生效</p>
-            `;
+                <p class="text-xs text-green-600 font-bold mt-3 border-t pt-2">⚡ 确认后稍后即生效</p>`;
             btnEl.className = "px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold shadow transition-all";
             btnEl.innerText = "确认强录";
             iconEl.className = "w-10 h-10 rounded-full flex items-center justify-center mr-3 text-white bg-green-500 shadow-lg shadow-green-200";
             iconEl.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>`;
         } else if (action === 'stop') {
-            titleEl.innerText = `强制停止录像 (${camId})`;
+            titleEl.innerText = `强制停止录像 (CAM-${camId})`;
             descEl.innerHTML = `
                 <p class="mb-2">此操作将<b>立即中断当前的录像任务</b>。</p>
                 <p class="mb-2">摄像头将<b>一直保持不录像状态</b>（即使在计划时间内也不会录），直到您手动点击“强制录”或恢复“计划”。</p>
-                <p class="text-xs text-red-500 font-bold mt-3 border-t pt-2">⚡ 确认后稍后即生效</p>
-            `;
+                <p class="text-xs text-red-500 font-bold mt-3 border-t pt-2">⚡ 确认后稍后即生效</p>`;
             btnEl.className = "px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold shadow transition-all";
             btnEl.innerText = "确认停录";
             iconEl.className = "w-10 h-10 rounded-full flex items-center justify-center mr-3 text-white bg-red-500 shadow-lg shadow-red-200";
             iconEl.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path></svg>`;
         } else if (action === 'auto') {
-            titleEl.innerText = `恢复自动计划 (${camId})`;
+            titleEl.innerText = `恢复自动计划 (CAM-${camId})`;
             descEl.innerHTML = `
                 <p class="mb-2">解除强制状态，将摄像头的录像控制权交还给系统。</p>
                 <p class="mb-2">系统将严格按照 conf.yaml 中的 <code>record_time</code> 时间表自动启停录像。</p>
-                <p class="text-xs text-blue-500 font-bold mt-3 border-t pt-2">⚡ 确认后立即应用计划逻辑</p>
-            `;
+                <p class="text-xs text-blue-500 font-bold mt-3 border-t pt-2">⚡ 确认后立即应用计划逻辑</p>`;
             btnEl.className = "px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold shadow transition-all";
             btnEl.innerText = "恢复计划";
             iconEl.className = "w-10 h-10 rounded-full flex items-center justify-center mr-3 text-white bg-blue-500 shadow-lg shadow-blue-200";
             iconEl.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>`;
         }
-
         document.getElementById('confirmModal').classList.remove('hidden');
     }
 
@@ -291,8 +267,6 @@
     async function executeConfirmAction() {
         if (!pendingAction) return;
         const {camId, action} = pendingAction;
-
-        // 按钮进入 loading 状态 (可选优化)
         const btn = document.getElementById('confirmBtn');
         const originText = btn.innerText;
         btn.innerText = "执行中...";
@@ -306,7 +280,7 @@
         loadStatus();
     }
 
-    // 配置弹窗逻辑
+    // --- 系统配置相关 ---
     async function openConfig() {
         const resp = await fetch('/api/config');
         document.getElementById('configYaml').value = await resp.text();
@@ -330,6 +304,88 @@
         }
     }
 
+    async function scanUnmanagedStreams() {
+        const listDiv = document.getElementById('unmanagedList');
+        listDiv.innerHTML = '<span class="text-xs text-slate-500">正在与 go2rtc 通信并检索流...</span>';
+        listDiv.classList.remove('hidden');
+
+        try {
+            const resp = await fetch('/api/go2rtc/unmanaged');
+            if (!resp.ok) {
+                const err = await resp.json();
+                throw new Error(err.error || '请求失败');
+            }
+            const streams = await resp.json();
+
+            if (!streams || streams.length === 0) {
+                listDiv.innerHTML = '<span class="text-xs text-emerald-600 font-bold">🎉 所有 go2rtc 流均已接入系统，暂无新发现。</span>';
+                return;
+            }
+
+            listDiv.innerHTML = '';
+            streams.forEach(stream => {
+                const tag = document.createElement('div');
+                tag.id = `unmanaged-${stream}`;
+                tag.className = 'flex items-center bg-white border border-blue-200 pl-3 pr-1 py-1 rounded-md shadow-sm';
+                tag.innerHTML = `
+                    <span class="text-xs font-mono font-bold text-slate-700 mr-3">${stream}</span>
+                    <button onclick="appendStreamToConfig('${stream}')" class="text-[10px] bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white px-2 py-1 rounded transition-colors font-bold">
+                        ➕ 追加到配置
+                    </button>
+                `;
+                listDiv.appendChild(tag);
+            });
+        } catch(e) {
+            listDiv.innerHTML = `<span class="text-xs text-red-500 font-bold">扫描失败: ${e.message}</span>`;
+        }
+    }
+
+    function appendStreamToConfig(streamId) {
+        const textArea = document.getElementById('configYaml');
+        let content = textArea.value;
+
+        let listIndent = "  ";
+        let propIndent = "    ";
+        const indentMatch = content.match(/^(\s+)-\s/m);
+        if (indentMatch) {
+            listIndent = indentMatch[1];
+            propIndent = listIndent + "  ";
+        }
+
+        const newCamYaml = [
+            `${listIndent}- id: "${streamId}"`,
+            `${propIndent}rtsp_url: "managed_by_go2rtc"`,
+            `${propIndent}auto_discovered: true`,
+            `${propIndent}retention_days: 7`,
+            `${propIndent}segment_duration: 600`,
+            `${propIndent}format: ts`,
+            `${propIndent}min_size_kb: 1024`,
+            `${propIndent}record_time: "00:00-23:59"`,
+            `${propIndent}mode: normal`
+        ].join('\n') + '\n';
+
+        if (content.trim() === '') {
+            content = 'cameras:\n';
+        } else {
+            if (!content.endsWith('\n')) content += '\n';
+            if (!content.includes('cameras:')) content += 'cameras:\n';
+        }
+
+        textArea.value = content + newCamYaml;
+
+        const tag = document.getElementById(`unmanaged-${streamId}`);
+        if (tag) tag.remove();
+
+        const listDiv = document.getElementById('unmanagedList');
+        if (listDiv.children.length === 0) {
+            listDiv.innerHTML = '<span class="text-xs text-emerald-600 font-bold">🎉 所有发现设备已追加到下方配置框，请根据需要调整参数后点击【保存并应用】。</span>';
+        }
+
+        textArea.classList.add('ring-2', 'ring-emerald-400', 'transition-all', 'duration-300');
+        setTimeout(() => textArea.classList.remove('ring-2', 'ring-emerald-400'), 800);
+    }
+
+    // --- 状态加载 ---
     async function loadStatus() {
         try {
             const resp = await fetch('/api/status');
@@ -342,6 +398,7 @@
                 const isSelected = currentSelectedCam === id;
                 const streamState = cam.stream_state || 'offline';
                 let streamLight, streamText;
+
                 if (streamState === 'online') {
                     streamLight = 'bg-green-500 shadow-[0_0_5px_#22c55e]';
                     streamText = '<span class="text-[10px] text-green-600 font-bold">流在线</span>';
@@ -354,10 +411,7 @@
                 }
 
                 const item = document.createElement('div');
-                item.className = `p-3 rounded-xl border cursor-pointer transition-all flex flex-col group
-                    ${isSelected ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-100' : 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-sm'}
-                    ${isRunning ? '' : 'opacity-80'}`;
-
+                item.className = `p-3 rounded-xl border cursor-pointer transition-all flex flex-col group ${isSelected ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-100' : 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-sm'} ${isRunning ? '' : 'opacity-80'}`;
                 item.onclick = () => selectCamera(id);
 
                 item.innerHTML = `
@@ -373,7 +427,6 @@
                                     <span class="text-[10px] ${isRunning ? 'text-gray-700' : 'text-gray-400'} font-bold">${isRunning ? '录制中' : '未录像'}</span>
                                 </div>
                             </div>
-
                             <div class="flex flex-col">
                                 <span class="font-bold text-gray-800 text-sm tracking-tight">${id}</span>
                                 <span class="text-[10px] text-gray-400 uppercase">${cam.mode || 'Normal'}</span>
@@ -392,13 +445,11 @@
                                 <svg class="w-3 h-3 mr-1 text-emerald-500 group-hover/btn:text-white transition-colors" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle></svg>
                                 强录
                             </button>
-
                             <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'stop')"
                                     class="group/btn flex items-center px-2 py-1 text-[11px] font-bold bg-rose-50 text-rose-600 border border-rose-200 rounded-md hover:bg-rose-500 hover:text-white hover:border-rose-500 shadow-sm transition-all duration-200 active:scale-95">
                                 <svg class="w-3 h-3 mr-1 text-rose-500 group-hover/btn:text-white transition-colors" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>
                                 停录
                             </button>
-
                             <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'auto')"
                                     class="group/btn flex items-center px-2 py-1 text-[11px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-md hover:bg-indigo-500 hover:text-white hover:border-indigo-500 shadow-sm transition-all duration-200 active:scale-95">
                                 <svg class="w-3 h-3 mr-1 text-indigo-500 group-hover/btn:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -414,76 +465,149 @@
         }
     }
 
-    // 后续的播放代码逻辑与原版基本一致，此处折叠保留
+    // --- 宫格矩阵与播放逻辑 ---
+    function setLayout(layoutCount) {
+        currentLayout = layoutCount;
+        if (activeCell >= layoutCount) activeCell = 0;
+
+        [1, 4, 6].forEach(num => {
+            const btn = document.getElementById(`btn-layout-${num}`);
+            if(num === layoutCount) {
+                btn.classList.add('bg-blue-600/50', 'text-white');
+                btn.classList.remove('text-gray-400');
+            } else {
+                btn.classList.remove('bg-blue-600/50', 'text-white');
+                btn.classList.add('text-gray-400');
+            }
+        });
+        renderGrid();
+    }
+
+    function renderGrid() {
+        const grid = document.getElementById('video-grid');
+        grid.className = 'w-full h-full p-1 bg-black grid gap-1 transition-all duration-300 ' +
+            (currentLayout === 1 ? 'grid-cols-1 grid-rows-1' :
+                currentLayout === 4 ? 'grid-cols-2 grid-rows-2' :
+                    'grid-cols-3 grid-rows-2');
+
+        grid.innerHTML = '';
+
+        for (let i = 0; i < currentLayout; i++) {
+            const isFocused = i === activeCell;
+            const cellHtml = `
+                <div id="cell-${i}" onclick="setActiveCell(${i})" ondblclick="toggleCellFullscreen(${i})" class="relative w-full h-full bg-gray-900 border-[2px] transition-colors overflow-hidden group cursor-pointer ${isFocused ? 'border-blue-500 shadow-[inset_0_0_20px_rgba(59,130,246,0.3)]' : 'border-gray-800 hover:border-gray-600'}">
+                    <iframe id="live-iframe-${i}" class="w-full h-full border-0 hidden pointer-events-none" allow="autoplay; fullscreen; microphone; camera"></iframe>
+                    <div id="dplayer-${i}" class="w-full h-full hidden"></div>
+                    <video id="native-player-${i}" class="w-full h-full object-contain hidden bg-black" playsinline controls></video>
+                    <div id="empty-state-${i}" class="absolute inset-0 flex flex-col items-center justify-center text-gray-700 pointer-events-none group-hover:text-gray-500 transition-colors">
+                        <svg class="w-8 h-8 mb-2 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                        <span class="text-xs font-bold tracking-wider uppercase opacity-50">窗口 ${i + 1}</span>
+                    </div>
+                    <div class="absolute bottom-2 left-2 z-10 bg-black/60 text-white px-2 py-1 text-[10px] rounded backdrop-blur-md border border-white/10 hidden pointer-events-none" id="label-${i}"></div>
+                </div>
+            `;
+            grid.insertAdjacentHTML('beforeend', cellHtml);
+
+            if (cellData[i]) {
+                executePlayInCell(i, cellData[i].source, cellData[i].isLive, cellData[i].title);
+            }
+        }
+        updateFocusUI();
+    }
+
+    function setActiveCell(index) {
+        activeCell = index;
+        updateFocusUI();
+    }
+
+    function updateFocusUI() {
+        for (let i = 0; i < currentLayout; i++) {
+            const cell = document.getElementById(`cell-${i}`);
+            if (cell) {
+                if (i === activeCell) {
+                    cell.classList.add('border-blue-500', 'shadow-[inset_0_0_20px_rgba(59,130,246,0.3)]');
+                    cell.classList.remove('border-gray-800');
+                } else {
+                    cell.classList.remove('border-blue-500', 'shadow-[inset_0_0_20px_rgba(59,130,246,0.3)]');
+                    cell.classList.add('border-gray-800');
+                }
+            }
+        }
+        const focusTitle = cellData[activeCell] ? cellData[activeCell].title : '空闲';
+        document.getElementById('currentCam').innerText = `[窗口 ${activeCell + 1}] ${focusTitle}`;
+    }
+
     function selectCamera(camId) {
         currentSelectedCam = camId;
-        document.getElementById('currentCam').innerText = `[已选择] ${camId}`;
         loadStatus();
         loadRecords(camId);
     }
 
     function previewLive(camId) {
         currentSelectedCam = camId;
-        document.getElementById('currentCam').innerText = `[直播中] ${camId}`;
         loadStatus();
-        playVideo(camId, true);
+        playVideo(camId, true, `🟢 直播: ${camId}`);
         loadRecords(camId);
     }
 
-    function playVideo(source, isLive) {
-        const liveIframe = document.getElementById('live-iframe');
-        const dplayerContainer = document.getElementById('dplayer');
-        const nativePlayer = document.getElementById('native-player');
+    function playVideo(source, isLive, title) {
+        cellData[activeCell] = { source, isLive, title };
+        executePlayInCell(activeCell, source, isLive, title);
 
-        // 销毁回放器实例
-        if (dp) {
-            dp.destroy();
-            dp = null;
+        if (isLive && currentLayout > 1) {
+            let nextCell = (activeCell + 1) % currentLayout;
+            setActiveCell(nextCell);
+        } else {
+            updateFocusUI();
         }
+    }
 
-        // 【清理遗留】清理原版 JS 中的 pc 变量（如果你把 let pc = null 保留在了顶部）
-        if (typeof pc !== 'undefined' && pc) {
-            pc.close();
-            pc = null;
+    function executePlayInCell(index, source, isLive, title) {
+        const liveIframe = document.getElementById(`live-iframe-${index}`);
+        const dplayerContainer = document.getElementById(`dplayer-${index}`);
+        const nativePlayer = document.getElementById(`native-player-${index}`);
+        const emptyState = document.getElementById(`empty-state-${index}`);
+        const label = document.getElementById(`label-${index}`);
+
+        if(!liveIframe) return;
+
+        emptyState.classList.add('hidden');
+        label.classList.remove('hidden');
+        label.innerText = title;
+
+        if (dpInstances[index]) {
+            dpInstances[index].destroy();
+            dpInstances[index] = null;
         }
 
         if (isLive) {
             dplayerContainer.classList.add('hidden');
             nativePlayer.classList.add('hidden');
             liveIframe.classList.remove('hidden');
-
-            // 直接加载代理过来的 go2rtc 原生流媒体协商页面
-            // 它会自动根据 PC/iOS/Android 情况，在 WebRTC/MSE/MP4/HLS 中自适应降级播放
             liveIframe.src = `/stream.html?src=${source}`;
-
         } else {
             liveIframe.classList.add('hidden');
-            liveIframe.src = ''; // 清空 src 阻断底层直播数据流拉取，节约性能
+            liveIframe.src = '';
 
-            // 判断是否是苹果生态设备 (iOS/Mac Safari)
             const isApple = /Mac|iPod|iPhone|iPad/.test(navigator.platform) ||
                 (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ||
                 /Safari/i.test(navigator.userAgent) && !/Chrome/i.test(navigator.userAgent);
 
             if (isApple) {
-                // 苹果设备：直接弃用 DPlayer，使用原生 Video 组件
                 dplayerContainer.classList.add('hidden');
                 nativePlayer.classList.remove('hidden');
-
                 let playUrl = source;
                 if (source.endsWith('.ts')) {
-                    // 黑科技：将请求路由替换为我们刚写的伪装接口，触发 iOS 原生硬件解码
                     playUrl = source.replace('/play/', '/play_hls/');
                 }
-
                 nativePlayer.src = playUrl;
-                nativePlayer.play().catch(e => console.log("等待用户点击播放"));
+                nativePlayer.play().catch(e => console.log("等待交互播放"));
             } else {
-                // 💻 PC及安卓设备：继续使用 DPlayer + mpegts.js
                 nativePlayer.classList.add('hidden');
                 dplayerContainer.classList.remove('hidden');
                 let videoType = source.endsWith('.ts') ? 'customTs' : 'normal';
-                dp = new DPlayer({
+
+                dpInstances[index] = new DPlayer({
                     container: dplayerContainer,
                     video: {
                         url: source,
@@ -505,6 +629,7 @@
         }
     }
 
+    // --- 历史录像逻辑 ---
     async function loadRecords(camId) {
         const list = document.getElementById('recordList');
         const countBadge = document.getElementById('recordCount');
@@ -564,8 +689,7 @@
                     const item = document.createElement('div');
                     item.className = 'flex justify-between items-center p-2.5 text-xs rounded-lg bg-white border border-gray-100 hover:border-blue-400 hover:text-blue-600 cursor-pointer transition-all shadow-sm group';
                     item.onclick = () => {
-                        document.getElementById('currentCam').innerText = `[回放] ${camId} (${timeDisplay})`;
-                        playVideo(file.url, false);
+                        playVideo(file.url, false, `🎬 回放: ${camId} (${timeDisplay})`);
                     };
                     item.innerHTML = `
                     <div class="flex items-center">
@@ -591,121 +715,79 @@
         }
     }
 
-    // 录像删除操作控制
     async function deleteRecord(e, camId, filePath) {
-        // 阻止事件冒泡，防止点击删除按钮时触发整个条目的“播放”动作
         e.stopPropagation();
-
         if (!confirm('确定要永久删除此录像文件吗？释放的空间不可恢复。')) return;
 
         try {
             const resp = await fetch(`/api/record?path=${encodeURIComponent(filePath)}`, {method: 'DELETE'});
             if (resp.ok) {
-                // 删除成功后，静默刷新当前摄像头的录像列表
                 loadRecords(camId);
             } else {
                 const err = await resp.json();
                 alert('操作失败: ' + err.error);
             }
         } catch (err) {
-            alert('网络请求失败，请检查 NAS 连接状态');
+            alert('网络请求失败，请检查连接状态');
         }
     }
 
-    // 扫描未管理的设备
-    async function scanUnmanagedStreams() {
-        const listDiv = document.getElementById('unmanagedList');
-        listDiv.innerHTML = '<span class="text-xs text-gray-500">正在与 go2rtc 通信并检索流...</span>';
-        listDiv.classList.remove('hidden');
-
-        try {
-            const resp = await fetch('/api/go2rtc/unmanaged');
-            if (!resp.ok) {
-                const err = await resp.json();
-                throw new Error(err.error || '请求失败');
+    // 1. 矩阵整体全屏
+    function toggleMatrixFullscreen() {
+        const wrapper = document.getElementById("video-wrapper");
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+            if (wrapper.requestFullscreen) {
+                wrapper.requestFullscreen();
+            } else if (wrapper.webkitRequestFullscreen) {
+                wrapper.webkitRequestFullscreen();
             }
-            const streams = await resp.json();
-
-            if (!streams || streams.length === 0) {
-                listDiv.innerHTML = '<span class="text-xs text-emerald-600 font-bold">🎉 所有 go2rtc 流均已接入系统，暂无新发现。</span>';
-                return;
-            }
-
-            listDiv.innerHTML = '';
-            streams.forEach(stream => {
-                const tag = document.createElement('div');
-                tag.id = `unmanaged-${stream}`;
-                tag.className = 'flex items-center bg-white border border-blue-200 pl-3 pr-1 py-1 rounded-md shadow-sm';
-                tag.innerHTML = `
-                    <span class="text-xs font-mono font-bold text-gray-700 mr-3">${stream}</span>
-                    <button onclick="appendStreamToConfig('${stream}')" class="text-[10px] bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white px-2 py-1 rounded transition-colors font-bold">
-                        ➕ 追加到配置
-                    </button>
-                `;
-                listDiv.appendChild(tag);
-            });
-
-        } catch (e) {
-            listDiv.innerHTML = `<span class="text-xs text-red-500 font-bold">扫描失败: ${e.message}</span>`;
-        }
-    }
-
-    // 将设备追加到下方 YAML 编辑器中
-    function appendStreamToConfig(streamId) {
-        const textArea = document.getElementById('configYaml');
-        let content = textArea.value;
-
-        // 【智能探测】：正则寻找已有的列表缩进格式 (例如寻找 "    - ")
-        let listIndent = "  ";   // 默认兜底：2个空格
-        let propIndent = "    "; // 默认兜底：属性比列表符多2个空格
-
-        const indentMatch = content.match(/^(\s+)-\s/m);
-        if (indentMatch) {
-            listIndent = indentMatch[1];       // 提取已有的缩进空格数 (如 4 个空格)
-            propIndent = listIndent + "  ";    // 属性行在此基础上加 2 个空格
-        }
-
-        // 使用动态探测到的缩进级别来拼接 YAML
-        const newCamYaml = [
-            `${listIndent}- id: "${streamId}"`,
-            `${propIndent}rtsp_url: "managed_by_go2rtc"`,
-            `${propIndent}auto_discovered: true`,
-            `${propIndent}retention_days: 7`,
-            `${propIndent}segment_duration: 600`,
-            `${propIndent}format: ts`,
-            `${propIndent}min_size_kb: 1024`,
-            `${propIndent}record_time: "00:00-23:59"`,
-            `${propIndent}mode: normal`
-        ].join('\n') + '\n';
-
-        // 稳健的换行与头部检测
-        if (content.trim() === '') {
-            content = 'cameras:\n';
         } else {
-            if (!content.endsWith('\n')) {
-                content += '\n';
-            }
-            if (!content.includes('cameras:')) {
-                content += 'cameras:\n';
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
             }
         }
-
-        textArea.value = content + newCamYaml;
-
-        // UI 交互反馈：移除已被选中的设备标签
-        const tag = document.getElementById(`unmanaged-${streamId}`);
-        if (tag) tag.remove();
-
-        // 如果全部添加完毕，给个成功提示
-        const listDiv = document.getElementById('unmanagedList');
-        if (listDiv.children.length === 0) {
-            listDiv.innerHTML = '<span class="text-xs text-emerald-600 font-bold">🎉 所有发现设备已追加到下方配置框，请检查后点击【保存并应用】。</span>';
-        }
-
-        // 让编辑框闪烁一下，提醒用户内容已被更改
-        textArea.classList.add('ring-2', 'ring-emerald-400', 'transition-all', 'duration-300');
-        setTimeout(() => textArea.classList.remove('ring-2', 'ring-emerald-400'), 800);
     }
+
+    // 2. 单个格子双击独立全屏
+    function toggleCellFullscreen(index) {
+        const cell = document.getElementById(`cell-${index}`);
+        // 阻止事件冒泡防止触发点击的焦点切换
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+            if (cell.requestFullscreen) cell.requestFullscreen();
+            else if (cell.webkitRequestFullscreen) cell.webkitRequestFullscreen();
+        } else {
+            if (document.exitFullscreen) document.exitFullscreen();
+            else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        }
+    }
+
+    // 3. 监听全局全屏状态变化，自动去圆角、去边框、切图标，达到完美沉浸感
+    ['fullscreenchange', 'webkitfullscreenchange'].forEach(eventType => {
+        document.addEventListener(eventType, () => {
+            const enterIcon = document.getElementById('icon-fullscreen-enter');
+            const exitIcon = document.getElementById('icon-fullscreen-exit');
+            const wrapper = document.getElementById('video-wrapper');
+
+            // 只要是在全屏状态下 (无论是多宫格全屏，还是单格子全屏)
+            if (document.fullscreenElement || document.webkitFullscreenElement) {
+                enterIcon.classList.add('hidden');
+                exitIcon.classList.remove('hidden');
+
+                // 去除父容器圆角和边框，贴合显示器物理边缘
+                wrapper.classList.remove('rounded-xl', 'border');
+                wrapper.classList.add('rounded-none', 'border-0');
+            } else {
+                enterIcon.classList.remove('hidden');
+                exitIcon.classList.add('hidden');
+
+                // 退出全屏，恢复 UI 质感
+                wrapper.classList.add('rounded-xl', 'border');
+                wrapper.classList.remove('rounded-none', 'border-0');
+            }
+        });
+    });
 </script>
 </body>
 </html>
