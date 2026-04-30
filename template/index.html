@@ -162,30 +162,33 @@
         </div>
 
         <div id="video-wrapper" class="lg:col-span-3 bg-gray-900 rounded-xl shadow-xl overflow-hidden relative h-[500px] flex flex-col border border-gray-800 transition-all duration-300">
-            <div class="absolute top-4 left-4 right-4 z-20 flex justify-between items-center pointer-events-none">
-                <div class="bg-black/60 backdrop-blur-md text-white px-3 py-1.5 text-xs font-bold rounded-lg shadow-sm border border-white/10 pointer-events-auto transition-colors" id="focusIndicator">
-                    当前焦点: <span id="currentCam" class="text-blue-400 ml-1">窗口 1</span>
+
+            <div id="video-grid" class="w-full flex-1 min-h-0 p-1 bg-black grid gap-1 transition-all duration-300"></div>
+
+            <div class="flex justify-between items-center px-4 py-3 bg-[#0f172a] border-t border-gray-800 shrink-0 z-20">
+                <div class="bg-gray-800/80 text-gray-300 px-3 py-1.5 text-xs font-bold rounded-lg border border-gray-700/50" id="focusIndicator">
+                    当前焦点: <span id="currentCam" class="text-blue-400 ml-1 tracking-wide">窗口 1</span>
                 </div>
-                <div class="flex bg-black/60 p-1 rounded-lg backdrop-blur-md border border-white/10 shadow-lg pointer-events-auto items-center">
-                    <button onclick="setLayout(1)" id="btn-layout-1" class="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/10 transition-all" title="单画面">
+
+                <div class="flex bg-gray-800/80 p-1 rounded-lg border border-gray-700/50 items-center">
+                    <button onclick="setLayout(1)" id="btn-layout-1" class="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 transition-all" title="单画面">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" stroke-width="2"></rect></svg>
                     </button>
-                    <button onclick="setLayout(4)" id="btn-layout-4" class="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/10 transition-all" title="四画面">
+                    <button onclick="setLayout(4)" id="btn-layout-4" class="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 transition-all" title="四画面">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"></path></svg>
                     </button>
-                    <button onclick="setLayout(6)" id="btn-layout-6" class="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/10 transition-all" title="六画面">
+                    <button onclick="setLayout(6)" id="btn-layout-6" class="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 transition-all" title="六画面">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4h4v7H4zM10 4h4v7h-4zM16 4h4v7h-4zM4 13h4v7H4zM10 13h4v7h-4zM16 13h4v7h-4z"></path></svg>
                     </button>
 
-                    <div class="w-px h-5 bg-gray-600 mx-1.5"></div>
+                    <div class="w-px h-5 bg-gray-600/50 mx-1.5"></div>
 
-                    <button onclick="toggleMatrixFullscreen()" class="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/10 transition-all" title="多宫格全屏 (Esc退出)">
+                    <button onclick="toggleMatrixFullscreen()" class="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 transition-all" title="多宫格全屏 (Esc退出)">
                         <svg id="icon-fullscreen-enter" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
                         <svg id="icon-fullscreen-exit" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 14h4v4M4 14l5 5M20 14h-4v4m0-4l5 5M4 10h4V6M4 10l5-5M20 10h-4V6m0 4l5-5"></path></svg>
                     </button>
                 </div>
             </div>
-            <div id="video-grid" class="w-full h-full p-1 bg-black grid gap-1 transition-all duration-300"></div>
         </div>
     </div>
 
@@ -485,7 +488,7 @@
 
     function renderGrid() {
         const grid = document.getElementById('video-grid');
-        grid.className = 'w-full h-full p-1 bg-black grid gap-1 transition-all duration-300 ' +
+        grid.className = 'w-full flex-1 min-h-0 p-1 bg-black grid gap-1 transition-all duration-300 ' +
             (currentLayout === 1 ? 'grid-cols-1 grid-rows-1' :
                 currentLayout === 4 ? 'grid-cols-2 grid-rows-2' :
                     'grid-cols-3 grid-rows-2');
