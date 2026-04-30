@@ -70,7 +70,7 @@ func WaitForGo2rtcReady(timeout time.Duration) error {
 	return fmt.Errorf("等待 go2rtc 启动超时 (%v)", timeout)
 }
 
-// InitGo2rtcStreams 负责在启动时清理 go2rtc 历史流，并注册当前配置的所有流
+// InitGo2rtcStreams 负责在启动时注册和更新当前配置中的流
 func InitGo2rtcStreams(config constant.Config) {
 	go2rtcHost := fmt.Sprintf("http://%s:%d", constant.DefaultGo2rtcHost, constant.DefaultGo2rtcApiPort)
 	log.Println("正在连接 go2rtc 并初始化视频流...")
@@ -79,39 +79,26 @@ func InitGo2rtcStreams(config constant.Config) {
 	for i := 0; i < 10; i++ {
 		resp, err := httpClient.Get(go2rtcHost + "/api/streams")
 		if err == nil && resp.StatusCode == http.StatusOK {
-			// 2. 获取并清理所有存在的历史流
-			var result map[string]interface{}
-			if err := json.NewDecoder(resp.Body).Decode(&result); err == nil {
-				var streamKeys []string
+			resp.Body.Close() // 服务已就绪，不再需要解析历史流
 
-				// 兼容不同版本的 go2rtc API 数据结构
-				if streamsObj, ok := result["streams"].(map[string]interface{}); ok {
-					for k := range streamsObj {
-						streamKeys = append(streamKeys, k)
-					}
-				} else {
-					for k := range result {
-						streamKeys = append(streamKeys, k)
-					}
-				}
-
-				// 发送 DELETE 请求清理旧流
-				for _, streamName := range streamKeys {
-					reqDel, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/api/streams?src=%s", go2rtcHost, streamName), nil)
-					if respDel, errDel := httpClient.Do(reqDel); errDel == nil {
-						respDel.Body.Close()
-					}
-				}
-				if len(streamKeys) > 0 {
-					log.Printf("已清理 go2rtc 中的 %d 个历史流", len(streamKeys))
-				}
-			}
-			resp.Body.Close()
-
+			// 2. 遍历当前配置文件中的摄像头
 			for _, cam := range config.Cameras {
-				addStreamURL := fmt.Sprintf("%s/api/streams?name=%s&src=%s", go2rtcHost, cam.ID, url.QueryEscape(cam.RTSPUrl))
+				if cam.AutoDiscovered {
+					log.Printf("[%s] 识别为 go2rtc 原生流，已接管", cam.ID)
+					continue
+				}
+
+				// 只针对当前 conf.yaml 里存在的流，先删后加
+				// 这一步确保了如果该流被修改了 RTSP 地址，旧地址会被彻底顶替掉
+				reqDel, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/api/streams?src=%s", go2rtcHost, url.QueryEscape(cam.ID)), nil)
+				if respDel, errDel := httpClient.Do(reqDel); errDel == nil && respDel != nil {
+					respDel.Body.Close()
+				}
+
+				// 注册最新的流配置
+				addStreamURL := fmt.Sprintf("%s/api/streams?name=%s&src=%s", go2rtcHost, url.QueryEscape(cam.ID), url.QueryEscape(cam.RTSPUrl))
 				reqAdd, _ := http.NewRequest("PUT", addStreamURL, nil)
-				respAdd, errAdd := http.DefaultClient.Do(reqAdd)
+				respAdd, errAdd := httpClient.Do(reqAdd)
 
 				if errAdd != nil {
 					log.Printf("[%s] 注册到 go2rtc 失败: %v", cam.ID, errAdd)
@@ -143,6 +130,12 @@ func CleanupGo2rtcStreams(config constant.Config) {
 	log.Println("正在从 go2rtc 注销视频流...")
 
 	for _, cam := range config.Cameras {
+		if cam.AutoDiscovered {
+			// go2rtc 上注册的流，不能注销
+			log.Printf("[%s] go2rtc 上注册的流，不注销", cam.ID)
+			continue
+		}
+
 		deleteURL := fmt.Sprintf("%s/api/streams?src=%s", go2rtcHost, cam.ID)
 		reqDel, err := http.NewRequest("DELETE", deleteURL, nil)
 		if err != nil {
@@ -202,7 +195,7 @@ func PollGo2rtcStatus(cfg *constant.Config) {
 		if len(cams) > 0 && len(streams) == 0 {
 			log.Println("检测到 go2rtc 丢失所有流配置(可能已重启)，正在重新注入...")
 			// 异步重新注入，避免阻塞轮询
-			go initGo2rtcStreams(*cfg)
+			go InitGo2rtcStreams(*cfg)
 			continue // 跳过本次状态更新，等下一轮
 		}
 		// === 自愈逻辑结束 ===
@@ -341,72 +334,6 @@ func checkCameraTCPAlive(rawURL string) bool {
 
 	conn.Close()
 	return true
-}
-
-// initGo2rtcStreams 负责在启动时清理 go2rtc 历史流，并注册当前配置的所有流
-func initGo2rtcStreams(config constant.Config) {
-	go2rtcHost := fmt.Sprintf("http://%s:%d", constant.DefaultGo2rtcHost, constant.DefaultGo2rtcApiPort)
-	log.Println("正在连接 go2rtc 并初始化视频流...")
-
-	// 1. 等待 go2rtc 服务就绪 (最多等待 10 秒)
-	for i := 0; i < 10; i++ {
-		resp, err := httpClient.Get(go2rtcHost + "/api/streams")
-		if err == nil && resp.StatusCode == http.StatusOK {
-			// 2. 获取并清理所有存在的历史流
-			var result map[string]interface{}
-			if err := json.NewDecoder(resp.Body).Decode(&result); err == nil {
-				var streamKeys []string
-
-				// 兼容不同版本的 go2rtc API 数据结构
-				if streamsObj, ok := result["streams"].(map[string]interface{}); ok {
-					for k := range streamsObj {
-						streamKeys = append(streamKeys, k)
-					}
-				} else {
-					for k := range result {
-						streamKeys = append(streamKeys, k)
-					}
-				}
-
-				// 发送 DELETE 请求清理旧流
-				for _, streamName := range streamKeys {
-					reqDel, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/api/streams?src=%s", go2rtcHost, streamName), nil)
-					if respDel, errDel := httpClient.Do(reqDel); errDel == nil {
-						respDel.Body.Close()
-					}
-				}
-				if len(streamKeys) > 0 {
-					log.Printf("已清理 go2rtc 中的 %d 个历史流", len(streamKeys))
-				}
-			}
-			resp.Body.Close()
-
-			for _, cam := range config.Cameras {
-				addStreamURL := fmt.Sprintf("%s/api/streams?name=%s&src=%s", go2rtcHost, cam.ID, url.QueryEscape(cam.RTSPUrl))
-				reqAdd, _ := http.NewRequest("PUT", addStreamURL, nil)
-				respAdd, errAdd := http.DefaultClient.Do(reqAdd)
-
-				if errAdd != nil {
-					log.Printf("[%s] 注册到 go2rtc 失败: %v", cam.ID, errAdd)
-				} else if respAdd != nil {
-					if respAdd.StatusCode >= 400 {
-						log.Printf("[%s] 注册失败，状态码: %d", cam.ID, respAdd.StatusCode)
-					} else {
-						log.Printf("[%s] 已成功注册到 go2rtc", cam.ID)
-					}
-					respAdd.Body.Close()
-				}
-			}
-			log.Println("go2rtc 视频流初始化完毕！")
-			return // 初始化成功，退出循环
-		}
-
-		if i == 0 {
-			log.Println("等待 go2rtc 服务启动...")
-		}
-		time.Sleep(1 * time.Second)
-	}
-	log.Println("警告：无法连接到 go2rtc，流初始化超时，请确保 go2rtc 已启动！")
 }
 
 func markAllStreamOffline(currentConfig *constant.Config) {
