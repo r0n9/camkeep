@@ -1,4 +1,4 @@
-# <img src="./static/camkeep_w200.png" width="42" align="center" alt="CamKeep Logo" /> CamKeep
+# <img src="./static/camkeep_w80.png" width="42" align="center" alt="CamKeep Logo" /> CamKeep
 
 **专为家庭 NAS 设计的轻量级私有化监控录像机 (NVR)**
 
