@@ -115,6 +115,11 @@ Access `http://<Your-NAS-IP>:9110` in your browser to enter the monitoring cente
 
 This project is licensed under the **MIT License**. Issues and PRs are welcome.
 
+This project uses:
+
+- go2rtc — https://github.com/AlexxIT/go2rtc
+  Licensed under the MIT License.
+
 ---
 
 <a href="https://www.star-history.com/?repos=r0n9%2Fcamkeep&type=date&legend=top-left">

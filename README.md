@@ -113,6 +113,11 @@ docker-compose up -d
 
 本项目基于 **MIT License** 开源。欢迎大家提交 Issue 和 PR 共同完善这款属于个人的 NAS 监控系统。
 
+This project uses:
+
+- go2rtc — https://github.com/AlexxIT/go2rtc
+  Licensed under the MIT License.
+
 ---
 
 <a href="https://www.star-history.com/?repos=r0n9%2Fcamkeep&type=date&legend=top-left">
