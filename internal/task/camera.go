@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/r0n9/camkeep/constant"
-	"github.com/r0n9/camkeep/service"
+	"github.com/r0n9/camkeep/internal/service"
 	"github.com/r0n9/camkeep/util"
 )
 
