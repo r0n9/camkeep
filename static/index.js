@@ -185,17 +185,7 @@ function appendStreamToConfig(streamId) {
         propIndent = listIndent + "  ";
     }
 
-    const newCamYaml = [
-        `${listIndent}- id: "${streamId}"`,
-        `${propIndent}rtsp_url: "managed_by_go2rtc"`,
-        `${propIndent}auto_discovered: true`,
-        `${propIndent}retention_days: 7`,
-        `${propIndent}segment_duration: 600`,
-        `${propIndent}format: ts`,
-        `${propIndent}min_size_kb: 1024`,
-        `${propIndent}record_time: "00:00-23:59"`,
-        `${propIndent}mode: normal`
-    ].join('\n') + '\n';
+    const newCamYaml = [`${listIndent}- id: "${streamId}"`, `${propIndent}rtsp_url: "managed_by_go2rtc"`, `${propIndent}auto_discovered: true`, `${propIndent}retention_days: 7`, `${propIndent}segment_duration: 600`, `${propIndent}format: ts`, `${propIndent}min_size_kb: 1024`, `${propIndent}record_time: "00:00-23:59"`, `${propIndent}mode: normal`].join('\n') + '\n';
 
     if (content.trim() === '') {
         content = 'cameras:\n';
@@ -318,10 +308,7 @@ function setLayout(layoutCount) {
 
 function renderGrid() {
     const grid = document.getElementById('video-grid');
-    grid.className = 'w-full flex-1 min-h-0 p-1 bg-black grid gap-1 transition-all duration-300 ' +
-        (currentLayout === 1 ? 'grid-cols-1 grid-rows-1' :
-            currentLayout === 4 ? 'grid-cols-2 grid-rows-2' :
-                compactGrid ? 'grid-cols-2 grid-rows-3' : 'grid-cols-3 grid-rows-2');
+    grid.className = 'w-full flex-1 min-h-0 p-1 bg-black grid gap-1 transition-all duration-300 ' + (currentLayout === 1 ? 'grid-cols-1 grid-rows-1' : currentLayout === 4 ? 'grid-cols-2 grid-rows-2' : compactGrid ? 'grid-cols-2 grid-rows-3' : 'grid-cols-3 grid-rows-2');
 
     grid.innerHTML = '';
 
@@ -459,56 +446,85 @@ async function playRecord(file, title) {
     showProbeLoadingInCell(targetCell, title);
 
     try {
+        // 1. 合并后的完美大 MP4：所有设备直接走原生秒开播放
+        if (file.name.toLowerCase().endsWith('.mp4') && file.name.includes('_merged')) {
+            cellData[targetCell] = {source: file.url, isLive: false, title};
+            // 传入 true，强制使用原生的 <video> 标签播放 mp4
+            executePlayInCell(targetCell, file.url, false, title, true);
+            updateFocusUI();
+            return;
+        }
+
+        // 2. 针对零散碎片进行探测
         const resp = await fetch(`/api/record/probe?path=${encodeURIComponent(file.path)}`);
         const probe = await resp.json();
 
         // 探测成功，且确实是 H.265 编码
         if (probe.can_probe && probe.is_h265) {
+            // 【精准识别】：iOS全系设备 + macOS纯Safari (排除 Mac 上的 Chrome/Edge)
+            const isIOS = /iPod|iPhone|iPad/.test(navigator.platform) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            const isMacSafari = /Mac/.test(navigator.platform) && /Safari/i.test(navigator.userAgent) && !/Chrome/i.test(navigator.userAgent) && !/Edg/i.test(navigator.userAgent);
+            const isAppleNative = isIOS || isMacSafari;
+
             const supportHEVC = browserSupportsHEVC();
 
-            if (supportHEVC) {
-                // 设备支持 H.265 时，绝不走 HLS/ts 逻辑，强制走 fMP4 重封装！
-                // 这样能完美避开 iOS "有声音没画面" 的黑屏 Bug
-                const remuxUrl = `/play_remux/${encodeURI(file.path)}`;
-                cellData[targetCell] = {source: remuxUrl, isLive: false, title};
+            if (isAppleNative || !supportHEVC) {
+                // 直接拦截并抛出不支持的 UI 提示，不再走转码逻辑
+                stopCellPlayback(targetCell);
+                cellData[targetCell] = {source: '', isLive: false, title: `${title} · 播放受限`};
 
-                // 传 true 强制使用原生的 <video> 标签播放 mp4 流
-                executePlayInCell(targetCell, remuxUrl, false, title, true);
+                const emptyState = document.getElementById(`empty-state-${targetCell}`);
+                const label = document.getElementById(`label-${targetCell}`);
+                const closeBtn = document.getElementById(`close-cell-${targetCell}`);
+
+                if (label) {
+                    label.classList.remove('hidden');
+                    label.innerText = `${title} · 限制`;
+                }
+                if (closeBtn) {
+                    closeBtn.classList.remove('hidden');
+                    closeBtn.classList.add('flex');
+                }
+                if (emptyState) {
+                    emptyState.classList.remove('hidden');
+                    emptyState.classList.remove('pointer-events-none');
+                    emptyState.innerHTML = `
+                        <div class="max-w-[86%] rounded-lg border border-red-500/30 bg-black/70 px-4 py-3 text-center text-white shadow-xl backdrop-blur-md">
+                            <div class="text-sm font-bold mb-1 text-red-400">⚠️ 播放受限</div>
+                            <div class="text-xs leading-relaxed text-white/80">
+                                当前设备或浏览器不支持 H.265 录像片段播放。自动合并后的录像也许不受此影响。
+                            </div>
+                        </div>
+                    `;
+                }
                 updateFocusUI();
-                return; // 直接返回，拦截默认的 TS 播放逻辑
-            } else {
-                // 设备不支持 H.265，弹出让用户选择转码 H.264 的提示
-                const noticeData = {
-                    codecNotice: true,
-                    source: file.url,
-                    isLive: false,
-                    title,
-                    file,
-                    codec: probe.codec || 'hevc',
-                    canTranscode: !isMobilePlayback()
-                };
-                cellData[targetCell] = noticeData;
-                showCodecNoticeInCell(targetCell, noticeData);
-                updateFocusUI();
-                return; // 同样拦截
+                return;
             }
+
+            // 设备支持 H.265 时，强制走 fMP4 重封装！
+            const remuxUrl = `/play_remux/${encodeURI(file.path)}`;
+            cellData[targetCell] = {source: remuxUrl, isLive: false, title};
+
+            // 传 true 强制使用原生的 <video> 标签播放 mp4 流
+            const warningMsg = "流式播放：当前片段暂不支持进度条拖拽";
+            executePlayInCell(targetCell, remuxUrl, false, title, true, warningMsg);
+            updateFocusUI();
+            return; // 直接返回，拦截默认的 TS 播放逻辑
         }
     } catch (e) {
         console.warn('编码探测失败，尝试直接播放:', e);
     }
 
-    // 非 H.265 或者是普通的 H.264 文件，走原本默认的 HLS 或 mpegts 播放
+    // 非 H.265 的 .ts 碎片，走默认播放逻辑 (HLS 或 mpegts)
     cellData[targetCell] = {source: file.url, isLive: false, title};
-    executePlayInCell(targetCell, file.url, false, title);
+    // 不强制使用原生播放器
+    executePlayInCell(targetCell, file.url, false, title, false);
     updateFocusUI();
 }
 
 function browserSupportsHEVC() {
     const video = document.createElement('video');
-    const candidates = [
-        'video/mp4; codecs="hvc1.1.6.L93.B0"',
-        'video/mp4; codecs="hev1.1.6.L93.B0"'
-    ];
+    const candidates = ['video/mp4; codecs="hvc1.1.6.L93.B0"', 'video/mp4; codecs="hev1.1.6.L93.B0"'];
     return candidates.some(type => video.canPlayType(type) !== '');
 }
 
@@ -629,7 +645,7 @@ function playTranscodedRecord(index) {
     updateFocusUI();
 }
 
-function executePlayInCell(index, source, isLive, title, forceNative = false) {
+function executePlayInCell(index, source, isLive, title, forceNative = false, warningMsg = null) {
     const liveIframe = document.getElementById(`live-iframe-${index}`);
     const dplayerContainer = document.getElementById(`dplayer-${index}`);
     const nativePlayer = document.getElementById(`native-player-${index}`);
@@ -638,6 +654,34 @@ function executePlayInCell(index, source, isLive, title, forceNative = false) {
     const closeBtn = document.getElementById(`close-cell-${index}`);
 
     if (!liveIframe) return;
+
+    // 警告提示挂载逻辑
+    let existingWarning = document.getElementById(`cell-warning-${index}`);
+    if (existingWarning) existingWarning.remove(); // 清除之前的残留警告
+
+    if (warningMsg) {
+        const cell = document.getElementById(`cell-${index}`);
+        const warningEl = document.createElement('div');
+        warningEl.id = `cell-warning-${index}`;
+        // 居中显示在顶部，加入 Tailwind 动画和毛玻璃效果，鼠标穿透(pointer-events-none)不阻挡点击
+        warningEl.className = 'absolute top-5 left-1/2 -translate-x-1/2 z-30 bg-amber-500/90 text-white px-3 py-1.5 text-xs rounded-full shadow-[0_0_15px_rgba(245,158,11,0.4)] font-bold flex items-center pointer-events-none transition-all duration-1000';
+        warningEl.innerHTML = `
+            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+            ${warningMsg}
+        `;
+        cell.appendChild(warningEl);
+
+        // 8 秒后自动触发淡出动画并移除，避免永久遮挡画面
+        setTimeout(() => {
+            const el = document.getElementById(`cell-warning-${index}`);
+            if (el) {
+                el.classList.add('opacity-0', '-translate-y-2');
+                setTimeout(() => el.remove(), 1000);
+            }
+        }, 8000);
+    }
 
     stopCellPlayback(index);
     resetEmptyState(index);
@@ -659,15 +703,16 @@ function executePlayInCell(index, source, isLive, title, forceNative = false) {
         liveIframe.classList.add('hidden');
         liveIframe.src = '';
 
-        const isApple = /Mac|iPod|iPhone|iPad/.test(navigator.platform) ||
-            (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ||
-            /Safari/i.test(navigator.userAgent) && !/Chrome/i.test(navigator.userAgent);
+        // 【精准识别】：iOS全系设备 + macOS纯Safari
+        const isIOS = /iPod|iPhone|iPad/.test(navigator.platform) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isMacSafari = /Mac/.test(navigator.platform) && /Safari/i.test(navigator.userAgent) && !/Chrome/i.test(navigator.userAgent) && !/Edg/i.test(navigator.userAgent);
+        const isAppleNative = isIOS || isMacSafari;
 
         const isTranscodedStream = source.startsWith('/play_transcode/');
         const isRemuxStream = source.startsWith('/play_remux/');
 
         // 如果强制原生，或是转码/重封装流，或在苹果上，都用原生播放器
-        if (forceNative || isRemuxStream || (isApple && !isTranscodedStream)) {
+        if (forceNative || isRemuxStream || (isAppleNative && !isTranscodedStream)) {
             dplayerContainer.classList.add('hidden');
             nativePlayer.classList.remove('hidden');
             let playUrl = source;
@@ -683,11 +728,8 @@ function executePlayInCell(index, source, isLive, title, forceNative = false) {
             let videoType = source.endsWith('.ts') ? 'customTs' : 'normal';
 
             dpInstances[index] = new DPlayer({
-                container: dplayerContainer,
-                video: {
-                    url: source,
-                    type: videoType,
-                    customType: {
+                container: dplayerContainer, video: {
+                    url: source, type: videoType, customType: {
                         customTs: function (video, player) {
                             const tsPlayer = mpegts.createPlayer({type: 'm2ts', isLive: false, url: video.src});
                             tsPlayer.attachMediaElement(video);
@@ -840,11 +882,9 @@ function toggleCellFullscreen(index) {
     const cell = document.getElementById(`cell-${index}`);
     // 阻止事件冒泡防止触发点击的焦点切换
     if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-        if (cell.requestFullscreen) cell.requestFullscreen();
-        else if (cell.webkitRequestFullscreen) cell.webkitRequestFullscreen();
+        if (cell.requestFullscreen) cell.requestFullscreen(); else if (cell.webkitRequestFullscreen) cell.webkitRequestFullscreen();
     } else {
-        if (document.exitFullscreen) document.exitFullscreen();
-        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        if (document.exitFullscreen) document.exitFullscreen(); else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
     }
 }
 
