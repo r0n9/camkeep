@@ -4,7 +4,7 @@
         "items": [
             {
                 "type": "tips",
-                "helpText": "请填写 CamKeep 的配置目录和录像目录。这里只支持绝对路径，例如 /vol1/1000/camkeep/config。"
+                "helpText": "请填写 CamKeep 的配置目录和录像目录。这里只支持绝对路径，例如 /vol1/1000/camkeep/config"
             },
             {
                 "type": "text",

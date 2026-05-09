@@ -1,7 +1,7 @@
 {
     ".url": {
         "camkeep.Application": {
-            "title": "camkeep",
+            "title": "CamKeep",
             "icon": "images/icon_{0}.png",
             "type": "url",
             "protocol": "",
