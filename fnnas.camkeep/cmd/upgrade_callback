@@ -2,4 +2,51 @@
 
 ### This script is called after the user upgrades the application.
 
+DOCKER_DIR="${TRIM_APPDEST}/docker"
+ENV_FILE="${DOCKER_DIR}/.env"
+BACKUP_FILE="/tmp/fnnas.camkeep.docker.env"
+CONFIG_DIR="${wizard_config_dir:-/vol1/1000/camkeep/config}"
+RECORDS_DIR="${wizard_records_dir:-/vol1/1000/camkeep/records}"
+
+mkdir -p "${DOCKER_DIR}" 2>/dev/null || true
+
+if [ -s "${BACKUP_FILE}" ]; then
+    if cp -f "${BACKUP_FILE}" "${ENV_FILE}" 2>/dev/null; then
+        rm -f "${BACKUP_FILE}" 2>/dev/null || true
+        exit 0
+    fi
+fi
+
+if [ -s "${ENV_FILE}" ]; then
+    exit 0
+fi
+
+absolute_or_default() {
+    local name="$1"
+    local target="$2"
+    local fallback="$3"
+
+    if [[ "${target}" = /* ]]; then
+        printf '%s' "${target}"
+    else
+        echo "${name} 不是绝对路径，已回退到默认路径: ${fallback}" >&2
+        printf '%s' "${fallback}"
+    fi
+}
+
+env_quote() {
+    local value="$1"
+    value="${value//\\/\\\\}"
+    value="${value//\"/\\\"}"
+    printf '"%s"' "${value}"
+}
+
+CONFIG_DIR="$(absolute_or_default "配置目录" "${CONFIG_DIR}" "/vol1/1000/camkeep/config")"
+RECORDS_DIR="$(absolute_or_default "录像目录" "${RECORDS_DIR}" "/vol1/1000/camkeep/records")"
+
+{
+    printf 'wizard_config_dir=%s\n' "$(env_quote "${CONFIG_DIR}")"
+    printf 'wizard_records_dir=%s\n' "$(env_quote "${RECORDS_DIR}")"
+} > "${ENV_FILE}" 2>/dev/null || true
+
 exit 0

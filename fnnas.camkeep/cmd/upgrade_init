@@ -2,4 +2,13 @@
 
 ### This script is called before the user upgrades the application.
 
+ENV_FILE="${TRIM_APPDEST}/docker/.env"
+BACKUP_FILE="/tmp/fnnas.camkeep.docker.env"
+
+rm -f "${BACKUP_FILE}" 2>/dev/null || true
+
+if [ -f "${ENV_FILE}" ]; then
+    cp -f "${ENV_FILE}" "${BACKUP_FILE}" 2>/dev/null || true
+fi
+
 exit 0

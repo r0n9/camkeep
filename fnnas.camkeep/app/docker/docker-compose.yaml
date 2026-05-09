@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   camkeep:
-    image: r0n9/camkeep:latest
+    image: ghcr.io/r0n9/camkeep:1.3.7
     container_name: camkeep
     restart: unless-stopped
     network_mode: "host"
