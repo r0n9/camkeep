@@ -1054,11 +1054,11 @@ function parseRecordMeta(file) {
     const compactTimeMatch = name.match(/_(\d{2})(\d{2})(\d{2})(?:_|\.|$)/);
     const dashedTimeMatch = name.match(/_(\d{2})-(\d{2})-(\d{2})(?:_|\.|$)/);
     const timeParts = compactTimeMatch || dashedTimeMatch;
-    const timeDisplay = timeParts ? `${timeParts[1]}:${timeParts[2]}:${timeParts[3]}` : '整段录像';
-    const sortKey = timeParts ? `${timeParts[1]}${timeParts[2]}${timeParts[3]}_${name}` : name;
     const ext = (name.split('.').pop() || '').toUpperCase();
     const isMotion = /_motion\./i.test(name);
     const isMerged = /_merged\./i.test(name);
+    const timeDisplay = isMerged ? name : (timeParts ? `${timeParts[1]}:${timeParts[2]}:${timeParts[3]}` : '整段录像');
+    const sortKey = timeParts ? `${timeParts[1]}${timeParts[2]}${timeParts[3]}_${name}` : name;
     const kind = isMotion ? '动检' : isMerged ? '合并' : '切片';
     const kindClass = isMotion
         ? 'bg-amber-50 text-amber-700 ring-amber-100'
