@@ -73,7 +73,7 @@ func CameraTask(ctx context.Context, wg *sync.WaitGroup, cam constant.Camera) {
 	camDir := filepath.Join(constant.DefaultRecordBaseDir, cam.ID)
 	os.MkdirAll(camDir, 0755)
 
-	service.UpdateStatus(cam.ID, false, cam.Mode)
+	service.UpdateStatus(cam.ID, false, cam.Mode, cam.RecordTime)
 
 	if motionRecordingEnabled(cam) {
 		runMotionCameraTask(ctx, cam, camDir)
@@ -100,7 +100,7 @@ func runScheduledCameraTask(ctx context.Context, cam constant.Camera, camDir str
 					<-ffmpegDone
 				}
 			}
-			service.UpdateStatus(cam.ID, false, cam.Mode)
+			service.UpdateStatus(cam.ID, false, cam.Mode, cam.RecordTime)
 			return
 		case <-ticker.C:
 			now := time.Now()
@@ -166,7 +166,7 @@ func runScheduledCameraTask(ctx context.Context, cam constant.Camera, camDir str
 				isRunning = false
 			}
 
-			service.UpdateStatus(cam.ID, isRunning, cam.Mode)
+			service.UpdateStatus(cam.ID, isRunning, cam.Mode, cam.RecordTime)
 		}
 	}
 }
@@ -189,7 +189,7 @@ func runMotionCameraTask(ctx context.Context, cam constant.Camera, camDir string
 					<-harvestDone
 				}
 			}
-			service.UpdateStatus(cam.ID, false, cam.Mode)
+			service.UpdateStatus(cam.ID, false, cam.Mode, cam.RecordTime)
 			return
 		case <-ticker.C:
 			now := time.Now()
@@ -291,7 +291,7 @@ func runMotionCameraTask(ctx context.Context, cam constant.Camera, camDir string
 			} else if harvestCmd != nil {
 				recordState = service.RecordStateMotionDetecting
 			}
-			service.UpdateRecordState(cam.ID, recordState, cam.Mode)
+			service.UpdateRecordState(cam.ID, recordState, cam.Mode, cam.RecordTime)
 		}
 	}
 }

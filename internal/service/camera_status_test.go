@@ -6,7 +6,7 @@ func TestUpdateStatusSetsRecordingState(t *testing.T) {
 	camID := "record-state-normal"
 	deleteStatusForTest(t, camID)
 
-	UpdateStatus(camID, true, "normal")
+	UpdateStatus(camID, true, "normal", "08:00-12:00,14:00-18:00")
 
 	StatusMux.RLock()
 	status := StatusMap[camID]
@@ -18,13 +18,16 @@ func TestUpdateStatusSetsRecordingState(t *testing.T) {
 	if !status.IsRunning {
 		t.Fatal("expected is_running to stay true")
 	}
+	if status.RecordTime != "08:00-12:00,14:00-18:00" {
+		t.Fatalf("expected record_time to be stored, got %q", status.RecordTime)
+	}
 }
 
 func TestUpdateRecordStateSetsMotionRecording(t *testing.T) {
 	camID := "record-state-motion"
 	deleteStatusForTest(t, camID)
 
-	UpdateRecordState(camID, RecordStateMotionRecording, "normal")
+	UpdateRecordState(camID, RecordStateMotionRecording, "normal", "22:00-06:00")
 
 	StatusMux.RLock()
 	status := StatusMap[camID]
@@ -36,13 +39,16 @@ func TestUpdateRecordStateSetsMotionRecording(t *testing.T) {
 	if !status.IsRunning {
 		t.Fatal("expected motion recording to set is_running true")
 	}
+	if status.RecordTime != "22:00-06:00" {
+		t.Fatalf("expected record_time to be stored, got %q", status.RecordTime)
+	}
 }
 
 func TestUpdateRecordStateSetsMotionDetecting(t *testing.T) {
 	camID := "record-state-motion-detecting"
 	deleteStatusForTest(t, camID)
 
-	UpdateRecordState(camID, RecordStateMotionDetecting, "normal")
+	UpdateRecordState(camID, RecordStateMotionDetecting, "normal", "00:00-23:59")
 
 	StatusMux.RLock()
 	status := StatusMap[camID]
@@ -60,7 +66,7 @@ func TestUpdateRecordStateNormalizesUnknownState(t *testing.T) {
 	camID := "record-state-unknown"
 	deleteStatusForTest(t, camID)
 
-	UpdateRecordState(camID, "unknown", "normal")
+	UpdateRecordState(camID, "unknown", "normal", "00:00-23:59")
 
 	StatusMux.RLock()
 	status := StatusMap[camID]
@@ -71,6 +77,9 @@ func TestUpdateRecordStateNormalizesUnknownState(t *testing.T) {
 	}
 	if status.IsRunning {
 		t.Fatal("expected unknown record state to set is_running false")
+	}
+	if status.RecordTime != "00:00-23:59" {
+		t.Fatalf("expected record_time to be stored, got %q", status.RecordTime)
 	}
 }
 

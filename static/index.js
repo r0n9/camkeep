@@ -225,6 +225,7 @@ async function loadStatus() {
             const isRunning = recordState === 'recording' || recordState === 'motion_detecting' || recordState === 'motion_recording';
             const isSelected = currentSelectedCam === id;
             const streamState = cam.stream_state || 'offline';
+            const recordSchedule = buildRecordScheduleDisplay(cam.record_time);
             let streamLight, streamText;
             let recordLight, recordText, recordTextClass;
 
@@ -284,6 +285,16 @@ async function loadStatus() {
                             title="主动拉流直播">▶</button>
                 </div>
 
+                <div class="flex min-w-0 items-center gap-1.5 rounded-lg border ${recordSchedule.borderClass} ${recordSchedule.bgClass} px-2 py-1.5"
+                     title="${escapeHtml(recordSchedule.title)}">
+                    <svg class="h-3.5 w-3.5 shrink-0 ${recordSchedule.iconClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2"></path>
+                        <circle cx="12" cy="12" r="9"></circle>
+                    </svg>
+                    <span class="shrink-0 text-[10px] font-bold ${recordSchedule.badgeClass}">${recordSchedule.badge}</span>
+                    <span class="min-w-0 flex-1 truncate font-mono text-[10px] font-semibold ${recordSchedule.textClass}">${escapeHtml(recordSchedule.text)}</span>
+                </div>
+
                 <div class="flex justify-between items-center border-t border-gray-100 pt-2.5 mt-2">
                     <span class="text-[10px] font-bold text-gray-400">录制控制</span>
                     <div class="flex space-x-1.5">
@@ -310,6 +321,141 @@ async function loadStatus() {
     } catch (e) {
         console.error("同步状态失败:", e);
     }
+}
+
+function buildRecordScheduleDisplay(recordTime) {
+    const rawValue = String(recordTime || '').trim();
+    const ranges = parseRecordTimeRanges(rawValue);
+    const hasValidRanges = ranges.length > 0;
+
+    if (!rawValue) {
+        return {
+            badge: '全天',
+            text: '未配置，按全天录制',
+            title: '录制计划: 未配置，系统按全天录制',
+            ...recordScheduleClasses('full')
+        };
+    }
+
+    if (!hasValidRanges) {
+        return {
+            badge: '缺省',
+            text: '按全天录制',
+            title: `录制计划: ${rawValue} (未识别，系统按全天录制)`,
+            ...recordScheduleClasses('fallback')
+        };
+    }
+
+    const text = ranges.map(formatRecordRangeText).join(' / ');
+    const fullDay = isFullDayRecordSchedule(ranges);
+    const now = new Date();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const inSchedule = fullDay || ranges.some(range => isMinuteInRecordRange(nowMinutes, range.start, range.end));
+
+    if (fullDay) {
+        return {
+            badge: '全天',
+            text: '全天录制',
+            title: `录制计划: ${text}`,
+            ...recordScheduleClasses('full')
+        };
+    }
+
+    return {
+        badge: inSchedule ? '计划内' : '计划外',
+        text,
+        title: `录制计划: ${text}，当前${inSchedule ? '在' : '不在'}计划时间内`,
+        ...recordScheduleClasses(inSchedule ? 'active' : 'inactive')
+    };
+}
+
+function recordScheduleClasses(state) {
+    if (state === 'full' || state === 'active') {
+        return {
+            bgClass: 'bg-emerald-50/70',
+            borderClass: 'border-emerald-100',
+            iconClass: 'text-emerald-500',
+            badgeClass: 'text-emerald-700',
+            textClass: 'text-slate-600'
+        };
+    }
+
+    if (state === 'fallback') {
+        return {
+            bgClass: 'bg-amber-50/70',
+            borderClass: 'border-amber-100',
+            iconClass: 'text-amber-500',
+            badgeClass: 'text-amber-700',
+            textClass: 'text-amber-700'
+        };
+    }
+
+    return {
+        bgClass: 'bg-slate-50',
+        borderClass: 'border-slate-200',
+        iconClass: 'text-slate-400',
+        badgeClass: 'text-slate-500',
+        textClass: 'text-slate-500'
+    };
+}
+
+function parseRecordTimeRanges(recordTime) {
+    return String(recordTime || '')
+        .split(/[,;，；\n\r]+/)
+        .map(item => item.trim())
+        .filter(Boolean)
+        .map(item => {
+            const parts = item.split('-').map(part => part.trim());
+            if (parts.length !== 2) return null;
+
+            const start = parseClockMinutes(parts[0]);
+            const end = parseClockMinutes(parts[1]);
+            if (start === null || end === null) return null;
+
+            return {start, end};
+        })
+        .filter(Boolean);
+}
+
+function parseClockMinutes(clock) {
+    const match = String(clock || '').match(/^(\d{1,2}):([0-5]\d)$/);
+    if (!match) return null;
+
+    const hour = Number(match[1]);
+    const minute = Number(match[2]);
+    if (hour < 0 || hour > 24 || (hour === 24 && minute !== 0)) return null;
+
+    return hour * 60 + minute;
+}
+
+function isMinuteInRecordRange(minute, start, end) {
+    if (start <= end) return minute >= start && minute <= end;
+    return minute >= start || minute <= end;
+}
+
+function isFullDayRecordSchedule(ranges) {
+    return ranges.some(range => range.start === 0 && range.end >= 1439);
+}
+
+function formatRecordRangeText(range) {
+    return `${formatClockText(range.start)}-${formatClockText(range.end)}`;
+}
+
+function formatClockText(minutes) {
+    if (minutes === 1440) return '24:00';
+    const hour = Math.floor(minutes / 60);
+    const minute = minutes % 60;
+    return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, char => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    })[char]);
 }
 
 // --- 宫格矩阵与播放逻辑 ---

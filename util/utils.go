@@ -1,24 +1,87 @@
 package util
 
 import (
+	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
 
-// IsWithinTimeRange 判断当前时间是否在录制区间内 (支持跨天，如 22:00-06:00)
+// IsWithinTimeRange 判断当前时间是否在录制区间内。
+// 支持多个区间，例如 "08:00-12:00,14:00-18:00"；单个区间支持跨天，例如 "22:00-06:00"。
 func IsWithinTimeRange(timeStr string) bool {
+	now := time.Now()
+	return IsClockWithinTimeRange(fmt.Sprintf("%02d:%02d", now.Hour(), now.Minute()), timeStr)
+}
+
+func IsClockWithinTimeRange(clock, timeStr string) bool {
 	if timeStr == "" {
 		return true // 空表示 24 小时
 	}
-	parts := strings.Split(timeStr, "-")
-	if len(parts) != 2 {
-		return true // 格式错误默认放行
+
+	nowMinutes, err := parseClockMinutes(clock)
+	if err != nil {
+		return true
 	}
 
-	now := time.Now().Format("15:04")
-	start, end := parts[0], parts[1]
+	hasValidRange := false
+	for _, item := range splitTimeRanges(timeStr) {
+		start, end, ok := parseTimeRange(item)
+		if !ok {
+			continue
+		}
+		hasValidRange = true
+		if minutesInRange(nowMinutes, start, end) {
+			return true
+		}
+	}
 
+	return !hasValidRange
+}
+
+func splitTimeRanges(timeStr string) []string {
+	return strings.FieldsFunc(timeStr, func(r rune) bool {
+		return r == ',' || r == ';' || r == '，' || r == '；' || r == '\n' || r == '\r'
+	})
+}
+
+func parseTimeRange(item string) (int, int, bool) {
+	parts := strings.Split(strings.TrimSpace(item), "-")
+	if len(parts) != 2 {
+		return 0, 0, false
+	}
+	start, err := parseClockMinutes(strings.TrimSpace(parts[0]))
+	if err != nil {
+		return 0, 0, false
+	}
+	end, err := parseClockMinutes(strings.TrimSpace(parts[1]))
+	if err != nil {
+		return 0, 0, false
+	}
+	return start, end, true
+}
+
+func parseClockMinutes(clock string) (int, error) {
+	parts := strings.Split(strings.TrimSpace(clock), ":")
+	if len(parts) != 2 {
+		return 0, fmt.Errorf("invalid clock")
+	}
+	hour, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, err
+	}
+	minute, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, err
+	}
+	if hour < 0 || hour > 24 || minute < 0 || minute > 59 || (hour == 24 && minute != 0) {
+		return 0, fmt.Errorf("invalid clock")
+	}
+	return hour*60 + minute, nil
+}
+
+func minutesInRange(now, start, end int) bool {
 	if start <= end {
 		return now >= start && now <= end
 	}
