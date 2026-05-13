@@ -59,6 +59,8 @@ cameras:
     format: "ts"            # TS is highly recommended for instant playback
     record_time: "00:00-24:00" # Allowed recording schedule
     mode: "normal"
+    motion_detect: false    # Motion recording is disabled by default
+    motionDetectRatioThreshold: 0.01 # Motion threshold, default 1%
 ```
 
 ### 2. Start Service (Choose One)

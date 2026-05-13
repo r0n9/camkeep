@@ -57,6 +57,8 @@ cameras:
     format: "ts"            # 强烈推荐 ts 格式，支持边写边播
     record_time: "00:00-24:00" # 允许录制的时间段
     mode: "normal"
+    motion_detect: false    # 默认关闭动检录制
+    motionDetectRatioThreshold: 0.01 # 动检阈值，默认 1%
 ```
 
 ### 2. 启动服务 (二选一)
