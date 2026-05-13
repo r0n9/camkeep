@@ -20,7 +20,6 @@ import (
 	"github.com/r0n9/camkeep/constant"
 	"github.com/r0n9/camkeep/internal/service"
 	"github.com/r0n9/camkeep/internal/task"
-	"gopkg.in/yaml.v3"
 )
 
 type recordFile struct {
@@ -80,13 +79,8 @@ func handleSaveConfig(c *gin.Context) {
 		c.JSON(400, gin.H{"error": "读取请求失败"})
 		return
 	}
-	var newConfig constant.Config
-	if err := yaml.Unmarshal(yamlBytes, &newConfig); err != nil {
-		c.JSON(400, gin.H{"error": "YAML 格式有误: " + err.Error()})
-		return
-	}
-
-	if err := checkDuplicateIDs(newConfig); err != nil {
+	newConfig, err := parseConfigYAML(yamlBytes)
+	if err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
@@ -99,6 +93,19 @@ func handleSaveConfig(c *gin.Context) {
 	// 异步重启任务，不阻塞前端请求
 	go restartTasks(newConfig)
 	c.JSON(200, gin.H{"msg": "配置已保存，系统正在热重启"})
+}
+
+func handleValidateConfig(c *gin.Context) {
+	yamlBytes, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(400, gin.H{"error": "读取请求失败"})
+		return
+	}
+	if _, err := parseConfigYAML(yamlBytes); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(200, gin.H{"msg": "配置格式检查通过"})
 }
 
 func handleCameraAction(c *gin.Context) {

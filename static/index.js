@@ -106,6 +106,12 @@ function closeConfig() {
 async function saveConfig() {
     applyMergeControlsToYaml();
     const yamlText = document.getElementById('configYaml').value;
+    const validation = await validateConfigYaml(yamlText);
+    if (!validation.ok) {
+        alert('配置格式检查失败: ' + validation.error);
+        return;
+    }
+
     const resp = await fetch('/api/config', {method: 'POST', body: yamlText});
     if (resp.ok) {
         alert('配置已生效并自动重启任务！');
@@ -114,6 +120,18 @@ async function saveConfig() {
     } else {
         const err = await resp.json();
         alert('保存失败: ' + err.error);
+    }
+}
+
+async function validateConfigYaml(yamlText) {
+    try {
+        const resp = await fetch('/api/config/validate', {method: 'POST', body: yamlText});
+        if (resp.ok) return {ok: true};
+
+        const err = await resp.json().catch(() => ({}));
+        return {ok: false, error: err.error || '配置内容不合法'};
+    } catch (e) {
+        return {ok: false, error: '无法连接配置检查接口: ' + e.message};
     }
 }
 

@@ -1,10 +1,13 @@
 package app
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/r0n9/camkeep/constant"
@@ -70,6 +73,32 @@ func loadOrInitConfig() constant.Config {
 	// 启动时如果发现文件里有重复 ID，自动去重
 	c = validateAndFixConfig(c)
 	return c
+}
+
+func parseConfigYAML(yamlBytes []byte) (constant.Config, error) {
+	var cfg constant.Config
+	if strings.TrimSpace(string(yamlBytes)) == "" {
+		return cfg, fmt.Errorf("conf.yaml 不能为空")
+	}
+
+	decoder := yaml.NewDecoder(bytes.NewReader(yamlBytes))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(&cfg); err != nil {
+		return cfg, fmt.Errorf("YAML 格式有误: %w", err)
+	}
+
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
+		if err != nil {
+			return cfg, fmt.Errorf("YAML 格式有误: %w", err)
+		}
+		return cfg, fmt.Errorf("conf.yaml 只能包含一个 YAML 文档")
+	}
+
+	if err := checkDuplicateIDs(cfg); err != nil {
+		return cfg, err
+	}
+	return cfg, nil
 }
 
 // checkDuplicateIDs 检查配置中是否有重复的摄像头ID (用于 API 严格校验)

@@ -2,6 +2,7 @@ package app
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -80,6 +81,47 @@ func TestParseRecordDateFromPath(t *testing.T) {
 	}
 	if _, ok := parseRecordDateFromPath("cam1/2026-99-99/bad.mp4"); ok {
 		t.Fatal("expected invalid date to be ignored")
+	}
+}
+
+func TestParseConfigYAMLValidatesKnownShape(t *testing.T) {
+	validYAML := []byte(`
+daily_merge:
+  enabled: true
+  time: "03:30"
+cameras:
+  - id: "cam_01"
+    rtsp_url: "rtsp://example/live"
+    record_time: "00:00-23:59"
+`)
+
+	cfg, err := parseConfigYAML(validYAML)
+	if err != nil {
+		t.Fatalf("expected valid config to pass, got %v", err)
+	}
+	if !cfg.DailyMerge.Enabled || cfg.DailyMerge.Time != "03:30" || len(cfg.Cameras) != 1 {
+		t.Fatalf("unexpected parsed config: %+v", cfg)
+	}
+}
+
+func TestParseConfigYAMLRejectsUnknownFields(t *testing.T) {
+	_, err := parseConfigYAML([]byte(`
+cameras:
+  - id: "cam_01"
+    rtsp_url: "rtsp://example/live"
+    typo_field: true
+`))
+	if err == nil {
+		t.Fatal("expected unknown field to fail")
+	}
+	if !strings.Contains(err.Error(), "typo_field") {
+		t.Fatalf("expected error to mention unknown field, got %v", err)
+	}
+}
+
+func TestParseConfigYAMLRejectsEmptyConfig(t *testing.T) {
+	if _, err := parseConfigYAML([]byte("  \n")); err == nil {
+		t.Fatal("expected empty config to fail")
 	}
 }
 

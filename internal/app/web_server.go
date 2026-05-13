@@ -23,6 +23,7 @@ func startWebServer() {
 	r.GET("/", handleIndex)
 	r.GET("/api/status", handleStatus)
 	r.GET("/api/config", handleGetConfig)
+	r.POST("/api/config/validate", handleValidateConfig)
 	r.POST("/api/config", handleSaveConfig)
 	r.POST("/api/camera/:id/:action", handleCameraAction)
 	r.GET("/api/records/:id", handleRecords)
