@@ -17,7 +17,10 @@ import (
 	"github.com/r0n9/camkeep/constant"
 )
 
-const mergedSuffix = "_merged"
+const (
+	mergedSuffix           = "_merged"
+	minMergedDurationRatio = 0.75
+)
 
 var mergeFragmentTimePattern = regexp.MustCompile(`\d{4}-\d{2}-\d{2}_(?:\d{2}-\d{2}-\d{2}|\d{6})`)
 
@@ -36,6 +39,7 @@ type mergeFragmentScanResult struct {
 type mergeHourGroup struct {
 	hourKey   string
 	start     time.Time
+	kind      string
 	fragments []string
 }
 
@@ -143,9 +147,16 @@ func mergeCameraDate(ctx context.Context, cam constant.Camera, date string) erro
 	return nil
 }
 
+func (g mergeHourGroup) outputNameSuffix() string {
+	if g.kind == "motion" {
+		return "_motion"
+	}
+	return ""
+}
+
 func mergeOneHourGroup(ctx context.Context, cam constant.Camera, date, dateDir string, group mergeHourGroup) error {
 	mergedExt := ".mp4"
-	mergedName := fmt.Sprintf("%s_%s%s%s", cam.ID, group.hourKey, mergedSuffix, mergedExt)
+	mergedName := fmt.Sprintf("%s_%s%s%s%s", cam.ID, group.hourKey, group.outputNameSuffix(), mergedSuffix, mergedExt)
 	mergedPath := filepath.Join(dateDir, mergedName)
 	if _, err := os.Stat(mergedPath); err == nil {
 		log.Printf("[%s] 跳过每日合并小时分组: 合并文件已存在, date=%s, hour=%s, path=%s",
@@ -196,14 +207,34 @@ func mergeOneHourGroup(ctx context.Context, cam constant.Camera, date, dateDir s
 	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
 	log.Printf("[%s] 开始执行每日合并 ffmpeg: date=%s, hour=%s, cmd=%s", cam.ID, date, group.hourKey, cmd.String())
 	output, err := cmd.CombinedOutput()
+	outputText := strings.TrimSpace(string(output))
 	if err != nil {
-		outputText := strings.TrimSpace(string(output))
 		log.Printf("[%s] 每日合并 ffmpeg 失败: date=%s, hour=%s, output=%s, err=%v",
 			cam.ID, date, group.hourKey, outputText, err)
+		if isCorruptFragmentFFmpegOutput(outputText) {
+			diagnoseMergeFragments(ctx, cam.ID, date, group.hourKey, fragments)
+		}
 		return fmt.Errorf("ffmpeg 合并失败 cmd=%s: %v, output=%s", cmd.String(), err, outputText)
 	}
 	log.Printf("[%s] 每日合并 ffmpeg 完成: date=%s, hour=%s, temp=%s, outputBytes=%d",
 		cam.ID, date, group.hourKey, tempOutput, len(output))
+	if outputText != "" {
+		log.Printf("[%s] 每日合并 ffmpeg 输出: date=%s, hour=%s, output=%s",
+			cam.ID, date, group.hourKey, outputText)
+		if isCorruptFragmentFFmpegOutput(outputText) {
+			diagnoseMergeFragments(ctx, cam.ID, date, group.hourKey, fragments)
+			return fmt.Errorf("ffmpeg 合并输出包含损坏片段错误: %s", outputText)
+		}
+	}
+
+	if err := validateMergedDuration(ctx, fragments, tempOutput); err != nil {
+		log.Printf("[%s] 每日合并输出校验失败: date=%s, hour=%s, temp=%s, err=%v",
+			cam.ID, date, group.hourKey, tempOutput, err)
+		return err
+	} else {
+		log.Printf("[%s] 每日合并输出校验成功: date=%s, hour=%s, temp=%s, err=%v",
+			cam.ID, date, group.hourKey, tempOutput, err)
+	}
 
 	if err := os.Rename(tempOutput, mergedPath); err != nil {
 		log.Printf("[%s] 每日合并临时文件重命名失败: date=%s, hour=%s, temp=%s, target=%s, err=%v",
@@ -224,6 +255,73 @@ func mergeOneHourGroup(ctx context.Context, cam constant.Camera, date, dateDir s
 
 	log.Printf("[%s] 已合并 %s %s 点录像，共 %d 个碎片，已删除 %d 个源文件 -> %s",
 		cam.ID, date, group.start.Format("15"), len(fragments), deleted, mergedPath)
+	return nil
+}
+
+func isCorruptFragmentFFmpegOutput(output string) bool {
+	output = strings.ToLower(output)
+	markers := []string{
+		"invalid nal unit size",
+		"missing picture in access unit",
+		"h264_mp4toannexb filter failed",
+		"error during demuxing",
+		"invalid data found when processing input",
+		"moov atom not found",
+	}
+	for _, marker := range markers {
+		if strings.Contains(output, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+func diagnoseMergeFragments(ctx context.Context, camID, date, hourKey string, fragments []string) {
+	log.Printf("[%s] 开始逐个检测每日合并源片段: date=%s, hour=%s, fragments=%d", camID, date, hourKey, len(fragments))
+	bad := 0
+	for _, fragment := range fragments {
+		if err := probeFragmentReadable(ctx, fragment); err != nil {
+			bad++
+			log.Printf("[%s] 每日合并源片段疑似损坏: date=%s, hour=%s, fragment=%s, err=%v",
+				camID, date, hourKey, fragment, err)
+		}
+		if ctx.Err() != nil {
+			log.Printf("[%s] 逐个检测每日合并源片段已取消: date=%s, hour=%s, checked_bad=%d", camID, date, hourKey, bad)
+			return
+		}
+	}
+	log.Printf("[%s] 逐个检测每日合并源片段完成: date=%s, hour=%s, bad=%d, fragments=%d", camID, date, hourKey, bad, len(fragments))
+}
+
+type videoDurationProbe func(context.Context, string) (time.Duration, error)
+
+func validateMergedDuration(ctx context.Context, fragments []string, mergedPath string) error {
+	return validateMergedDurationWithProbe(ctx, fragments, mergedPath, probeVideoDuration)
+}
+
+func validateMergedDurationWithProbe(ctx context.Context, fragments []string, mergedPath string, probe videoDurationProbe) error {
+	mergedDuration, err := probe(ctx, mergedPath)
+	if err != nil {
+		return fmt.Errorf("读取合并输出时长失败 path=%s: %w", mergedPath, err)
+	}
+
+	var sourceDuration time.Duration
+	var probed int
+	for _, fragment := range fragments {
+		duration, err := probe(ctx, fragment)
+		if err != nil {
+			return fmt.Errorf("读取源片段时长失败 path=%s: %w", fragment, err)
+		}
+		sourceDuration += duration
+		probed++
+	}
+	if probed == 0 {
+		return fmt.Errorf("未读取到源片段时长")
+	}
+	minDuration := time.Duration(float64(sourceDuration) * minMergedDurationRatio)
+	if mergedDuration < minDuration {
+		return fmt.Errorf("合并输出时长异常: output=%s source=%s fragments=%d threshold=%.0f%%", mergedDuration, sourceDuration, len(fragments), minMergedDurationRatio*100)
+	}
 	return nil
 }
 
@@ -317,8 +415,9 @@ func sortMergeFragments(fragments []string) {
 }
 
 func groupMergeFragmentsByHour(fragments []string) []mergeHourGroup {
-	groupsByHour := make(map[string][]string)
-	startByHour := make(map[string]time.Time)
+	groupsByKey := make(map[string][]string)
+	startByKey := make(map[string]time.Time)
+	kindByKey := make(map[string]string)
 	for _, fragment := range fragments {
 		start, ok := mergeFragmentStartTime(fragment)
 		if !ok {
@@ -326,23 +425,38 @@ func groupMergeFragmentsByHour(fragments []string) []mergeHourGroup {
 		}
 		hourStart := time.Date(start.Year(), start.Month(), start.Day(), start.Hour(), 0, 0, 0, start.Location())
 		hourKey := hourStart.Format("2006-01-02_15")
-		groupsByHour[hourKey] = append(groupsByHour[hourKey], fragment)
-		startByHour[hourKey] = hourStart
+		kind := mergeFragmentKind(fragment)
+		groupKey := hourKey + "|" + kind
+		groupsByKey[groupKey] = append(groupsByKey[groupKey], fragment)
+		startByKey[groupKey] = hourStart
+		kindByKey[groupKey] = kind
 	}
 
-	groups := make([]mergeHourGroup, 0, len(groupsByHour))
-	for hourKey, groupFragments := range groupsByHour {
+	groups := make([]mergeHourGroup, 0, len(groupsByKey))
+	for groupKey, groupFragments := range groupsByKey {
 		sortMergeFragments(groupFragments)
+		hourKey := strings.SplitN(groupKey, "|", 2)[0]
 		groups = append(groups, mergeHourGroup{
 			hourKey:   hourKey,
-			start:     startByHour[hourKey],
+			start:     startByKey[groupKey],
+			kind:      kindByKey[groupKey],
 			fragments: groupFragments,
 		})
 	}
 	sort.Slice(groups, func(i, j int) bool {
-		return groups[i].start.Before(groups[j].start)
+		if !groups[i].start.Equal(groups[j].start) {
+			return groups[i].start.Before(groups[j].start)
+		}
+		return groups[i].kind < groups[j].kind
 	})
 	return groups
+}
+
+func mergeFragmentKind(path string) string {
+	if strings.Contains(filepath.Base(path), "_motion") {
+		return "motion"
+	}
+	return "normal"
 }
 
 func mergeFragmentStartTime(path string) (time.Time, bool) {

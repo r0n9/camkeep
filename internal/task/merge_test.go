@@ -1,6 +1,7 @@
 package task
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -83,28 +84,64 @@ func TestGroupMergeFragmentsByHour(t *testing.T) {
 	}
 
 	groups := groupMergeFragmentsByHour(fragments)
-	if len(groups) != 2 {
-		t.Fatalf("expected 2 hourly groups, got %d", len(groups))
+	if len(groups) != 3 {
+		t.Fatalf("expected 3 hourly groups, got %d", len(groups))
 	}
 
-	if groups[0].hourKey != "2026-05-12_09" {
-		t.Fatalf("expected first hour key 2026-05-12_09, got %s", groups[0].hourKey)
+	if groups[0].hourKey != "2026-05-12_09" || groups[0].kind != "motion" {
+		t.Fatalf("expected first group 2026-05-12_09 motion, got %s %s", groups[0].hourKey, groups[0].kind)
 	}
 	if got := mergeTestBaseNames(groups[0].fragments); !reflect.DeepEqual(got, []string{
-		"cam1_2026-05-12_09-10-00.ts",
 		"2026-05-12_095500_motion.mp4",
 	}) {
 		t.Fatalf("unexpected first group fragments: %v", got)
 	}
 
-	if groups[1].hourKey != "2026-05-12_10" {
-		t.Fatalf("expected second hour key 2026-05-12_10, got %s", groups[1].hourKey)
+	if groups[1].hourKey != "2026-05-12_09" || groups[1].kind != "normal" {
+		t.Fatalf("expected second group 2026-05-12_09 normal, got %s %s", groups[1].hourKey, groups[1].kind)
 	}
 	if got := mergeTestBaseNames(groups[1].fragments); !reflect.DeepEqual(got, []string{
+		"cam1_2026-05-12_09-10-00.ts",
+	}) {
+		t.Fatalf("unexpected second group fragments: %v", got)
+	}
+
+	if groups[2].hourKey != "2026-05-12_10" || groups[2].kind != "normal" {
+		t.Fatalf("expected third group 2026-05-12_10 normal, got %s %s", groups[2].hourKey, groups[2].kind)
+	}
+	if got := mergeTestBaseNames(groups[2].fragments); !reflect.DeepEqual(got, []string{
 		"cam1_2026-05-12_10-00-00.ts",
 		"cam1_2026-05-12_10-05-00.ts",
 	}) {
-		t.Fatalf("unexpected second group fragments: %v", got)
+		t.Fatalf("unexpected third group fragments: %v", got)
+	}
+}
+
+func TestGroupMergeFragmentsByHourSeparatesNormalAndMotion(t *testing.T) {
+	fragments := []string{
+		"/records/cam1/2026-05-12/cam1_2026-05-12_09-20-00.ts",
+		"/records/cam1/2026-05-12/2026-05-12_092500_motion.mp4",
+		"/records/cam1/2026-05-12/cam1_2026-05-12_09-30-00.ts",
+	}
+
+	groups := groupMergeFragmentsByHour(fragments)
+	if len(groups) != 2 {
+		t.Fatalf("expected 2 hourly groups, got %d", len(groups))
+	}
+	if groups[0].kind != "motion" || groups[0].outputNameSuffix() != "_motion" {
+		t.Fatalf("expected first group to be motion, got kind=%q suffix=%q", groups[0].kind, groups[0].outputNameSuffix())
+	}
+	if got := mergeTestBaseNames(groups[0].fragments); !reflect.DeepEqual(got, []string{"2026-05-12_092500_motion.mp4"}) {
+		t.Fatalf("unexpected motion fragments: %v", got)
+	}
+	if groups[1].kind != "normal" || groups[1].outputNameSuffix() != "" {
+		t.Fatalf("expected second group to be normal, got kind=%q suffix=%q", groups[1].kind, groups[1].outputNameSuffix())
+	}
+	if got := mergeTestBaseNames(groups[1].fragments); !reflect.DeepEqual(got, []string{
+		"cam1_2026-05-12_09-20-00.ts",
+		"cam1_2026-05-12_09-30-00.ts",
+	}) {
+		t.Fatalf("unexpected normal fragments: %v", got)
 	}
 }
 
@@ -125,6 +162,53 @@ func TestMergeFragmentStartTimeParsesNormalAndMotionNames(t *testing.T) {
 	wantMotion := time.Date(2026, 5, 12, 9, 10, 25, 0, time.Local)
 	if !motion.Equal(wantMotion) {
 		t.Fatalf("expected %s, got %s", wantMotion, motion)
+	}
+}
+
+func TestValidateMergedDurationAllowsSingleFragment(t *testing.T) {
+	fragments := []string{"source.mp4"}
+	probe := func(_ context.Context, path string) (time.Duration, error) {
+		switch path {
+		case "source.mp4", "merged.mp4":
+			return 10 * time.Second, nil
+		default:
+			return 0, os.ErrNotExist
+		}
+	}
+
+	if err := validateMergedDurationWithProbe(context.Background(), fragments, "merged.mp4", probe); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestValidateMergedDurationRejectsShortOutput(t *testing.T) {
+	fragments := []string{"source-a.mp4", "source-b.mp4"}
+	probe := func(_ context.Context, path string) (time.Duration, error) {
+		switch path {
+		case "merged.mp4":
+			return 5 * time.Second, nil
+		case "source-a.mp4", "source-b.mp4":
+			return 10 * time.Second, nil
+		default:
+			return 0, os.ErrNotExist
+		}
+	}
+
+	if err := validateMergedDurationWithProbe(context.Background(), fragments, "merged.mp4", probe); err == nil {
+		t.Fatal("expected short merged output to fail validation")
+	}
+}
+
+func TestIsCorruptFragmentFFmpegOutput(t *testing.T) {
+	output := `[h264 @ 0x1546049f0] Invalid NAL unit size (2277 > 986).
+[h264 @ 0x1546049f0] missing picture in access unit with size 990
+[concat @ 0x154705d10] h264_mp4toannexb filter failed to receive output packet
+[in#0/concat @ 0x600000a18300] Error during demuxing: Invalid data found when processing input`
+	if !isCorruptFragmentFFmpegOutput(output) {
+		t.Fatal("expected corrupt fragment output to be detected")
+	}
+	if isCorruptFragmentFFmpegOutput("Non-monotonous DTS in output stream") {
+		t.Fatal("expected unrelated ffmpeg warning to stay non-corrupt")
 	}
 }
 
