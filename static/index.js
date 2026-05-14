@@ -278,58 +278,55 @@ async function loadStatus() {
             }
 
             const item = document.createElement('div');
-            item.className = `p-3 rounded-xl border cursor-pointer transition-all flex flex-col group ${isSelected ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-100' : 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-sm'} ${isRunning ? '' : 'opacity-80'}`;
+            item.className = `px-2.5 py-2 rounded-lg border cursor-pointer transition-all flex flex-col group ${isSelected ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-100' : 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-sm'} ${isRunning ? '' : 'opacity-80'}`;
             item.onclick = () => selectCamera(id);
 
             item.innerHTML = `
-                <div class="flex items-center justify-between mb-2">
-                    <div class="flex items-center">
-                        <div class="flex flex-col mr-3 space-y-1.5 border-r border-gray-100 pr-3 min-w-[78px]">
-                            <div class="flex items-center" title="摄像机实时流状态">
-                                <div class="w-2 h-2 rounded-full ${streamLight} mr-1.5 shrink-0"></div>
-                                ${streamText}
-                            </div>
-                            <div class="flex items-center" title="本地录制状态">
-                                <div class="w-2 h-2 rounded-full ${recordLight} mr-1.5 shrink-0"></div>
-                                <span class="text-[10px] ${recordTextClass} font-bold">${recordText}</span>
-                            </div>
+                <div class="flex items-start justify-between gap-2">
+                    <div class="min-w-0 flex-1">
+                        <div class="flex min-w-0 items-center gap-1.5">
+                            <span class="truncate font-bold text-gray-800 text-[13px] leading-5 tracking-tight">${id}</span>
+                            <span class="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-slate-400">${cam.mode || 'Normal'}</span>
                         </div>
-                        <div class="flex flex-col">
-                            <span class="font-bold text-gray-800 text-sm tracking-tight">${id}</span>
-                            <span class="text-[10px] text-gray-400 uppercase">${cam.mode || 'Normal'}</span>
+                        <div class="mt-1 flex flex-wrap items-center gap-1">
+                            <span class="inline-flex items-center rounded-full bg-slate-50 px-1.5 py-0.5 ring-1 ring-slate-100" title="摄像机实时流状态">
+                                <span class="w-1.5 h-1.5 rounded-full ${streamLight} mr-1 shrink-0"></span>
+                                ${streamText}
+                            </span>
+                            <span class="inline-flex items-center rounded-full bg-slate-50 px-1.5 py-0.5 ring-1 ring-slate-100" title="本地录制状态">
+                                <span class="w-1.5 h-1.5 rounded-full ${recordLight} mr-1 shrink-0"></span>
+                                <span class="text-[10px] ${recordTextClass} font-bold">${recordText}</span>
+                            </span>
                         </div>
                     </div>
                     <button onclick="event.stopPropagation(); previewLive('${id}')"
-                            class="w-8 h-8 flex items-center justify-center rounded bg-blue-600 hover:bg-blue-700 text-white shadow transition-colors"
+                            class="w-7 h-7 shrink-0 flex items-center justify-center rounded-md bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-colors text-xs"
                             title="主动拉流直播">▶</button>
                 </div>
 
-                <div class="flex min-w-0 items-center gap-1.5 rounded-lg border ${recordSchedule.borderClass} ${recordSchedule.bgClass} px-2 py-1.5"
+                <div class="mt-1.5 flex min-w-0 items-center gap-1.5 rounded-md border ${recordSchedule.borderClass} ${recordSchedule.bgClass} px-1.5 py-1"
                      title="${escapeHtml(recordSchedule.title)}">
-                    <svg class="h-3.5 w-3.5 shrink-0 ${recordSchedule.iconClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
+                    <svg class="h-3 w-3 shrink-0 ${recordSchedule.iconClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2"></path>
                         <circle cx="12" cy="12" r="9"></circle>
                     </svg>
-                    <span class="shrink-0 text-[10px] font-bold ${recordSchedule.badgeClass}">${recordSchedule.badge}</span>
+                    <span class="shrink-0 text-[9px] font-bold ${recordSchedule.badgeClass}">${recordSchedule.badge}</span>
                     <span class="min-w-0 flex-1 truncate font-mono text-[10px] font-semibold ${recordSchedule.textClass}">${escapeHtml(recordSchedule.text)}</span>
                 </div>
 
-                <div class="flex justify-between items-center border-t border-gray-100 pt-2.5 mt-2">
+                <div class="flex justify-between items-center border-t border-gray-100 pt-1.5 mt-1.5">
                     <span class="text-[10px] font-bold text-gray-400">录制控制</span>
-                    <div class="flex space-x-1.5">
+                    <div class="flex space-x-1">
                         <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'start')"
-                                class="group/btn flex items-center px-2 py-1 text-[11px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-md hover:bg-emerald-500 hover:text-white hover:border-emerald-500 shadow-sm transition-all duration-200 active:scale-95">
-                            <svg class="w-3 h-3 mr-1 text-emerald-500 group-hover/btn:text-white transition-colors" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle></svg>
+                                class="group/btn flex items-center px-1.5 py-0.5 text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200 rounded hover:bg-emerald-500 hover:text-white hover:border-emerald-500 transition-all duration-200 active:scale-95">
                             强录
                         </button>
                         <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'stop')"
-                                class="group/btn flex items-center px-2 py-1 text-[11px] font-bold bg-rose-50 text-rose-600 border border-rose-200 rounded-md hover:bg-rose-500 hover:text-white hover:border-rose-500 shadow-sm transition-all duration-200 active:scale-95">
-                            <svg class="w-3 h-3 mr-1 text-rose-500 group-hover/btn:text-white transition-colors" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>
+                                class="group/btn flex items-center px-1.5 py-0.5 text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200 rounded hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-all duration-200 active:scale-95">
                             停录
                         </button>
                         <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'auto')"
-                                class="group/btn flex items-center px-2 py-1 text-[11px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-md hover:bg-indigo-500 hover:text-white hover:border-indigo-500 shadow-sm transition-all duration-200 active:scale-95">
-                            <svg class="w-3 h-3 mr-1 text-indigo-500 group-hover/btn:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                class="group/btn flex items-center px-1.5 py-0.5 text-[10px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-200 rounded hover:bg-indigo-500 hover:text-white hover:border-indigo-500 transition-all duration-200 active:scale-95">
                             计划
                         </button>
                     </div>
@@ -1200,9 +1197,9 @@ async function loadRecords(camId) {
     const list = document.getElementById('recordList');
     const countBadge = document.getElementById('recordCount');
     updateRecordRangeStatus();
-    list.className = 'space-y-4';
+    list.className = 'space-y-2';
     list.innerHTML = `
-        <div class="rounded-xl border border-slate-200 bg-white px-5 py-10 text-center text-sm font-medium text-slate-400 shadow-sm">
+        <div class="rounded-lg border border-slate-200 bg-white px-4 py-8 text-center text-sm font-medium text-slate-400 shadow-sm">
             正在检索历史录像...
         </div>
     `;
@@ -1225,9 +1222,9 @@ async function loadRecords(camId) {
             countBadge.innerText = '0 个文件';
             const emptyTitle = selectedRecordRange.start && selectedRecordRange.end ? '该日期范围暂无录像' : '该设备暂无历史录像';
             list.innerHTML = `
-                <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-5 py-14 text-center">
-                    <div class="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-300 shadow-sm">
-                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center">
+                    <div class="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-300 shadow-sm">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
                         </svg>
                     </div>
@@ -1250,20 +1247,20 @@ async function loadRecords(camId) {
             if (isOpen) recordArchiveOpenDates.add(groupKey);
 
             const groupDiv = document.createElement('div');
-            groupDiv.className = 'overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md';
+            groupDiv.className = 'overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md';
 
             const header = document.createElement('button');
             header.type = 'button';
-            header.className = 'flex w-full items-center justify-between gap-3 border-b border-slate-100 px-4 py-3.5 text-left transition-colors hover:bg-slate-50';
+            header.className = 'flex w-full items-center justify-between gap-3 border-b border-slate-100 px-3 py-2 text-left transition-colors hover:bg-slate-50';
 
             const dateBytes = entries.reduce((sum, entry) => sum + parseRecordSizeBytes(entry.file.size), 0);
             header.innerHTML = `
                 <div class="min-w-0">
                     <div class="flex flex-wrap items-center gap-2">
-                        <span class="text-sm font-extrabold tracking-tight text-slate-800">${archiveDateTitle(date)}</span>
+                        <span class="text-[13px] font-extrabold tracking-tight text-slate-800">${archiveDateTitle(date)}</span>
                         <span class="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-600 ring-1 ring-blue-100">${entries.length} 段</span>
                     </div>
-                    <div class="mt-1 text-[11px] font-medium text-slate-400">${archiveDateSubTitle(date)} · ${formatRecordSize(dateBytes)}</div>
+                    <div class="mt-0.5 text-[11px] font-medium text-slate-400">${archiveDateSubTitle(date)} · ${formatRecordSize(dateBytes)}</div>
                 </div>
                 <svg class="h-4 w-4 shrink-0 text-slate-400 transition-transform ${isOpen ? 'rotate-90' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
@@ -1271,10 +1268,10 @@ async function loadRecords(camId) {
             `;
 
             const content = document.createElement('div');
-            content.className = `${isOpen ? '' : 'hidden'} max-h-[420px] overflow-y-auto bg-slate-50/60 p-2.5 custom-scrollbar sm:max-h-[520px]`;
+            content.className = `${isOpen ? '' : 'hidden'} max-h-[360px] overflow-y-auto bg-slate-50/60 p-2 custom-scrollbar sm:max-h-[460px]`;
 
             const fileGrid = document.createElement('div');
-            fileGrid.className = 'grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3';
+            fileGrid.className = 'grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5';
 
             entries.forEach(entry => {
                 fileGrid.appendChild(createRecordItem(camId, entry.file, entry.meta));
@@ -1346,37 +1343,37 @@ function parseRecordMeta(file) {
 function createRecordItem(camId, file, meta) {
     const item = document.createElement('div');
     const recordPath = getRecordPath(file);
-    item.className = 'group flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md active:translate-y-0';
+    item.className = 'group flex cursor-pointer items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5 shadow-sm transition-all hover:border-blue-300 hover:shadow active:scale-[0.99]';
     item.dataset.recordPath = recordPath;
     item.onclick = () => playRecord(file, `回放: ${camId} (${meta.timeDisplay})`);
 
     item.innerHTML = `
-        <div class="flex min-w-0 items-center gap-3">
-            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ring-1 shadow-sm ${meta.iconClass}">
-                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="flex min-w-0 flex-1 items-center gap-2">
+            <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md ring-1 shadow-sm ${meta.iconClass}">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 3.75h7.25L19 8.5V18.5A1.75 1.75 0 0117.25 20.25H7A1.75 1.75 0 015.25 18.5v-13A1.75 1.75 0 017 3.75z"></path>
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M14.25 3.75V8.5H19"></path>
                     <path fill="currentColor" stroke="none" d="M10.25 11.05a.55.55 0 01.83-.47l3.35 2.02a.55.55 0 010 .94l-3.35 2.02a.55.55 0 01-.83-.47v-4.04z"></path>
                 </svg>
             </div>
-            <div class="min-w-0">
-                <div class="font-mono text-sm font-extrabold leading-5 text-slate-800">${meta.timeDisplay}</div>
-                <div class="mt-0.5 flex flex-wrap items-center gap-1.5">
-                    <span class="rounded-full px-1.5 py-0.5 text-[10px] font-bold ring-1 ${meta.kindClass}">${meta.kind}</span>
-                    <span data-record-playing class="hidden rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-200">播放中</span>
-                    <span class="font-mono text-[10px] font-medium text-slate-400">${meta.ext}</span>
-                    <span class="font-mono text-[10px] font-medium text-slate-400">${file.size}</span>
+            <div class="min-w-0 flex-1">
+                <div class="truncate font-mono text-[12px] font-extrabold leading-4 text-slate-800">${meta.timeDisplay}</div>
+                <div class="mt-0.5 flex flex-wrap items-center gap-1">
+                    <span class="rounded-full px-1.5 py-0.5 text-[9px] font-bold leading-none ring-1 ${meta.kindClass}">${meta.kind}</span>
+                    <span data-record-playing class="hidden rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold leading-none text-emerald-700 ring-1 ring-emerald-200">播放中</span>
+                    <span class="font-mono text-[9px] font-medium leading-none text-slate-400">${meta.ext}</span>
+                    <span class="font-mono text-[9px] font-medium leading-none text-slate-400">${file.size}</span>
                 </div>
             </div>
         </div>
-        <div class="flex shrink-0 items-center gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
-            <button data-record-action="download" class="rounded-md p-2 text-slate-300 transition-colors hover:bg-blue-50 hover:text-blue-600" title="下载该录像">
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+            <button data-record-action="download" class="rounded-md p-1.5 text-slate-300 transition-colors hover:bg-blue-50 hover:text-blue-600" title="下载该录像">
+                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M8 12l4 4m0 0l4-4m-4 4V4"></path>
                 </svg>
             </button>
-            <button data-record-action="delete" class="rounded-md p-2 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500" title="永久删除该录像">
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button data-record-action="delete" class="rounded-md p-1.5 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500" title="永久删除该录像">
+                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                 </svg>
             </button>
