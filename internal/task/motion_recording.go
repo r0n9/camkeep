@@ -39,6 +39,7 @@ type motionTimeShiftSegment struct {
 	path  string
 	start time.Time
 	end   time.Time
+	live  bool
 }
 
 type motionTimeShiftClip struct {
@@ -115,6 +116,8 @@ func startMotionTimeShiftFFmpeg(ctx context.Context, cam constant.Camera) (*exec
 		"-use_wallclock_as_timestamps", "1",
 		"-i", safeRTSPURL,
 		"-c:v", "copy",
+		// 强制提取并注入 SPS/PPS，在不重新编码的情况下，把全局关键信息强制写入每一个切片的 bitstream 中，防止后续 concat 时滤镜崩溃
+		"-bsf:v", "dump_extra",
 		"-c:a", "aac",
 		"-f", "segment",
 		"-segment_time", formatSeconds(motionTimeShiftSegmentDuration),
@@ -183,32 +186,36 @@ func exportMotionTimeShiftEvent(ctx context.Context, cam constant.Camera, camDir
 	tempOutput := outputPath + ".tmp.mp4"
 	defer os.Remove(tempOutput)
 
-	if len(clips) == 1 {
-		if err := trimMotionTimeShiftClip(ctx, clips[0], tempOutput); err != nil {
-			log.Printf("[%s] 动检事件裁剪失败: %v", cam.ID, err)
-			return
-		}
-	} else {
-		tempDir, err := os.MkdirTemp("", "camkeep-motion-trim-*")
-		if err != nil {
-			log.Printf("[%s] 创建动检裁剪临时目录失败: %v", cam.ID, err)
-			return
-		}
-		defer os.RemoveAll(tempDir)
+	tempDir, err := os.MkdirTemp("", "camkeep-motion-trim-*")
+	if err != nil {
+		log.Printf("[%s] 创建动检裁剪临时目录失败: %v", cam.ID, err)
+		return
+	}
+	defer os.RemoveAll(tempDir)
 
-		parts := make([]string, 0, len(clips))
-		for i, clip := range clips {
-			partPath := filepath.Join(tempDir, fmt.Sprintf("part_%03d.mp4", i))
-			if err := trimMotionTimeShiftClip(ctx, clip, partPath); err != nil {
-				log.Printf("[%s] 动检事件分段裁剪失败: %v", cam.ID, err)
-				return
-			}
-			parts = append(parts, partPath)
-		}
-		if err := concatMotionTimeShiftParts(ctx, parts, tempOutput); err != nil {
-			log.Printf("[%s] 动检事件分段拼接失败: %v", cam.ID, err)
+	clips, err = prepareMotionTimeShiftClips(ctx, clips, tempDir)
+	if err != nil {
+		log.Printf("[%s] 预处理动检 Time-Shift 片段失败: %v", cam.ID, err)
+		return
+	}
+
+	isHEVC, err := probeMotionTimeShiftClipsHEVC(ctx, clips)
+	if err != nil {
+		log.Printf("[%s] 探测动检片段编码失败，按 H.264 路径继续: %v", cam.ID, err)
+	}
+
+	parts := make([]string, 0, len(clips))
+	for i, clip := range clips {
+		partPath := filepath.Join(tempDir, fmt.Sprintf("part_%03d.ts", i))
+		if err := trimMotionTimeShiftClip(ctx, clip, partPath, isHEVC); err != nil {
+			log.Printf("[%s] 动检事件裁剪到 TS 片段失败: %v", cam.ID, err)
 			return
 		}
+		parts = append(parts, partPath)
+	}
+	if err := concatMotionTimeShiftParts(ctx, parts, tempOutput, isHEVC); err != nil {
+		log.Printf("[%s] 动检事件 TS 片段封装为 MP4 失败: %v", cam.ID, err)
+		return
 	}
 
 	if err := os.Rename(tempOutput, outputPath); err != nil {
@@ -219,7 +226,7 @@ func exportMotionTimeShiftEvent(ctx context.Context, cam constant.Camera, camDir
 		cam.ID, session.StartTime.Format(time.RFC3339), session.EndTime.Format(time.RFC3339), outputPath)
 }
 
-func trimMotionTimeShiftClip(ctx context.Context, clip motionTimeShiftClip, outputPath string) error {
+func trimMotionTimeShiftClip(ctx context.Context, clip motionTimeShiftClip, outputPath string, isHEVC bool) error {
 	seek := clip.start.Sub(clip.source.start)
 	if seek < 0 {
 		seek = 0
@@ -239,11 +246,26 @@ func trimMotionTimeShiftClip(ctx context.Context, clip motionTimeShiftClip, outp
 		"-map", "0:v:0",
 		"-map", "0:a?",
 		"-c:v", "copy",
-		"-c:a", "aac",
+		"-c:a", "copy",
 		"-avoid_negative_ts", "make_zero",
-		"-movflags", "+faststart",
 	}
-	args = appendCodecSpecificMP4Tag(ctx, args, []string{clip.source.path})
+
+	if strings.HasSuffix(strings.ToLower(outputPath), ".ts") {
+		// 【场景A：中间件转为 TS 用于后续合并】
+		// TS 绝对不能带有 MP4 tag，但必须加 annexb 滤镜
+		if isHEVC {
+			args = append(args, "-bsf:v", "hevc_mp4toannexb")
+		} else {
+			args = append(args, "-bsf:v", "h264_mp4toannexb")
+		}
+	} else {
+		// 【场景B：单切片直接输出 MP4】
+		// MP4 必须带 tag，但绝对不能加 annexb 滤镜 (否则播放器黑屏)
+		if isHEVC {
+			args = append(args, "-tag:v", "hvc1")
+		}
+	}
+
 	args = append(args, outputPath)
 
 	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
@@ -254,7 +276,137 @@ func trimMotionTimeShiftClip(ctx context.Context, clip motionTimeShiftClip, outp
 	return nil
 }
 
-func concatMotionTimeShiftParts(ctx context.Context, parts []string, outputPath string) error {
+type motionTimeShiftSnapshotter func(context.Context, motionTimeShiftSegment, string) (motionTimeShiftSegment, error)
+
+func hasLiveMotionTimeShiftClip(clips []motionTimeShiftClip) bool {
+	for _, clip := range clips {
+		if clip.source.live {
+			return true
+		}
+	}
+	return false
+}
+
+func prepareMotionTimeShiftClips(ctx context.Context, clips []motionTimeShiftClip, tempDir string) ([]motionTimeShiftClip, error) {
+	return prepareMotionTimeShiftClipsWithSnapshotter(ctx, clips, tempDir, snapshotMotionTimeShiftSegment)
+}
+
+func prepareMotionTimeShiftClipsWithSnapshotter(ctx context.Context, clips []motionTimeShiftClip, tempDir string, snapshotter motionTimeShiftSnapshotter) ([]motionTimeShiftClip, error) {
+	prepared := make([]motionTimeShiftClip, 0, len(clips))
+	snapshots := make(map[string]motionTimeShiftSegment)
+	for i, clip := range clips {
+		if !clip.source.live {
+			prepared = append(prepared, clip)
+			continue
+		}
+		if tempDir == "" {
+			return nil, fmt.Errorf("live 动检片段缺少临时目录")
+		}
+
+		snapshot, ok := snapshots[clip.source.path]
+		if !ok {
+			var err error
+			snapshotPath := filepath.Join(tempDir, fmt.Sprintf("source_%03d.mp4", i))
+			snapshot, err = snapshotter(ctx, clip.source, snapshotPath)
+			if err != nil {
+				// 如果是 Live 片段读取失败，不要直接 return nil, err 导致整体崩溃
+				// 而是打印警告，并跳过当前损坏的片段，尽可能保留已有的历史片段
+				log.Printf("警告: 处理 Live 片段失败，将丢弃该尾部片段继续合并: %v", err)
+				continue
+			}
+			snapshots[clip.source.path] = snapshot
+		}
+
+		clip.source = snapshot
+		if clip.end.After(snapshot.end) {
+			clip.end = snapshot.end
+		}
+		if !clip.end.After(clip.start) {
+			// 同理，这里为跳过而不是报错退出
+			log.Printf("警告: live 动检片段快照后时长不足, 忽略此段: start=%s end=%s", clip.start.Format(time.RFC3339), clip.end.Format(time.RFC3339))
+			continue
+		}
+		prepared = append(prepared, clip)
+	}
+
+	// 如果所有片段都失败了才返回错误
+	if len(prepared) == 0 {
+		return nil, fmt.Errorf("所有动检片段均预处理失败")
+	}
+
+	return prepared, nil
+}
+
+func probeMotionTimeShiftClipsHEVC(ctx context.Context, clips []motionTimeShiftClip) (bool, error) {
+	if len(clips) == 0 {
+		return false, fmt.Errorf("无可探测的动检片段")
+	}
+	codec, err := probeVideoCodecName(ctx, clips[0].source.path)
+	if err != nil {
+		return false, err
+	}
+	return isHEVCCodec(codec), nil
+}
+
+func snapshotMotionTimeShiftSegment(ctx context.Context, source motionTimeShiftSegment, outputPath string) (motionTimeShiftSegment, error) {
+	availableDuration := source.end.Sub(source.start)
+	if availableDuration <= 0 {
+		return motionTimeShiftSegment{}, fmt.Errorf("无效 live Time-Shift 片段时长: %s", availableDuration)
+	}
+
+	args := []string{
+		"-hide_banner",
+		"-loglevel", "error",
+		"-y",
+		"-i", source.path,
+		"-t", formatSeconds(availableDuration),
+		"-map", "0:v:0",
+		"-map", "0:a?",
+		"-c", "copy",
+		"-movflags", "+faststart",
+	}
+	_, args = appendCodecSpecificMP4Tag(ctx, args, []string{source.path})
+	args = append(args, outputPath)
+
+	// 重试机制。最多重试 3 次，每次间隔 500ms
+	// 如果你读取的瞬间，后台 FFmpeg 刚刚创建出这个 loop_20260514_143930.mp4 文件，
+	// 还没来得及把 empty_moov 头部或者第一个关键帧（moof）刷入磁盘，Go 启动的截取进程就会读到一个残缺的/甚至 0 字节的文件，
+	// 从而导致解码器崩溃报错。
+	var output []byte
+	var err error
+	for retries := 0; retries < 3; retries++ {
+		cmd := exec.CommandContext(ctx, "ffmpeg", args...)
+		output, err = cmd.CombinedOutput()
+		if err == nil {
+			break // 成功，跳出循环
+		}
+
+		errStr := strings.ToLower(string(output))
+		// 如果是头部未找到或数据无效，说明文件可能正在初始化，等待并重试
+		if strings.Contains(errStr, "moov atom not found") || strings.Contains(errStr, "invalid data") || strings.Contains(errStr, "no such file") {
+			time.Sleep(500 * time.Millisecond)
+			continue
+		}
+		break // 如果是其他严重错误，直接跳出不重试
+	}
+
+	if err != nil {
+		return motionTimeShiftSegment{}, fmt.Errorf("ffmpeg 快照 live 片段失败: %v, output=%s", err, strings.TrimSpace(string(output)))
+	}
+
+	duration, err := probeVideoDuration(ctx, outputPath)
+	if err != nil {
+		return motionTimeShiftSegment{}, fmt.Errorf("读取 live Time-Shift 快照时长失败 path=%s: %w", outputPath, err)
+	}
+	return motionTimeShiftSegment{
+		path:  outputPath,
+		start: source.start,
+		end:   source.start.Add(duration),
+		live:  false,
+	}, nil
+}
+
+func concatMotionTimeShiftParts(ctx context.Context, parts []string, outputPath string, isHEVC bool) error {
 	listPath, err := writeConcatList(parts)
 	if err != nil {
 		return err
@@ -270,9 +422,12 @@ func concatMotionTimeShiftParts(ctx context.Context, parts []string, outputPath 
 		"-i", listPath,
 		"-c:v", "copy",
 		"-c:a", "copy",
+		"-bsf:a", "aac_adtstoasc", // 从 TS 转回 MP4 时，修复音频 ADTS 头部
 		"-movflags", "+faststart",
 	}
-	args = appendCodecSpecificMP4Tag(ctx, args, parts)
+	if isHEVC {
+		args = append(args, "-tag:v", "hvc1")
+	}
 	args = append(args, outputPath)
 
 	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
@@ -348,6 +503,7 @@ func motionTimeShiftSegments(camID string, now time.Time) ([]motionTimeShiftSegm
 		}
 		if now.After(segments[i].start) && now.Before(segments[i].end) {
 			segments[i].end = now
+			segments[i].live = true
 		}
 	}
 	return segments, nil

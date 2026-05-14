@@ -193,15 +193,17 @@ func mergeOneHourGroup(ctx context.Context, cam constant.Camera, date, dateDir s
 	args := []string{
 		"-hide_banner",
 		"-loglevel", "error",
-		"-y", // 强制覆盖可能存在的异常临时文件
+		"-y",                                       // 强制覆盖可能存在的异常临时文件
+		"-fflags", "+genpts+igndts+discardcorrupt", // 忽略时间戳跳变和轻微损坏的数据包
 		"-f", "concat",
 		"-safe", "0",
 		"-i", listPath,
 		"-c:v", "copy", // 视频无损极速拼接 (占用极低 CPU)
 		"-c:a", "aac", // 监控音频多为 alaw/ulaw(G.711)，必须转码为 AAC，否则浏览器没声音
+		"-max_muxing_queue_size", "8192", // 防止剔除坏帧后音视频轴不同步导致的队列溢出报错
 		"-movflags", "+faststart", // 将 moov atom 移到文件头部，完美支持超大文件的 HTTP Range 拖拽秒播
 	}
-	args = appendCodecSpecificMP4Tag(ctx, args, fragments)
+	_, args = appendCodecSpecificMP4Tag(ctx, args, fragments)
 	args = append(args, tempOutput)
 
 	cmd := exec.CommandContext(ctx, "ffmpeg", args...)

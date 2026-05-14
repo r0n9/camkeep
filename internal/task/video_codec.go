@@ -109,16 +109,17 @@ func isHEVCCodec(codec string) bool {
 	return codec == "hevc" || codec == "h265" || codec == "h.265"
 }
 
-func appendCodecSpecificMP4Tag(ctx context.Context, args []string, fragments []string) []string {
+func appendCodecSpecificMP4Tag(ctx context.Context, args []string, fragments []string) (bool, []string) {
 	if len(fragments) == 0 {
-		return args
+		return false, args
 	}
 	codec, err := probeVideoCodecName(ctx, fragments[0])
 	if err != nil {
-		return args
+		return false, args
 	}
-	if isHEVCCodec(codec) {
+	isHEVC := isHEVCCodec(codec)
+	if isHEVC {
 		args = append(args, "-tag:v", "hvc1")
 	}
-	return args
+	return isHEVC, args
 }

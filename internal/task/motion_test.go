@@ -1,6 +1,8 @@
 package task
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -184,6 +186,131 @@ func TestMotionTimeShiftClipsAcrossSegments(t *testing.T) {
 	}
 	if got := clips[1].end.Sub(clips[1].start); got != 10*time.Second {
 		t.Fatalf("expected second clip 10s, got %s", got)
+	}
+}
+
+func TestHasLiveMotionTimeShiftClip(t *testing.T) {
+	clips := []motionTimeShiftClip{
+		{source: motionTimeShiftSegment{path: "a.mp4"}},
+		{source: motionTimeShiftSegment{path: "b.mp4", live: true}},
+	}
+	if !hasLiveMotionTimeShiftClip(clips) {
+		t.Fatal("expected live clip to be detected")
+	}
+	if hasLiveMotionTimeShiftClip([]motionTimeShiftClip{{source: motionTimeShiftSegment{path: "a.mp4"}}}) {
+		t.Fatal("expected non-live clips to return false")
+	}
+}
+
+func TestPrepareMotionTimeShiftClipsRequiresTempDirForLiveSource(t *testing.T) {
+	clips := []motionTimeShiftClip{
+		{
+			source: motionTimeShiftSegment{
+				path:  "live.mp4",
+				start: time.Date(2026, 5, 12, 10, 0, 0, 0, time.Local),
+				end:   time.Date(2026, 5, 12, 10, 0, 5, 0, time.Local),
+				live:  true,
+			},
+			start: time.Date(2026, 5, 12, 10, 0, 1, 0, time.Local),
+			end:   time.Date(2026, 5, 12, 10, 0, 4, 0, time.Local),
+		},
+	}
+
+	if _, err := prepareMotionTimeShiftClipsWithSnapshotter(context.Background(), clips, "", func(context.Context, motionTimeShiftSegment, string) (motionTimeShiftSegment, error) {
+		t.Fatal("snapshotter should not be called without tempDir")
+		return motionTimeShiftSegment{}, nil
+	}); err == nil {
+		t.Fatal("expected missing tempDir to fail for live clip")
+	}
+}
+
+func TestPrepareMotionTimeShiftClipsSnapshotsLiveSourceOnce(t *testing.T) {
+	base := time.Date(2026, 5, 12, 10, 0, 0, 0, time.Local)
+	live := motionTimeShiftSegment{
+		path:  "live.mp4",
+		start: base,
+		end:   base.Add(8 * time.Second),
+		live:  true,
+	}
+	clips := []motionTimeShiftClip{
+		{source: live, start: base.Add(1 * time.Second), end: base.Add(4 * time.Second)},
+		{source: live, start: base.Add(4 * time.Second), end: base.Add(7 * time.Second)},
+	}
+
+	calls := 0
+	prepared, err := prepareMotionTimeShiftClipsWithSnapshotter(context.Background(), clips, t.TempDir(), func(_ context.Context, source motionTimeShiftSegment, outputPath string) (motionTimeShiftSegment, error) {
+		calls++
+		return motionTimeShiftSegment{
+			path:  outputPath,
+			start: source.start,
+			end:   source.start.Add(6 * time.Second),
+			live:  false,
+		}, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 {
+		t.Fatalf("expected snapshotter called once, got %d", calls)
+	}
+	if prepared[0].source.live || prepared[1].source.live {
+		t.Fatal("expected prepared clips to use non-live snapshot source")
+	}
+	if prepared[0].source.path != prepared[1].source.path {
+		t.Fatal("expected both clips to reuse same snapshot")
+	}
+	if got := prepared[1].end; !got.Equal(base.Add(6 * time.Second)) {
+		t.Fatalf("expected second clip end trimmed to snapshot end, got %s", got)
+	}
+}
+
+func TestPrepareMotionTimeShiftClipsReturnsGenericErrorWhenAllSnapshotsFail(t *testing.T) {
+	base := time.Date(2026, 5, 12, 10, 0, 0, 0, time.Local)
+	clips := []motionTimeShiftClip{
+		{
+			source: motionTimeShiftSegment{
+				path:  "live.mp4",
+				start: base,
+				end:   base.Add(5 * time.Second),
+				live:  true,
+			},
+			start: base,
+			end:   base.Add(2 * time.Second),
+		},
+	}
+
+	if _, err := prepareMotionTimeShiftClipsWithSnapshotter(context.Background(), clips, t.TempDir(), func(context.Context, motionTimeShiftSegment, string) (motionTimeShiftSegment, error) {
+		return motionTimeShiftSegment{}, errors.New("snapshot failed")
+	}); err == nil || err.Error() != "所有动检片段均预处理失败" {
+		t.Fatalf("expected generic all-failed error, got %v", err)
+	}
+}
+
+func TestMotionTimeShiftSegmentsMarksCurrentSegmentLive(t *testing.T) {
+	camID := "test-timeshift-live"
+	bufferDir := motionTimeShiftDir(camID)
+	t.Cleanup(func() {
+		os.RemoveAll(bufferDir)
+	})
+	if err := os.RemoveAll(bufferDir); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(bufferDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	baseTime := time.Date(2026, 5, 12, 10, 0, 0, 0, time.Local)
+	createTimeShiftTestSegment(t, bufferDir, baseTime)
+
+	segments, err := motionTimeShiftSegments(camID, baseTime.Add(30*time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(segments) != 1 {
+		t.Fatalf("expected 1 segment, got %d", len(segments))
+	}
+	if !segments[0].live {
+		t.Fatal("expected current segment to be marked live")
 	}
 }
 
