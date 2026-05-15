@@ -1501,27 +1501,74 @@ function createRecordItem(camId, file, meta, options = {}) {
     const recordPath = getRecordPath(file);
     const explicitActions = Boolean(options.explicitActions);
     const timeline = Boolean(options.timeline);
+    const clickPlaysRecord = !explicitActions || timeline;
+    const cursorClass = clickPlaysRecord ? 'cursor-pointer' : 'cursor-default';
     const actionVisibilityClass = explicitActions
         ? 'opacity-100'
         : 'opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100';
-    item.className = `group flex ${explicitActions ? 'cursor-default' : 'cursor-pointer'} items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5 shadow-sm transition-all hover:border-blue-300 hover:shadow active:scale-[0.99] ${timeline ? 'record-timeline-card' : ''}`;
+    item.className = timeline
+        ? `group record-timeline-card ${cursorClass} rounded-lg border border-slate-200 bg-white shadow-sm transition-all hover:border-blue-300 hover:shadow active:scale-[0.99]`
+        : `group flex ${cursorClass} items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5 shadow-sm transition-all hover:border-blue-300 hover:shadow active:scale-[0.99]`;
     item.dataset.recordPath = recordPath;
     item.onclick = () => {
-        if (explicitActions) {
+        if (!clickPlaysRecord) {
             setSelectedRecordPath(recordPath);
             return;
         }
         playRecord(file, `回放: ${camId} (${meta.timeDisplay})`);
     };
 
-    item.innerHTML = `
+    const fileIcon = `
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 3.75h7.25L19 8.5V18.5A1.75 1.75 0 0117.25 20.25H7A1.75 1.75 0 015.25 18.5v-13A1.75 1.75 0 017 3.75z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M14.25 3.75V8.5H19"></path>
+            <path fill="currentColor" stroke="none" d="M10.25 11.05a.55.55 0 01.83-.47l3.35 2.02a.55.55 0 010 .94l-3.35 2.02a.55.55 0 01-.83-.47v-4.04z"></path>
+        </svg>
+    `;
+    const playAction = explicitActions && !timeline ? `
+        <button data-record-action="play" class="rounded-md p-1.5 text-slate-300 transition-colors hover:bg-emerald-50 hover:text-emerald-600" title="播放该录像" aria-label="播放该录像">
+            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5v14l11-7-11-7z"></path>
+            </svg>
+        </button>
+    ` : '';
+    const downloadAction = `
+        <button data-record-action="download" class="${timeline ? 'record-timeline-card-action record-timeline-card-action-download' : 'rounded-md p-1.5 text-slate-300 transition-colors hover:bg-blue-50 hover:text-blue-600'}" title="下载该录像" aria-label="下载该录像">
+            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M8 12l4 4m0 0l4-4m-4 4V4"></path>
+            </svg>
+        </button>
+    `;
+    const deleteAction = `
+        <button data-record-action="delete" class="${timeline ? 'record-timeline-card-action record-timeline-card-action-delete' : 'rounded-md p-1.5 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500'}" title="永久删除该录像" aria-label="永久删除该录像">
+            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+            </svg>
+        </button>
+    `;
+
+    item.innerHTML = timeline ? `
+        <div class="record-timeline-card-head">
+            <div class="record-timeline-card-icon ${meta.iconClass}">
+                ${fileIcon}
+            </div>
+            <div class="record-timeline-card-time">${meta.timeDisplay}</div>
+            <div class="record-timeline-card-actions">
+                ${playAction}
+                ${downloadAction}
+                ${deleteAction}
+            </div>
+        </div>
+        <div class="record-timeline-card-meta">
+            <span class="record-timeline-card-kind ${meta.kindClass}">${meta.kind}</span>
+            <span data-record-playing class="hidden record-timeline-card-playing rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold leading-none text-emerald-700 ring-1 ring-emerald-200">播放中</span>
+            <span class="record-timeline-card-detail">${meta.ext}</span>
+            <span class="record-timeline-card-detail">${file.size}</span>
+        </div>
+    ` : `
         <div class="flex min-w-0 flex-1 items-center gap-2">
             <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md ring-1 shadow-sm ${meta.iconClass}">
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 3.75h7.25L19 8.5V18.5A1.75 1.75 0 0117.25 20.25H7A1.75 1.75 0 015.25 18.5v-13A1.75 1.75 0 017 3.75z"></path>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M14.25 3.75V8.5H19"></path>
-                    <path fill="currentColor" stroke="none" d="M10.25 11.05a.55.55 0 01.83-.47l3.35 2.02a.55.55 0 010 .94l-3.35 2.02a.55.55 0 01-.83-.47v-4.04z"></path>
-                </svg>
+                ${fileIcon}
             </div>
             <div class="min-w-0 flex-1">
                 <div class="truncate font-mono text-[12px] font-extrabold leading-4 text-slate-800">${meta.timeDisplay}</div>
@@ -1534,23 +1581,9 @@ function createRecordItem(camId, file, meta, options = {}) {
             </div>
         </div>
         <div class="flex shrink-0 items-center gap-0.5 ${actionVisibilityClass}">
-            ${explicitActions ? `
-            <button data-record-action="play" class="rounded-md p-1.5 text-slate-300 transition-colors hover:bg-emerald-50 hover:text-emerald-600" title="播放该录像">
-                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5v14l11-7-11-7z"></path>
-                </svg>
-            </button>
-            ` : ''}
-            <button data-record-action="download" class="rounded-md p-1.5 text-slate-300 transition-colors hover:bg-blue-50 hover:text-blue-600" title="下载该录像">
-                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M8 12l4 4m0 0l4-4m-4 4V4"></path>
-                </svg>
-            </button>
-            <button data-record-action="delete" class="rounded-md p-1.5 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500" title="永久删除该录像">
-                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                </svg>
-            </button>
+            ${playAction}
+            ${downloadAction}
+            ${deleteAction}
         </div>
     `;
 

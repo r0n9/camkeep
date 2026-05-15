@@ -67,6 +67,7 @@
 
 .record-timeline-scroll {
     position: relative;
+    z-index: 3;
     height: 420px;
     overflow: auto;
     cursor: grab;
@@ -133,6 +134,7 @@
     min-width: 62px;
     height: 34px;
     padding: 0 9px;
+    overflow: hidden;
     color: #475569;
     border: 1px solid #e2e8f0;
     border-radius: 9999px;
@@ -145,12 +147,36 @@
     transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
 }
 
+.record-timeline-side-nav::before {
+    position: absolute;
+    inset: 0;
+    content: "";
+    opacity: 0;
+    pointer-events: none;
+    background: linear-gradient(90deg, rgba(16, 185, 129, 0.22), rgba(14, 165, 233, 0.2));
+    transform: scaleX(var(--record-timeline-swipe-progress, 0));
+    transition: opacity 0.12s ease, transform 0.08s linear;
+}
+
+.record-timeline-side-nav > * {
+    position: relative;
+    z-index: 1;
+}
+
 .record-timeline-side-nav-prev {
     left: 10px;
 }
 
+.record-timeline-side-nav-prev::before {
+    transform-origin: right center;
+}
+
 .record-timeline-side-nav-next {
     right: 10px;
+}
+
+.record-timeline-side-nav-next::before {
+    transform-origin: left center;
 }
 
 .record-timeline-side-nav:hover:not(:disabled) {
@@ -172,6 +198,19 @@
     box-shadow: none;
 }
 
+.record-timeline-frame.is-swipe-intent-prev .record-timeline-side-nav-prev:not(:disabled),
+.record-timeline-frame.is-swipe-intent-next .record-timeline-side-nav-next:not(:disabled) {
+    color: #047857;
+    border-color: #6ee7b7;
+    background: rgba(236, 253, 245, 0.96);
+    box-shadow: 0 16px 30px -18px rgba(4, 120, 87, 0.65);
+}
+
+.record-timeline-frame.is-swipe-intent-prev .record-timeline-side-nav-prev::before,
+.record-timeline-frame.is-swipe-intent-next .record-timeline-side-nav-next::before {
+    opacity: 1;
+}
+
 .record-timeline-frame.is-edge-left .record-timeline-side-nav-prev,
 .record-timeline-frame.is-edge-right .record-timeline-side-nav-next {
     color: #0f766e;
@@ -184,15 +223,26 @@
     position: absolute;
     top: 10px;
     right: 10px;
-    z-index: 9;
+    z-index: 2;
     width: 156px;
     padding: 8px 9px 7px;
     color: #0f172a;
     border: 1px solid rgba(16, 185, 129, 0.22);
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.94);
-    box-shadow: 0 12px 24px -20px rgba(15, 23, 42, 0.78);
+    opacity: 0.36;
+    background: rgba(255, 255, 255, 0.52);
+    box-shadow: 0 8px 18px -18px rgba(15, 23, 42, 0.58);
     backdrop-filter: blur(8px);
+    pointer-events: none;
+    transition: opacity 0.16s ease, background 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.record-timeline-frame:hover .record-timeline-day-position,
+.record-timeline-frame:focus-within .record-timeline-day-position {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 12px 24px -20px rgba(15, 23, 42, 0.78);
+    transform: translateY(-1px);
 }
 
 .record-timeline-day-position-head {
@@ -218,25 +268,50 @@
 
 .record-timeline-day-position-track {
     position: relative;
-    height: 6px;
+    height: 8px;
     margin-top: 7px;
-    overflow: hidden;
     border-radius: 9999px;
+    background: transparent;
+}
+
+.record-timeline-day-position-heat {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: repeat(48, minmax(0, 1fr));
+    gap: 1px;
+    overflow: hidden;
+    border-radius: inherit;
+    background: #e2e8f0;
+    box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.04);
+}
+
+.record-timeline-day-position-segment {
+    min-width: 0;
+    border-radius: 1px;
     background: #e2e8f0;
 }
 
-.record-timeline-day-position-fill {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    border-radius: inherit;
-    background: linear-gradient(90deg, #10b981, #0ea5e9);
+.record-timeline-day-position-segment.is-level-1 {
+    background: #a7f3d0;
+}
+
+.record-timeline-day-position-segment.is-level-2 {
+    background: #34d399;
+}
+
+.record-timeline-day-position-segment.is-level-3 {
+    background: #f59e0b;
+}
+
+.record-timeline-day-position-segment.is-level-4 {
+    background: #ef4444;
 }
 
 .record-timeline-day-position-dot {
     position: absolute;
     top: 50%;
+    z-index: 2;
     width: 10px;
     height: 10px;
     transform: translate(-50%, -50%);
@@ -273,10 +348,128 @@
 
 .record-timeline-card {
     width: 192px;
-    height: 68px;
-    min-height: 68px;
-    max-height: 68px;
+    height: 54px;
+    min-height: 54px;
+    max-height: 54px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 3px;
     overflow: hidden;
+    padding: 5px 8px;
+}
+
+.record-timeline-card-head {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 7px;
+}
+
+.record-timeline-card-icon {
+    display: flex;
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 7px;
+    box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.06), 0 4px 10px -8px rgba(15, 23, 42, 0.72);
+}
+
+.record-timeline-card-time {
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    color: #0f172a;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 12px;
+    font-weight: 900;
+    line-height: 1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.record-timeline-card-actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 2px;
+}
+
+.record-timeline-card-action {
+    display: inline-flex;
+    width: 18px;
+    height: 18px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    color: #94a3b8;
+    transition: color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.record-timeline-card-action:hover {
+    transform: translateY(-1px);
+}
+
+.record-timeline-card-action:active {
+    transform: scale(0.94);
+}
+
+.record-timeline-card-action-download:hover {
+    color: #2563eb;
+    background: #eff6ff;
+}
+
+.record-timeline-card-action-delete:hover {
+    color: #dc2626;
+    background: #fef2f2;
+}
+
+.record-timeline-card-meta {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 4px;
+    overflow: hidden;
+}
+
+.record-timeline-card-kind {
+    flex: 0 0 auto;
+    border-radius: 9999px;
+    padding: 2px 6px;
+    font-size: 9px;
+    font-weight: 800;
+    line-height: 1;
+    box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.06);
+}
+
+.record-timeline-card-playing {
+    flex: 0 0 auto;
+}
+
+.record-timeline-card-detail {
+    min-width: 0;
+    overflow: hidden;
+    color: #64748b;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.record-timeline-card[aria-current="true"] .record-timeline-card-time {
+    color: #047857;
+}
+
+.record-timeline-card[aria-current="true"] .record-timeline-card-icon {
+    box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.2), 0 8px 16px -12px rgba(5, 150, 105, 0.8);
+}
+
+.record-timeline-card[aria-current="true"] .record-timeline-card-action {
+    color: #64748b;
 }
 
 .record-timeline-pin {

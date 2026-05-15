@@ -7,12 +7,12 @@
     const tickTargetWidth = 96;
     const sidePadding = 112;
     const cardWidth = 192;
-    const cardHeight = 68;
-    const laneHeight = 84;
+    const cardHeight = 54;
+    const laneHeight = 68;
     const cardAreaHeight = 420;
     const dialHeight = 76;
     const cardGap = 12;
-    const pageDragThreshold = 76;
+    const dragStartThreshold = 6;
     const wheelPageThreshold = 180;
     const wheelPageMinDuration = 300;
     const wheelPageMinSamples = 4;
@@ -48,6 +48,7 @@
             const scale = buildScale(windowEntries);
 
             wrapper.appendChild(createTimelineStage(windowEntries, selectedRecordPath, renderItem, scale, {
+                dayEntries: knownEntries,
                 transitionDirection,
                 canPrev: windowStart > 0,
                 canNext: windowStart + windowSize < knownEntries.length,
@@ -167,7 +168,7 @@
             syncDial();
         });
 
-        frame.appendChild(createDayPositionBadge(entries[0].meta.startSeconds));
+        frame.appendChild(createDayPositionBadge(entries[0].meta.startSeconds, paging.dayEntries || entries));
         frame.appendChild(createSideNavButton('prev', paging.canPrev, () => paging.onPage('prev')));
         frame.appendChild(scroll);
         frame.appendChild(createSideNavButton('next', paging.canNext, () => paging.onPage('next')));
@@ -217,18 +218,23 @@
         return btn;
     }
 
-    function createDayPositionBadge(startSeconds) {
+    function createDayPositionBadge(startSeconds, dayEntries) {
         const percent = Math.min(100, Math.max(0, (startSeconds / 86400) * 100));
+        const heatmap = buildDayHeatmap(dayEntries);
         const badge = document.createElement('div');
         badge.className = 'record-timeline-day-position';
-        badge.title = `当前窗口从 ${formatSecondsClock(startSeconds)} 开始，约位于当天 ${Math.round(percent)}%`;
+        badge.title = `当前窗口从 ${formatSecondsClock(startSeconds)} 开始，约位于当天 ${Math.round(percent)}%。颜色表示全天录像分布密度`;
         badge.innerHTML = `
             <div class="record-timeline-day-position-head">
                 <span>当日起点</span>
                 <strong>${formatSecondsClock(startSeconds)}</strong>
             </div>
             <div class="record-timeline-day-position-track">
-                <span class="record-timeline-day-position-fill" style="width: ${percent}%"></span>
+                <span class="record-timeline-day-position-heat" aria-hidden="true">
+                    ${heatmap.segments.map(segment => `
+                        <span class="record-timeline-day-position-segment is-level-${segment.level}" title="${segment.title}"></span>
+                    `).join('')}
+                </span>
                 <span class="record-timeline-day-position-dot" style="left: ${percent}%"></span>
             </div>
             <div class="record-timeline-day-position-foot">
@@ -237,6 +243,40 @@
             </div>
         `;
         return badge;
+    }
+
+    function buildDayHeatmap(entries) {
+        const binCount = 48;
+        const secondsPerBin = 86400 / binCount;
+        const counts = Array.from({length: binCount}, () => 0);
+        const sourceEntries = Array.isArray(entries) ? entries : [];
+        sourceEntries.forEach(entry => {
+            const seconds = entry && entry.meta ? entry.meta.startSeconds : null;
+            if (!Number.isFinite(seconds)) return;
+            const bin = Math.min(binCount - 1, Math.max(0, Math.floor(seconds / secondsPerBin)));
+            counts[bin] += 1;
+        });
+
+        const maxCount = Math.max(...counts, 0);
+        const segments = counts.map((count, index) => {
+            const start = Math.round(index * secondsPerBin);
+            const end = Math.round((index + 1) * secondsPerBin);
+            return {
+                level: heatmapLevel(count, maxCount),
+                title: `${formatSecondsClock(start)}-${formatSecondsClock(end)} · ${count} 个录像`
+            };
+        });
+        return {segments};
+    }
+
+    function heatmapLevel(count, maxCount) {
+        if (count <= 0 || maxCount <= 0) return 0;
+        if (maxCount === 1) return 1;
+        const ratio = count / maxCount;
+        if (ratio <= 0.34) return 1;
+        if (ratio <= 0.67) return 2;
+        if (ratio < 1) return 3;
+        return 4;
     }
 
     function buildScale(entries) {
@@ -348,6 +388,8 @@
 
     function enableDrag(scroll, paging, frame) {
         let drag = null;
+        let suppressClickAfterDrag = false;
+        let suppressClickTimer = null;
         let edgeFeedbackTimer = null;
         let wheelEdgeIntent = null;
         let wheelResetTimer = null;
@@ -367,8 +409,21 @@
             edgeFeedbackTimer = setTimeout(clearEdgeFeedback, 360);
         };
 
+        const clearSwipeIntentFeedback = () => {
+            frame.classList.remove('is-swipe-intent-prev', 'is-swipe-intent-next');
+            frame.style.removeProperty('--record-timeline-swipe-progress');
+        };
+
+        const setSwipeIntentFeedback = (direction, progress) => {
+            const normalizedProgress = Math.min(1, Math.max(0.08, progress));
+            frame.classList.toggle('is-swipe-intent-prev', direction === 'prev');
+            frame.classList.toggle('is-swipe-intent-next', direction === 'next');
+            frame.style.setProperty('--record-timeline-swipe-progress', normalizedProgress.toFixed(3));
+        };
+
         const resetWheelEdgeIntent = () => {
             wheelEdgeIntent = null;
+            clearSwipeIntentFeedback();
             if (wheelResetTimer) {
                 clearTimeout(wheelResetTimer);
                 wheelResetTimer = null;
@@ -397,9 +452,23 @@
             if (wheelResetTimer) clearTimeout(wheelResetTimer);
             wheelResetTimer = setTimeout(resetWheelEdgeIntent, wheelIntentResetDelay);
 
+            const durationProgress = (now - wheelEdgeIntent.startedAt) / wheelPageMinDuration;
+            const distanceProgress = wheelEdgeIntent.distance / wheelPageThreshold;
+            const sampleProgress = wheelEdgeIntent.samples / wheelPageMinSamples;
+            setSwipeIntentFeedback(direction, Math.min(durationProgress, distanceProgress, sampleProgress));
+
             return wheelEdgeIntent.distance >= wheelPageThreshold
                 && now - wheelEdgeIntent.startedAt >= wheelPageMinDuration
                 && wheelEdgeIntent.samples >= wheelPageMinSamples;
+        };
+
+        const suppressNextClick = () => {
+            suppressClickAfterDrag = true;
+            if (suppressClickTimer) clearTimeout(suppressClickTimer);
+            suppressClickTimer = setTimeout(() => {
+                suppressClickAfterDrag = false;
+                suppressClickTimer = null;
+            }, 160);
         };
 
         scroll.addEventListener('pointerdown', event => {
@@ -409,47 +478,55 @@
                 pointerId: event.pointerId,
                 startX: event.clientX,
                 startScrollLeft: scroll.scrollLeft,
-                paged: false
+                active: false
             };
-            scroll.classList.add('is-dragging');
-            scroll.setPointerCapture(event.pointerId);
         });
 
         scroll.addEventListener('pointermove', event => {
             if (!drag || drag.pointerId !== event.pointerId) return;
             const delta = event.clientX - drag.startX;
+            if (!drag.active) {
+                if (Math.abs(delta) < dragStartThreshold) return;
+                drag.active = true;
+                suppressClickAfterDrag = true;
+                if (suppressClickTimer) {
+                    clearTimeout(suppressClickTimer);
+                    suppressClickTimer = null;
+                }
+                scroll.classList.add('is-dragging');
+                scroll.setPointerCapture(event.pointerId);
+            }
+
             const maxScrollLeft = Math.max(0, scroll.scrollWidth - scroll.clientWidth);
             const desiredScrollLeft = drag.startScrollLeft - delta;
             const clampedScrollLeft = Math.min(maxScrollLeft, Math.max(0, desiredScrollLeft));
             scroll.scrollLeft = clampedScrollLeft;
-
-            const edgeOverflow = desiredScrollLeft < 0
-                ? desiredScrollLeft
-                : desiredScrollLeft > maxScrollLeft
-                    ? desiredScrollLeft - maxScrollLeft
-                    : 0;
-
-            if (!drag.paged && edgeOverflow <= -pageDragThreshold && paging.canPrev) {
-                drag.paged = paging.onPage('prev');
-            } else if (!drag.paged && edgeOverflow >= pageDragThreshold && paging.canNext) {
-                drag.paged = paging.onPage('next');
-            } else if (edgeOverflow <= -pageDragThreshold && !paging.canPrev) {
-                setEdgeFeedback('prev');
-            } else if (edgeOverflow >= pageDragThreshold && !paging.canNext) {
-                setEdgeFeedback('next');
-            }
 
             if (Math.abs(delta) > 3) event.preventDefault();
         });
 
         const endDrag = event => {
             if (!drag || drag.pointerId !== event.pointerId) return;
+            if (drag.active) suppressNextClick();
+            if (drag.active && scroll.hasPointerCapture(event.pointerId)) {
+                scroll.releasePointerCapture(event.pointerId);
+            }
             scroll.classList.remove('is-dragging');
             clearEdgeFeedback();
             drag = null;
         };
         scroll.addEventListener('pointerup', endDrag);
         scroll.addEventListener('pointercancel', endDrag);
+        scroll.addEventListener('click', event => {
+            if (!suppressClickAfterDrag) return;
+            suppressClickAfterDrag = false;
+            if (suppressClickTimer) {
+                clearTimeout(suppressClickTimer);
+                suppressClickTimer = null;
+            }
+            event.preventDefault();
+            event.stopPropagation();
+        }, true);
 
         scroll.addEventListener('wheel', event => {
             if (event.target.closest('[data-record-action]')) return;
