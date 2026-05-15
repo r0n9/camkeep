@@ -14,8 +14,9 @@
 
 **A lightweight, self-hosted Network Video Recorder (NVR) designed for Home NAS.**
 
-
 CamKeep is a streaming and recording gateway written in Go, deeply integrated with **go2rtc** and **FFmpeg**. Designed for home NAS (FnOS, Synology, QNAP, Unraid, etc.) and low-power micro-servers, it allows you to say goodbye to expensive proprietary NVRs and privacy risks.
+
+![camkeep](camkeep_console.png)
 
 ## ✨ Feature Highlights
 
