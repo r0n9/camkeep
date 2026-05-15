@@ -119,10 +119,17 @@
         stage.style.width = `${stageWidth}px`;
         stage.style.height = `${stageHeight}px`;
 
+        const anchorLayer = document.createElement('div');
+        anchorLayer.className = 'record-timeline-anchor-fixed';
+        const anchorTrack = document.createElement('div');
+        anchorTrack.className = 'record-timeline-anchor-track';
+        anchorTrack.style.width = `${stageWidth}px`;
+        anchorLayer.appendChild(anchorTrack);
+
+        const pins = [];
         layout.forEach(item => {
-            const top = item.lane * laneHeight + 4;
+            const top = stageHeight - (item.lane + 1) * laneHeight + 4;
             const pinTop = top + cardHeight - 2;
-            const pinHeight = Math.max(16, stageHeight - pinTop + 8);
             const path = entryPath(item.entry);
 
             const pin = document.createElement('div');
@@ -131,18 +138,37 @@
             pin.classList.toggle('is-selected', selectedRecordPath !== '' && path === selectedRecordPath);
             pin.style.left = `${item.anchorX}px`;
             pin.style.top = `${pinTop}px`;
-            pin.style.height = `${pinHeight}px`;
             stage.appendChild(pin);
+            pins.push({pin, pinTop});
+
+            const anchor = document.createElement('div');
+            anchor.className = 'record-timeline-anchor-dot';
+            anchor.dataset.recordAxisPath = path;
+            anchor.classList.toggle('is-selected', selectedRecordPath !== '' && path === selectedRecordPath);
+            anchor.style.left = `${item.anchorX}px`;
+            anchorTrack.appendChild(anchor);
 
             const entryWrap = document.createElement('div');
             entryWrap.className = 'record-timeline-entry';
             entryWrap.style.left = `${item.left}px`;
             entryWrap.style.top = `${top}px`;
             entryWrap.appendChild(renderItem(item.entry, {timeline: true}));
-            entryWrap.addEventListener('pointerenter', () => pin.classList.add('is-hovered'));
-            entryWrap.addEventListener('pointerleave', () => pin.classList.remove('is-hovered'));
-            entryWrap.addEventListener('focusin', () => pin.classList.add('is-hovered'));
-            entryWrap.addEventListener('focusout', () => pin.classList.remove('is-hovered'));
+            entryWrap.addEventListener('pointerenter', () => {
+                pin.classList.add('is-hovered');
+                anchor.classList.add('is-hovered');
+            });
+            entryWrap.addEventListener('pointerleave', () => {
+                pin.classList.remove('is-hovered');
+                anchor.classList.remove('is-hovered');
+            });
+            entryWrap.addEventListener('focusin', () => {
+                pin.classList.add('is-hovered');
+                anchor.classList.add('is-hovered');
+            });
+            entryWrap.addEventListener('focusout', () => {
+                pin.classList.remove('is-hovered');
+                anchor.classList.remove('is-hovered');
+            });
             stage.appendChild(entryWrap);
         });
 
@@ -156,8 +182,19 @@
 
         const syncDial = () => {
             dial.style.transform = `translateX(${-scroll.scrollLeft}px)`;
+            anchorTrack.style.transform = `translateX(${-scroll.scrollLeft}px)`;
         };
-        scroll.addEventListener('scroll', syncDial, {passive: true});
+        const syncPins = () => {
+            const anchorViewportY = scroll.clientHeight - 6;
+            pins.forEach(item => {
+                item.pin.style.height = `${Math.max(0, scroll.scrollTop + anchorViewportY - item.pinTop)}px`;
+            });
+        };
+        const syncTimelineOverlays = () => {
+            syncDial();
+            syncPins();
+        };
+        scroll.addEventListener('scroll', syncTimelineOverlays, {passive: true});
 
         const selectedEntry = entries.find(entry => entryPath(entry) === selectedRecordPath);
         const preferredEntry = selectedEntry || entries[0];
@@ -165,12 +202,14 @@
         requestAnimationFrame(() => {
             if (!scroll.isConnected) return;
             scroll.scrollLeft = Math.max(0, preferredLeft - Math.min(360, scroll.clientWidth * 0.35));
-            syncDial();
+            scroll.scrollTop = Math.max(0, scroll.scrollHeight - scroll.clientHeight);
+            syncTimelineOverlays();
         });
 
         frame.appendChild(createDayPositionBadge(entries[0].meta.startSeconds, paging.dayEntries || entries));
         frame.appendChild(createSideNavButton('prev', paging.canPrev, () => paging.onPage('prev')));
         frame.appendChild(scroll);
+        frame.appendChild(anchorLayer);
         frame.appendChild(createSideNavButton('next', paging.canNext, () => paging.onPage('next')));
         frame.appendChild(dialWrap);
         return frame;

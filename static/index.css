@@ -223,7 +223,7 @@
     position: absolute;
     top: 10px;
     left: 10px;
-    z-index: 2;
+    z-index: 9;
     width: 156px;
     padding: 8px 9px 7px;
     color: #0f172a;
@@ -472,6 +472,37 @@
     color: #64748b;
 }
 
+.record-timeline-anchor-fixed {
+    position: absolute;
+    right: 0;
+    bottom: 76px;
+    left: 0;
+    z-index: 5;
+    height: 12px;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.record-timeline-anchor-track {
+    position: relative;
+    height: 100%;
+    min-width: 100%;
+    will-change: transform;
+}
+
+.record-timeline-anchor-dot {
+    position: absolute;
+    top: 2px;
+    width: 8px;
+    height: 8px;
+    transform: translateX(-50%);
+    border: 2px solid #ffffff;
+    border-radius: 9999px;
+    background: #059669;
+    box-shadow: 0 3px 10px rgba(5, 150, 105, 0.35);
+    transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
 .record-timeline-pin {
     position: absolute;
     z-index: 1;
@@ -480,21 +511,6 @@
     pointer-events: none;
     background: linear-gradient(180deg, rgba(16, 185, 129, 0.16), rgba(16, 185, 129, 0.72));
     transition: background 0.15s ease, box-shadow 0.15s ease, width 0.15s ease;
-}
-
-.record-timeline-pin::after {
-    position: absolute;
-    left: 50%;
-    bottom: -4px;
-    width: 8px;
-    height: 8px;
-    content: "";
-    transform: translateX(-50%);
-    border: 2px solid #ffffff;
-    border-radius: 9999px;
-    background: #059669;
-    box-shadow: 0 3px 10px rgba(5, 150, 105, 0.35);
-    transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .record-timeline-pin.is-hovered {
@@ -511,13 +527,13 @@
     box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.12);
 }
 
-.record-timeline-pin.is-hovered::after {
+.record-timeline-anchor-dot.is-hovered {
     background: #2563eb;
     box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.16), 0 8px 18px rgba(37, 99, 235, 0.34);
     transform: translateX(-50%) scale(1.18);
 }
 
-.record-timeline-pin.is-selected::after {
+.record-timeline-anchor-dot.is-selected {
     background: #059669;
     box-shadow: 0 0 0 5px rgba(16, 185, 129, 0.18), 0 8px 18px rgba(5, 150, 105, 0.36);
     transform: translateX(-50%) scale(1.24);
