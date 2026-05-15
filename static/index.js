@@ -13,11 +13,13 @@ const recordArchiveOpenDates = new Set();
 const recordArchiveViewModes = new Map();
 
 window.onload = function () {
+    initThemeControls();
     if (typeof DPlayer === 'undefined') {
         alert("播放器组件加载失败，请检查网络！");
         return;
     }
     initRecordRangeControls();
+    renderRecordSelectionPrompt();
     setLayout(1);
     loadStatus();
     setInterval(loadStatus, 5000);
@@ -29,6 +31,37 @@ window.onload = function () {
         }
     });
 };
+
+function initThemeControls() {
+    syncThemeToggleIcon();
+    if (window.matchMedia) {
+        const media = window.matchMedia('(prefers-color-scheme: dark)');
+        media.addEventListener('change', () => {
+            if (!localStorage.getItem('camkeep-theme')) {
+                document.documentElement.classList.toggle('dark', media.matches);
+                syncThemeToggleIcon();
+            }
+        });
+    }
+}
+
+function toggleTheme() {
+    const nextIsDark = !document.documentElement.classList.contains('dark');
+    document.documentElement.classList.toggle('dark', nextIsDark);
+    localStorage.setItem('camkeep-theme', nextIsDark ? 'dark' : 'light');
+    syncThemeToggleIcon();
+}
+
+function syncThemeToggleIcon() {
+    const isDark = document.documentElement.classList.contains('dark');
+    const lightIcon = document.getElementById('themeIconLight');
+    const darkIcon = document.getElementById('themeIconDark');
+    const button = document.getElementById('themeToggleBtn');
+    if (lightIcon) lightIcon.classList.toggle('hidden', !isDark);
+    if (darkIcon) darkIcon.classList.toggle('hidden', isDark);
+    if (button) button.title = isDark ? '切换到浅色模式' : '切换到深色模式';
+    if (button) button.setAttribute('aria-label', button.title);
+}
 
 // --- 控制面板动作弹窗 ---
 function confirmCamAction(camId, action) {
@@ -238,9 +271,20 @@ async function loadStatus() {
         const resp = await fetch('/api/status');
         const data = await resp.json();
         const list = document.getElementById('camList');
+        const cameras = Object.entries(data || {});
+        updateCameraStats(cameras);
         list.innerHTML = '';
 
-        Object.entries(data).forEach(([id, cam]) => {
+        if (cameras.length === 0) {
+            list.innerHTML = `
+                <div class="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-8 text-center text-sm font-bold text-slate-400">
+                    暂无实时节点
+                </div>
+            `;
+            return;
+        }
+
+        cameras.forEach(([id, cam]) => {
             const recordState = cam.record_state || (cam.is_running ? 'recording' : 'idle');
             const isRunning = recordState === 'recording' || recordState === 'motion_detecting' || recordState === 'motion_recording';
             const isSelected = currentSelectedCam === id;
@@ -336,8 +380,44 @@ async function loadStatus() {
             list.appendChild(item);
         });
     } catch (e) {
+        updateCameraStats([], true);
         console.error("同步状态失败:", e);
     }
+}
+
+function updateCameraStats(cameras, failed = false) {
+    const summary = document.getElementById('camStatsSummary');
+    const totalEl = document.getElementById('camStatsTotal');
+    const onlineEl = document.getElementById('camStatsOnline');
+    const idleEl = document.getElementById('camStatsIdle');
+    const recordingEl = document.getElementById('camStatsRecording');
+    const offlineEl = document.getElementById('camStatsOffline');
+
+    if (failed) {
+        if (summary) summary.innerText = '同步失败';
+        [totalEl, onlineEl, idleEl, recordingEl, offlineEl].forEach(el => {
+            if (el) el.innerText = '-';
+        });
+        return;
+    }
+
+    const stats = cameras.reduce((result, [, cam]) => {
+        const streamState = cam.stream_state || 'offline';
+        const recordState = cam.record_state || (cam.is_running ? 'recording' : 'idle');
+        result.total += 1;
+        if (streamState === 'online') result.online += 1;
+        if (streamState === 'idle') result.idle += 1;
+        if (streamState === 'offline') result.offline += 1;
+        if (recordState === 'recording' || recordState === 'motion_detecting' || recordState === 'motion_recording') result.recording += 1;
+        return result;
+    }, {total: 0, online: 0, idle: 0, recording: 0, offline: 0});
+
+    if (summary) summary.innerText = `${stats.total} 节点`;
+    if (totalEl) totalEl.innerText = stats.total;
+    if (onlineEl) onlineEl.innerText = stats.online;
+    if (idleEl) idleEl.innerText = stats.idle;
+    if (recordingEl) recordingEl.innerText = stats.recording;
+    if (offlineEl) offlineEl.innerText = stats.offline;
 }
 
 function buildRecordScheduleDisplay(recordTime, override) {
@@ -1125,7 +1205,7 @@ function applyRecordRange() {
     if (currentSelectedCam) {
         loadRecords(currentSelectedCam);
     } else {
-        alert('请先选择摄像头');
+        renderRecordSelectionPrompt('请选择一个实时节点后再查询录像');
     }
 }
 
@@ -1142,7 +1222,29 @@ function resetRecordRange() {
 
     if (currentSelectedCam) {
         loadRecords(currentSelectedCam);
+    } else {
+        renderRecordSelectionPrompt();
     }
+}
+
+function renderRecordSelectionPrompt(message = '请先选择一个实时节点') {
+    const list = document.getElementById('recordList');
+    const countBadge = document.getElementById('recordCount');
+    if (countBadge) countBadge.innerText = '未选择设备';
+    if (!list) return;
+
+    list.className = 'space-y-2';
+    list.innerHTML = `
+        <div class="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center">
+            <div class="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-300 shadow-sm">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h8M8 11h8m-8 4h5M5 4h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z"></path>
+                </svg>
+            </div>
+            <div class="text-sm font-bold text-slate-600">${escapeHtml(message)}</div>
+            <div class="mt-1 text-xs font-medium text-slate-400">选中左侧设备后，这里会显示对应的历史录像档案。</div>
+        </div>
+    `;
 }
 
 function validateRecordRange(start, end) {
@@ -1234,7 +1336,7 @@ function updateRecordViewSwitchButtons(switcher, activeMode) {
 function renderRecordDateContent(content, camId, date, entries, viewMode, onUpdate = () => {}) {
     content.innerHTML = '';
     if (viewMode === 'timeline') {
-        content.className = 'bg-slate-50/70 p-2 custom-scrollbar';
+        content.className = 'record-watermark-window bg-slate-50/70 p-2 custom-scrollbar';
         if (!window.RecordTimeline) {
             const error = document.createElement('div');
             error.className = 'rounded-lg border border-red-100 bg-red-50 px-4 py-8 text-center text-sm font-bold text-red-400';
@@ -1256,9 +1358,9 @@ function renderRecordDateContent(content, camId, date, entries, viewMode, onUpda
         return;
     }
 
-    content.className = 'max-h-[360px] overflow-y-auto bg-slate-50/60 p-2 custom-scrollbar sm:max-h-[460px]';
+    content.className = 'record-watermark-window max-h-[360px] overflow-y-auto bg-slate-50/60 p-2 custom-scrollbar sm:max-h-[460px]';
     const fileGrid = document.createElement('div');
-    fileGrid.className = 'grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5';
+    fileGrid.className = 'relative z-[1] grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5';
 
     entries.forEach(entry => {
         fileGrid.appendChild(createRecordItem(camId, entry.file, entry.meta));
