@@ -3,12 +3,14 @@ package task
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -26,8 +28,14 @@ func StartGo2rtcDaemon() {
 		for {
 			log.Println("正在启动底层流媒体引擎 go2rtc...")
 
+			if err := prepareGo2rtcConfig(constant.LegacyGo2rtcConfigFilePath, constant.Go2rtcConfigFilePath); err != nil {
+				log.Printf("go2rtc 配置文件准备失败: %v，3秒后尝试重试...", err)
+				time.Sleep(3 * time.Second)
+				continue
+			}
+
 			// 调用同目录下的 go2rtc 二进制文件
-			cmd := exec.Command("./go2rtc")
+			cmd := exec.Command("./go2rtc", "-config", constant.Go2rtcConfigFilePath)
 
 			// 如果你想在终端看到 go2rtc 的原生日志，可以取消下面两行的注释
 			cmd.Stdout = os.Stdout
@@ -40,6 +48,64 @@ func StartGo2rtcDaemon() {
 			time.Sleep(3 * time.Second) // 缓冲时间，防止死循环狂刷日志
 		}
 	}()
+}
+
+func prepareGo2rtcConfig(legacyPath, configPath string) error {
+	if err := os.MkdirAll(filepath.Dir(configPath), 0755); err != nil {
+		return fmt.Errorf("创建 go2rtc 配置目录失败: %w", err)
+	}
+
+	if _, err := os.Stat(configPath); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("检查 go2rtc 配置文件失败: %w", err)
+	}
+
+	legacyInfo, err := os.Stat(legacyPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("检查旧 go2rtc 配置文件失败: %w", err)
+	}
+	if legacyInfo.IsDir() {
+		return fmt.Errorf("旧 go2rtc 配置路径是目录: %s", legacyPath)
+	}
+
+	if err := copyFileExclusive(legacyPath, configPath, legacyInfo.Mode().Perm()); err != nil {
+		return fmt.Errorf("迁移旧 go2rtc 配置文件失败: %w", err)
+	}
+
+	log.Printf("已将旧 go2rtc 配置从 %s 迁移到 %s", legacyPath, configPath)
+	return nil
+}
+
+func copyFileExclusive(src, dst string, perm os.FileMode) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_EXCL, perm)
+	if err != nil {
+		if os.IsExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	_, copyErr := io.Copy(out, in)
+	closeErr := out.Close()
+	if copyErr != nil {
+		_ = os.Remove(dst)
+		return copyErr
+	}
+	if closeErr != nil {
+		_ = os.Remove(dst)
+		return closeErr
+	}
+	return nil
 }
 
 // WaitForGo2rtcReady 轮询探测 go2rtc API 是否就绪

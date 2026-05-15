@@ -2,6 +2,8 @@ package constant
 
 const ConfigFilePath = "config/conf.yaml" // 定义统一的配置文件路径
 const OverridesFilePath = "config/overrides.json"
+const Go2rtcConfigFilePath = "config/go2rtc.yaml"
+const LegacyGo2rtcConfigFilePath = "go2rtc.yaml"
 
 const DefaultRecordBaseDir = "./records"
 
