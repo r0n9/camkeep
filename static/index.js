@@ -10,6 +10,7 @@ let selectedRecordRange = {start: '', end: ''};
 let selectedRecordPath = '';
 const maxRecordRangeDays = 7;
 const recordArchiveOpenDates = new Set();
+const recordArchiveViewModes = new Map();
 
 window.onload = function () {
     if (typeof DPlayer === 'undefined') {
@@ -721,6 +722,13 @@ function applySelectedRecordCardStyles() {
     document.querySelectorAll('[data-record-path]').forEach(item => {
         setRecordItemSelected(item, selectedRecordPath !== '' && item.dataset.recordPath === selectedRecordPath);
     });
+    applySelectedRecordAxisStyles();
+}
+
+function applySelectedRecordAxisStyles() {
+    document.querySelectorAll('[data-record-axis-path]').forEach(axis => {
+        axis.classList.toggle('is-selected', selectedRecordPath !== '' && axis.dataset.recordAxisPath === selectedRecordPath);
+    });
 }
 
 function setRecordItemSelected(item, isSelected) {
@@ -1172,6 +1180,92 @@ function buildRecordsUrl(camId) {
     return `/api/records/${encodeURIComponent(camId)}${query ? `?${query}` : ''}`;
 }
 
+function getRecordArchiveGroupKey(camId, date) {
+    return `${camId}:${date}`;
+}
+
+function getRecordArchiveViewMode(camId, date) {
+    return recordArchiveViewModes.get(getRecordArchiveGroupKey(camId, date)) || 'cards';
+}
+
+function setRecordArchiveViewMode(camId, date, mode) {
+    recordArchiveViewModes.set(getRecordArchiveGroupKey(camId, date), mode === 'timeline' ? 'timeline' : 'cards');
+}
+
+function createRecordViewSwitch(camId, date, onChange) {
+    const switcher = document.createElement('div');
+    switcher.className = 'flex h-7 overflow-hidden rounded-md border border-slate-200 bg-white p-0.5 shadow-sm';
+    switcher.dataset.recordViewSwitch = 'true';
+
+    [
+        {mode: 'cards', label: '卡片', title: '卡片列表'},
+        {mode: 'timeline', label: '时间轴', title: '时间轴'}
+    ].forEach(option => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.dataset.recordViewMode = option.mode;
+        btn.className = 'rounded px-2 text-[11px] font-bold leading-none transition-colors';
+        btn.textContent = option.label;
+        btn.title = option.title;
+        btn.onclick = (event) => {
+            event.stopPropagation();
+            setRecordArchiveViewMode(camId, date, option.mode);
+            onChange();
+        };
+        switcher.appendChild(btn);
+    });
+
+    updateRecordViewSwitchButtons(switcher, getRecordArchiveViewMode(camId, date));
+    return switcher;
+}
+
+function updateRecordViewSwitchButtons(switcher, activeMode) {
+    switcher.querySelectorAll('[data-record-view-mode]').forEach(btn => {
+        const active = btn.dataset.recordViewMode === activeMode;
+        btn.classList.toggle('bg-slate-800', active);
+        btn.classList.toggle('text-white', active);
+        btn.classList.toggle('shadow-sm', active);
+        btn.classList.toggle('text-slate-500', !active);
+        btn.classList.toggle('hover:bg-slate-100', !active);
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+}
+
+function renderRecordDateContent(content, camId, date, entries, viewMode, onUpdate = () => {}) {
+    content.innerHTML = '';
+    if (viewMode === 'timeline') {
+        content.className = 'bg-slate-50/70 p-2 custom-scrollbar';
+        if (!window.RecordTimeline) {
+            const error = document.createElement('div');
+            error.className = 'rounded-lg border border-red-100 bg-red-50 px-4 py-8 text-center text-sm font-bold text-red-400';
+            error.textContent = '时间轴组件加载失败';
+            content.appendChild(error);
+            return;
+        }
+        content.appendChild(window.RecordTimeline.create({
+            camId,
+            date,
+            entries,
+            selectedRecordPath,
+            onUpdate,
+            renderItem: (entry, options = {}) => createRecordItem(camId, entry.file, entry.meta, {
+                explicitActions: true,
+                timeline: Boolean(options.timeline)
+            })
+        }));
+        return;
+    }
+
+    content.className = 'max-h-[360px] overflow-y-auto bg-slate-50/60 p-2 custom-scrollbar sm:max-h-[460px]';
+    const fileGrid = document.createElement('div');
+    fileGrid.className = 'grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5';
+
+    entries.forEach(entry => {
+        fileGrid.appendChild(createRecordItem(camId, entry.file, entry.meta));
+    });
+    content.appendChild(fileGrid);
+}
+
 function addDays(date, days) {
     const next = new Date(date);
     next.setDate(next.getDate() + days);
@@ -1242,19 +1336,21 @@ async function loadRecords(camId) {
         const hasOpenDate = sortedDates.some(date => recordArchiveOpenDates.has(`${camId}:${date}`));
         sortedDates.forEach((date, index) => {
             const entries = groups[date].sort((a, b) => b.meta.sortKey.localeCompare(a.meta.sortKey));
-            const groupKey = `${camId}:${date}`;
+            const groupKey = getRecordArchiveGroupKey(camId, date);
             const isOpen = recordArchiveOpenDates.has(groupKey) || (index === 0 && !hasOpenDate);
             if (isOpen) recordArchiveOpenDates.add(groupKey);
 
             const groupDiv = document.createElement('div');
             groupDiv.className = 'overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md';
 
-            const header = document.createElement('button');
-            header.type = 'button';
-            header.className = 'flex w-full items-center justify-between gap-3 border-b border-slate-100 px-3 py-2 text-left transition-colors hover:bg-slate-50';
-
             const dateBytes = entries.reduce((sum, entry) => sum + parseRecordSizeBytes(entry.file.size), 0);
-            header.innerHTML = `
+            const header = document.createElement('div');
+            header.className = 'flex w-full items-stretch justify-between gap-2 border-b border-slate-100 transition-colors hover:bg-slate-50';
+
+            const summaryBtn = document.createElement('button');
+            summaryBtn.type = 'button';
+            summaryBtn.className = 'flex min-w-0 flex-1 items-center gap-3 px-3 py-2 text-left';
+            summaryBtn.innerHTML = `
                 <div class="min-w-0">
                     <div class="flex flex-wrap items-center gap-2">
                         <span class="text-[13px] font-extrabold tracking-tight text-slate-800">${archiveDateTitle(date)}</span>
@@ -1262,31 +1358,55 @@ async function loadRecords(camId) {
                     </div>
                     <div class="mt-0.5 text-[11px] font-medium text-slate-400">${archiveDateSubTitle(date)} · ${formatRecordSize(dateBytes)}</div>
                 </div>
-                <svg class="h-4 w-4 shrink-0 text-slate-400 transition-transform ${isOpen ? 'rotate-90' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            `;
+
+            const content = document.createElement('div');
+            let viewSwitch;
+            const redrawDateContent = () => {
+                const keepHidden = content.classList.contains('hidden');
+                renderRecordDateContent(content, camId, date, entries, getRecordArchiveViewMode(camId, date), redrawDateContent);
+                if (keepHidden) content.classList.add('hidden');
+                if (viewSwitch) updateRecordViewSwitchButtons(viewSwitch, getRecordArchiveViewMode(camId, date));
+                applySelectedRecordCardStyles();
+            };
+
+            viewSwitch = createRecordViewSwitch(camId, date, redrawDateContent);
+
+            const collapseBtn = document.createElement('button');
+            collapseBtn.type = 'button';
+            collapseBtn.className = 'flex h-full items-center px-2 text-slate-400 transition-colors hover:text-slate-700';
+            collapseBtn.title = isOpen ? '收起该日录像' : '展开该日录像';
+            collapseBtn.innerHTML = `
+                <svg class="h-4 w-4 shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
                 </svg>
             `;
 
-            const content = document.createElement('div');
-            content.className = `${isOpen ? '' : 'hidden'} max-h-[360px] overflow-y-auto bg-slate-50/60 p-2 custom-scrollbar sm:max-h-[460px]`;
+            const rightTools = document.createElement('div');
+            rightTools.className = 'flex shrink-0 items-center gap-1 pr-2';
+            rightTools.appendChild(viewSwitch);
+            rightTools.appendChild(collapseBtn);
 
-            const fileGrid = document.createElement('div');
-            fileGrid.className = 'grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5';
-
-            entries.forEach(entry => {
-                fileGrid.appendChild(createRecordItem(camId, entry.file, entry.meta));
-            });
-
-            content.appendChild(fileGrid);
-            header.onclick = () => {
-                const nextOpen = content.classList.toggle('hidden') === false;
-                header.querySelector('svg').classList.toggle('rotate-90', nextOpen);
+            const setOpen = (nextOpen) => {
+                content.classList.toggle('hidden', !nextOpen);
+                collapseBtn.querySelector('svg').classList.toggle('rotate-90', nextOpen);
+                collapseBtn.title = nextOpen ? '收起该日录像' : '展开该日录像';
                 if (nextOpen) {
                     recordArchiveOpenDates.add(groupKey);
                 } else {
                     recordArchiveOpenDates.delete(groupKey);
                 }
             };
+            summaryBtn.onclick = () => setOpen(content.classList.contains('hidden'));
+            collapseBtn.onclick = (event) => {
+                event.stopPropagation();
+                setOpen(content.classList.contains('hidden'));
+            };
+
+            header.appendChild(summaryBtn);
+            header.appendChild(rightTools);
+            redrawDateContent();
+            if (!isOpen) content.classList.add('hidden');
 
             groupDiv.appendChild(header);
             groupDiv.appendChild(content);
@@ -1317,14 +1437,12 @@ function parseRecordMeta(file) {
     const path = file.path || name;
     const dateMatch = path.match(/\d{4}-\d{2}-\d{2}/);
     const date = dateMatch ? dateMatch[0] : '其他归档';
-    const compactTimeMatch = name.match(/_(\d{2})(\d{2})(\d{2})(?:_|\.|$)/);
-    const dashedTimeMatch = name.match(/_(\d{2})-(\d{2})-(\d{2})(?:_|\.|$)/);
-    const timeParts = compactTimeMatch || dashedTimeMatch;
+    const startParts = parseRecordStartParts(name, path);
     const ext = (name.split('.').pop() || '').toUpperCase();
     const isMotion = /_motion\./i.test(name);
     const isMerged = /_merged\./i.test(name);
-    const timeDisplay = isMerged ? name : (timeParts ? `${timeParts[1]}:${timeParts[2]}:${timeParts[3]}` : '整段录像');
-    const sortKey = timeParts ? `${timeParts[1]}${timeParts[2]}${timeParts[3]}_${name}` : name;
+    const timeDisplay = startParts ? `${startParts.hourText}:${startParts.minuteText}:${startParts.secondText}` : (isMerged ? name : '整段录像');
+    const sortKey = startParts ? `${startParts.hourText}${startParts.minuteText}${startParts.secondText}_${name}` : name;
     const kind = isMotion ? '动检' : isMerged ? '合并' : '切片';
     const kindClass = isMotion
         ? 'bg-amber-50 text-amber-700 ring-amber-100'
@@ -1337,15 +1455,64 @@ function parseRecordMeta(file) {
             ? 'bg-emerald-50 text-emerald-600 ring-emerald-100'
             : 'bg-blue-50 text-blue-600 ring-blue-100';
 
-    return {date, timeDisplay, sortKey, ext, kind, kindClass, iconClass};
+    return {
+        date,
+        timeDisplay,
+        sortKey,
+        ext,
+        kind,
+        kindClass,
+        iconClass,
+        hasStartTime: Boolean(startParts),
+        startSeconds: startParts ? startParts.startSeconds : null
+    };
 }
 
-function createRecordItem(camId, file, meta) {
+function parseRecordStartParts(name, path) {
+    const text = `${path || ''}/${name || ''}`;
+    const dashed = text.match(/\d{4}-\d{2}-\d{2}_(\d{2})-(\d{2})-(\d{2})/);
+    if (dashed) return normalizeRecordStartParts(dashed[1], dashed[2], dashed[3]);
+
+    const compact = text.match(/\d{4}-\d{2}-\d{2}_(\d{2})(\d{2})(\d{2})/);
+    if (compact) return normalizeRecordStartParts(compact[1], compact[2], compact[3]);
+
+    const hourOnly = text.match(/\d{4}-\d{2}-\d{2}_(\d{2})(?:_|\.|$)/);
+    if (hourOnly) return normalizeRecordStartParts(hourOnly[1], '00', '00');
+
+    return null;
+}
+
+function normalizeRecordStartParts(hourText, minuteText, secondText) {
+    const hour = Number(hourText);
+    const minute = Number(minuteText);
+    const second = Number(secondText);
+    if (!Number.isInteger(hour) || !Number.isInteger(minute) || !Number.isInteger(second)) return null;
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59) return null;
+    return {
+        hourText: String(hour).padStart(2, '0'),
+        minuteText: String(minute).padStart(2, '0'),
+        secondText: String(second).padStart(2, '0'),
+        startSeconds: hour * 3600 + minute * 60 + second
+    };
+}
+
+function createRecordItem(camId, file, meta, options = {}) {
     const item = document.createElement('div');
     const recordPath = getRecordPath(file);
-    item.className = 'group flex cursor-pointer items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5 shadow-sm transition-all hover:border-blue-300 hover:shadow active:scale-[0.99]';
+    const explicitActions = Boolean(options.explicitActions);
+    const timeline = Boolean(options.timeline);
+    const actionVisibilityClass = explicitActions
+        ? 'opacity-100'
+        : 'opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100';
+    item.className = `group flex ${explicitActions ? 'cursor-default' : 'cursor-pointer'} items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5 shadow-sm transition-all hover:border-blue-300 hover:shadow active:scale-[0.99] ${timeline ? 'record-timeline-card' : ''}`;
     item.dataset.recordPath = recordPath;
-    item.onclick = () => playRecord(file, `回放: ${camId} (${meta.timeDisplay})`);
+    item.onclick = () => {
+        if (explicitActions) {
+            setSelectedRecordPath(recordPath);
+            return;
+        }
+        playRecord(file, `回放: ${camId} (${meta.timeDisplay})`);
+    };
 
     item.innerHTML = `
         <div class="flex min-w-0 flex-1 items-center gap-2">
@@ -1366,7 +1533,14 @@ function createRecordItem(camId, file, meta) {
                 </div>
             </div>
         </div>
-        <div class="flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+        <div class="flex shrink-0 items-center gap-0.5 ${actionVisibilityClass}">
+            ${explicitActions ? `
+            <button data-record-action="play" class="rounded-md p-1.5 text-slate-300 transition-colors hover:bg-emerald-50 hover:text-emerald-600" title="播放该录像">
+                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5v14l11-7-11-7z"></path>
+                </svg>
+            </button>
+            ` : ''}
             <button data-record-action="download" class="rounded-md p-1.5 text-slate-300 transition-colors hover:bg-blue-50 hover:text-blue-600" title="下载该录像">
                 <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M8 12l4 4m0 0l4-4m-4 4V4"></path>
@@ -1380,8 +1554,15 @@ function createRecordItem(camId, file, meta) {
         </div>
     `;
 
+    const playBtn = item.querySelector('[data-record-action="play"]');
     const downloadBtn = item.querySelector('[data-record-action="download"]');
     const deleteBtn = item.querySelector('[data-record-action="delete"]');
+    if (playBtn) {
+        playBtn.onclick = (event) => {
+            event.stopPropagation();
+            playRecord(file, `回放: ${camId} (${meta.timeDisplay})`);
+        };
+    }
     downloadBtn.onclick = (event) => downloadRecord(event, file.path);
     deleteBtn.onclick = (event) => deleteRecord(event, camId, file.path);
     setRecordItemSelected(item, selectedRecordPath !== '' && selectedRecordPath === recordPath);

@@ -1,5 +1,6 @@
 .custom-scrollbar::-webkit-scrollbar {
     width: 5px;
+    height: 5px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
     background: transparent;
@@ -31,4 +32,377 @@
         padding-left: 8px !important;
         padding-right: 8px !important;
     }
+}
+
+.record-timeline-frame {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 250, 252, 0.94)),
+        repeating-linear-gradient(90deg, rgba(148, 163, 184, 0.08) 0 1px, transparent 1px 96px);
+}
+
+.record-timeline-frame.is-window-enter-next .record-timeline-stage,
+.record-timeline-frame.is-window-enter-prev .record-timeline-stage {
+    transform-origin: 50% 100%;
+    animation-duration: 180ms;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+    animation-fill-mode: both;
+}
+
+.record-timeline-frame.is-window-enter-next .record-timeline-stage {
+    animation-name: record-timeline-stage-enter-next;
+}
+
+.record-timeline-frame.is-window-enter-prev .record-timeline-stage {
+    animation-name: record-timeline-stage-enter-prev;
+}
+
+.record-timeline-frame.is-window-enter-next .record-timeline-dial,
+.record-timeline-frame.is-window-enter-prev .record-timeline-dial {
+    animation: record-timeline-dial-enter 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.record-timeline-scroll {
+    position: relative;
+    height: 420px;
+    overflow: auto;
+    cursor: grab;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x pan-y;
+}
+
+@keyframes record-timeline-stage-enter-next {
+    from {
+        opacity: 0.42;
+        transform: translateX(28px) scaleX(0.985);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0) scaleX(1);
+    }
+}
+
+@keyframes record-timeline-stage-enter-prev {
+    from {
+        opacity: 0.42;
+        transform: translateX(-28px) scaleX(0.985);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0) scaleX(1);
+    }
+}
+
+@keyframes record-timeline-dial-enter {
+    from {
+        opacity: 0.5;
+        filter: saturate(0.82);
+    }
+    to {
+        opacity: 1;
+        filter: saturate(1);
+    }
+}
+
+@keyframes record-timeline-edge-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.26);
+        transform: translateY(-50%) scale(1);
+    }
+    52% {
+        box-shadow: 0 0 0 8px rgba(16, 185, 129, 0.08);
+        transform: translateY(-50%) scale(1.04);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+        transform: translateY(-50%) scale(1);
+    }
+}
+
+.record-timeline-side-nav {
+    position: absolute;
+    top: 210px;
+    z-index: 8;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-width: 62px;
+    height: 34px;
+    padding: 0 9px;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 10px 24px -18px rgba(15, 23, 42, 0.7);
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1;
+    transform: translateY(-50%);
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+}
+
+.record-timeline-side-nav-prev {
+    left: 10px;
+}
+
+.record-timeline-side-nav-next {
+    right: 10px;
+}
+
+.record-timeline-side-nav:hover:not(:disabled) {
+    color: #0f172a;
+    border-color: #94a3b8;
+    background: #ffffff;
+    box-shadow: 0 14px 28px -18px rgba(15, 23, 42, 0.95);
+}
+
+.record-timeline-side-nav:active:not(:disabled) {
+    transform: translateY(-50%) scale(0.96);
+}
+
+.record-timeline-side-nav:disabled {
+    cursor: not-allowed;
+    color: #94a3b8;
+    border-color: #e2e8f0;
+    background: #f8fafc;
+    box-shadow: none;
+}
+
+.record-timeline-frame.is-edge-left .record-timeline-side-nav-prev,
+.record-timeline-frame.is-edge-right .record-timeline-side-nav-next {
+    color: #0f766e;
+    border-color: #99f6e4;
+    background: #ecfdf5;
+    animation: record-timeline-edge-pulse 360ms ease-out both;
+}
+
+.record-timeline-day-position {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 9;
+    width: 156px;
+    padding: 8px 9px 7px;
+    color: #0f172a;
+    border: 1px solid rgba(16, 185, 129, 0.22);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 12px 24px -20px rgba(15, 23, 42, 0.78);
+    backdrop-filter: blur(8px);
+}
+
+.record-timeline-day-position-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.record-timeline-day-position-head span {
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 800;
+}
+
+.record-timeline-day-position-head strong {
+    color: #047857;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 16px;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.record-timeline-day-position-track {
+    position: relative;
+    height: 6px;
+    margin-top: 7px;
+    overflow: hidden;
+    border-radius: 9999px;
+    background: #e2e8f0;
+}
+
+.record-timeline-day-position-fill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #10b981, #0ea5e9);
+}
+
+.record-timeline-day-position-dot {
+    position: absolute;
+    top: 50%;
+    width: 10px;
+    height: 10px;
+    transform: translate(-50%, -50%);
+    border: 2px solid #ffffff;
+    border-radius: 9999px;
+    background: #047857;
+    box-shadow: 0 2px 8px rgba(4, 120, 87, 0.32);
+}
+
+.record-timeline-day-position-foot {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 4px;
+    color: #94a3b8;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 9px;
+    font-weight: 800;
+}
+
+.record-timeline-scroll.is-dragging {
+    cursor: grabbing;
+    user-select: none;
+}
+
+.record-timeline-stage {
+    position: relative;
+    min-width: 100%;
+}
+
+.record-timeline-entry {
+    position: absolute;
+    z-index: 3;
+}
+
+.record-timeline-card {
+    width: 192px;
+    height: 68px;
+    min-height: 68px;
+    max-height: 68px;
+    overflow: hidden;
+}
+
+.record-timeline-pin {
+    position: absolute;
+    z-index: 1;
+    width: 1px;
+    transform: translateX(-50%);
+    pointer-events: none;
+    background: linear-gradient(180deg, rgba(16, 185, 129, 0.16), rgba(16, 185, 129, 0.72));
+    transition: background 0.15s ease, box-shadow 0.15s ease, width 0.15s ease;
+}
+
+.record-timeline-pin::after {
+    position: absolute;
+    left: 50%;
+    bottom: -4px;
+    width: 8px;
+    height: 8px;
+    content: "";
+    transform: translateX(-50%);
+    border: 2px solid #ffffff;
+    border-radius: 9999px;
+    background: #059669;
+    box-shadow: 0 3px 10px rgba(5, 150, 105, 0.35);
+    transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.record-timeline-pin.is-hovered {
+    z-index: 2;
+    width: 2px;
+    background: linear-gradient(180deg, rgba(59, 130, 246, 0.28), rgba(37, 99, 235, 0.9));
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.08);
+}
+
+.record-timeline-pin.is-selected {
+    z-index: 2;
+    width: 3px;
+    background: linear-gradient(180deg, rgba(16, 185, 129, 0.35), rgba(5, 150, 105, 0.98));
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.12);
+}
+
+.record-timeline-pin.is-hovered::after {
+    background: #2563eb;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.16), 0 8px 18px rgba(37, 99, 235, 0.34);
+    transform: translateX(-50%) scale(1.18);
+}
+
+.record-timeline-pin.is-selected::after {
+    background: #059669;
+    box-shadow: 0 0 0 5px rgba(16, 185, 129, 0.18), 0 8px 18px rgba(5, 150, 105, 0.36);
+    transform: translateX(-50%) scale(1.24);
+}
+
+.record-timeline-dial {
+    position: relative;
+    z-index: 2;
+    min-width: 100%;
+    will-change: transform;
+}
+
+.record-timeline-dial-fixed {
+    position: relative;
+    z-index: 4;
+    height: 76px;
+    overflow: hidden;
+    border-top: 1px solid #e2e8f0;
+    background:
+        linear-gradient(180deg, rgba(241, 245, 249, 0.86), rgba(255, 255, 255, 0.96)),
+        repeating-linear-gradient(90deg, rgba(15, 23, 42, 0.06) 0 6px, rgba(15, 23, 42, 0.02) 6px 12px);
+    box-shadow: 0 -10px 20px -18px rgba(15, 23, 42, 0.45);
+}
+
+.record-timeline-dial-fixed::before {
+    position: absolute;
+    right: 0;
+    bottom: 36px;
+    left: 0;
+    z-index: 1;
+    height: 3px;
+    content: "";
+    border-radius: 9999px;
+    background: linear-gradient(90deg, #64748b, #10b981 45%, #f59e0b 70%, #64748b);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+}
+
+.record-timeline-axis {
+    position: absolute;
+    bottom: 36px;
+    height: 3px;
+    border-radius: 9999px;
+    background: transparent;
+}
+
+.record-timeline-tick {
+    position: absolute;
+    bottom: 28px;
+    transform: translateX(-50%);
+    border-radius: 9999px;
+    background: #94a3b8;
+}
+
+.record-timeline-tick-hour {
+    width: 2px;
+    height: 24px;
+    background: #334155;
+}
+
+.record-timeline-tick-half {
+    width: 2px;
+    height: 16px;
+    background: #64748b;
+}
+
+.record-timeline-tick-minor {
+    width: 1px;
+    height: 10px;
+    background: #cbd5e1;
+}
+
+.record-timeline-label {
+    position: absolute;
+    bottom: 8px;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    color: #475569;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 10px;
+    font-weight: 800;
 }
