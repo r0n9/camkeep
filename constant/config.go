@@ -7,6 +7,7 @@ var ConfigMux sync.RWMutex
 type Camera struct {
 	ID              string `yaml:"id"`
 	RTSPUrl         string `yaml:"rtsp_url"`
+	MotionURL       string `yaml:"motion_url"` // 可选：仅用于动检识别的流地址，录像仍使用 rtsp_url 对应主码流
 	RetentionDays   int    `yaml:"retention_days"`
 	SegmentDuration int    `yaml:"segment_duration"`
 	Format          string `yaml:"format"`

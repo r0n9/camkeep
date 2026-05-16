@@ -58,6 +58,26 @@ func TestMotionRatioThresholdUsesConfiguredValue(t *testing.T) {
 	}
 }
 
+func TestMotionDetectInputURLUsesConfiguredMotionURL(t *testing.T) {
+	cam := constant.Camera{
+		ID:        "cam1",
+		MotionURL: " rtsp://example.local/substream ",
+	}
+
+	if got := motionDetectInputURL(cam); got != "rtsp://example.local/substream" {
+		t.Fatalf("expected configured motion_url, got %q", got)
+	}
+}
+
+func TestMotionDetectInputURLFallsBackToGo2rtcStream(t *testing.T) {
+	cam := constant.Camera{ID: "cam1"}
+
+	want := "rtsp://" + constant.DefaultGo2rtcHost + ":8554/cam1"
+	if got := motionDetectInputURL(cam); got != want {
+		t.Fatalf("expected fallback URL %q, got %q", want, got)
+	}
+}
+
 func TestMotionRecordingEnabledOnlyForNormalMode(t *testing.T) {
 	if !motionRecordingEnabled(constant.Camera{Mode: "normal", MotionDetect: true}) {
 		t.Fatal("expected motion recording enabled for normal mode")

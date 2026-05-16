@@ -52,7 +52,7 @@
 /log/
 /records/
 /go2rtc
-/go2rtc.yaml
+/config/go2rtc.yaml
 fnnas.camkeep/**/.DS_Store
 fnnas.camkeep/*.fpk
 

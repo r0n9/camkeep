@@ -54,6 +54,7 @@ cameras:
 # 普通录制模式示例
   - id: "front-door"      # 摄像头唯一ID (英文/数字)
     rtsp_url: "rtsp://admin:123456@192.168.1.100:554/stream"
+    motion_url: ""          # 可选，仅动检识别使用；留空保持原逻辑
     retention_days: 7       # 录像保留 7 天
     segment_duration: 300   # 每 5 分钟切分一个录像文件
     format: "ts"            # 强烈推荐 ts 格式，支持边写边播

@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
@@ -127,12 +128,12 @@ func waitMotionDetect(ctx context.Context, delay time.Duration) bool {
 
 func runMotionDetector(ctx context.Context, cam constant.Camera) error {
 	ratioThreshold := motionRatioThreshold(cam)
-	safeRTSPURL := fmt.Sprintf("rtsp://%s:8554/%s", constant.DefaultGo2rtcHost, cam.ID)
+	inputURL := motionDetectInputURL(cam)
 	args := []string{
 		"-loglevel", "error",
 		"-rtsp_transport", "tcp",
 		"-timeout", "5000000",
-		"-i", safeRTSPURL,
+		"-i", inputURL,
 		"-an",
 		"-vf", fmt.Sprintf("fps=%d,scale=%d:%d", motionDetectFPS, motionDetectFrameWidth, motionDetectFrameHeight),
 		"-pix_fmt", "gray",
@@ -168,6 +169,13 @@ func runMotionDetector(ctx context.Context, cam constant.Camera) error {
 		return waitErr
 	}
 	return readErr
+}
+
+func motionDetectInputURL(cam constant.Camera) string {
+	if motionURL := strings.TrimSpace(cam.MotionURL); motionURL != "" {
+		return motionURL
+	}
+	return fmt.Sprintf("rtsp://%s:8554/%s", constant.DefaultGo2rtcHost, cam.ID)
 }
 
 func readMotionFrames(ctx context.Context, camID string, reader io.Reader, ratioThreshold float64) error {

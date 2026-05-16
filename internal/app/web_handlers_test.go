@@ -122,6 +122,7 @@ daily_merge:
 cameras:
   - id: "cam_01"
     rtsp_url: "rtsp://example/live"
+    motion_url: "rtsp://example/substream"
     record_time: "00:00-23:59"
 `)
 
@@ -131,6 +132,9 @@ cameras:
 	}
 	if !cfg.DailyMerge.Enabled || cfg.DailyMerge.Time != "03:30" || len(cfg.Cameras) != 1 {
 		t.Fatalf("unexpected parsed config: %+v", cfg)
+	}
+	if cfg.Cameras[0].MotionURL != "rtsp://example/substream" {
+		t.Fatalf("expected motion_url to be parsed, got %q", cfg.Cameras[0].MotionURL)
 	}
 }
 

@@ -55,6 +55,7 @@ cameras:
 # Normal recording mode example
   - id: "front-door"      # Unique ID (Alphanumeric)
     rtsp_url: "rtsp://admin:123456@192.168.1.100:554/stream"
+    motion_url: ""          # Optional stream URL for motion detection only
     retention_days: 7       # Keep recordings for 7 days
     segment_duration: 300   # 5-minute segments
     format: "ts"            # TS is highly recommended for instant playback
