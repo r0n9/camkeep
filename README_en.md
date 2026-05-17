@@ -67,6 +67,8 @@ cameras:
 
 ### 2. Start Service (Choose One)
 
+Note: `CAMKEEP_AUTH_PASSWORD` enables login authentication. If you do not set it, authentication stays disabled, and `CAMKEEP_AUTH_USER` / `CAMKEEP_SESSION_SECRET` are unnecessary. The examples below show the authenticated setup.
+
 #### Method 1: Docker Run (Recommended for simple deployment)
 
 Run this command in your terminal (replace `${PWD}` with your actual path):
@@ -77,6 +79,9 @@ docker run -d \
   --restart unless-stopped \
   --network host \
   -e TZ=Asia/Shanghai \
+  -e CAMKEEP_AUTH_USER=admin \
+  -e CAMKEEP_AUTH_PASSWORD=admin \
+  -e CAMKEEP_SESSION_SECRET=B1JM12wvPLHL9bturc2DfiFFvHjtntl2+OG+V/2yXjg= \
   -v ${PWD}/config:/app/config \
   -v ${PWD}/records:/app/records \
   r0n9/camkeep:latest  # Use ghcr.io/r0n9/camkeep:latest if network is slow
@@ -95,6 +100,9 @@ services:
     network_mode: "host" # Host mode is recommended for WebRTC
     environment:
       - TZ=Asia/Shanghai
+      - CAMKEEP_AUTH_USER=admin
+      - CAMKEEP_AUTH_PASSWORD=admin
+      - CAMKEEP_SESSION_SECRET=B1JM12wvPLHL9bturc2DfiFFvHjtntl2+OG+V/2yXjg=
     volumes:
       - ./config:/app/config
       - ./records:/app/records

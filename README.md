@@ -66,6 +66,8 @@ cameras:
 
 ### 2. 启动服务 (二选一)
 
+说明：`CAMKEEP_AUTH_PASSWORD` 用来开启登录鉴权；如果不设置它，系统不会启用鉴权，此时也不需要配置 `CAMKEEP_AUTH_USER` 和 `CAMKEEP_SESSION_SECRET`。下面的示例是启用鉴权的默认写法。
+
 #### 方式一：Docker Run (单行命令，推荐极简部署)
 
 在终端中执行以下命令（请将 `${PWD}` 替换为你的实际物理路径）：
@@ -76,6 +78,9 @@ docker run -d \
   --restart unless-stopped \
   --network host \
   -e TZ=Asia/Shanghai \
+  -e CAMKEEP_AUTH_USER=admin \
+  -e CAMKEEP_AUTH_PASSWORD=admin \
+  -e CAMKEEP_SESSION_SECRET=B1JM12wvPLHL9bturc2DfiFFvHjtntl2+OG+V/2yXjg= \
   -v ${PWD}/config:/app/config \
   -v ${PWD}/records:/app/records \
   r0n9/camkeep:latest  # 若网络不佳，可替换为 ghcr.io/r0n9/camkeep:latest
@@ -94,6 +99,9 @@ services:
     network_mode: "host" # 建议使用 host 网络，否则WebRTC可能握手失败
     environment:
       - TZ=Asia/Shanghai
+      - CAMKEEP_AUTH_USER=admin
+      - CAMKEEP_AUTH_PASSWORD=admin
+      - CAMKEEP_SESSION_SECRET=B1JM12wvPLHL9bturc2DfiFFvHjtntl2+OG+V/2yXjg=
     volumes:
       - ./config:/app/config
       - ./records:/app/records

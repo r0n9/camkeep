@@ -6,6 +6,9 @@ services:
     network_mode: "host" # 建议使用 host 网络，否则WebRTC可能握手失败
     environment:
       - TZ=Asia/Shanghai
+      - CAMKEEP_AUTH_USER=admin
+      - CAMKEEP_AUTH_PASSWORD=admin
+      - CAMKEEP_SESSION_SECRET=B1JM12wvPLHL9bturc2DfiFFvHjtntl2+OG+V/2yXjg=
     volumes:
       - ./config:/app/config
       - ./records:/app/records

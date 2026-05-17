@@ -59,7 +59,8 @@ var recordDatePattern = regexp.MustCompile(`\d{4}-\d{2}-\d{2}`)
 
 func handleIndex(c *gin.Context) {
 	c.HTML(http.StatusOK, "index.html", gin.H{
-		"Version": version,
+		"Version":     version,
+		"AuthEnabled": webAuth.Enabled,
 	})
 }
 
