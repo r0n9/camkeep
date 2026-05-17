@@ -20,6 +20,7 @@ import (
 	"github.com/r0n9/camkeep/constant"
 	"github.com/r0n9/camkeep/internal/service"
 	"github.com/r0n9/camkeep/internal/task"
+	"gopkg.in/yaml.v3"
 )
 
 type recordFile struct {
@@ -89,6 +90,38 @@ func handleGetConfig(c *gin.Context) {
 	c.String(200, string(data))
 }
 
+func handleGetConfigForm(c *gin.Context) {
+	data, err := os.ReadFile(constant.ConfigFilePath)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "读取配置失败: " + err.Error()})
+		return
+	}
+
+	cfg, err := parseConfigYAML(data)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+	markGo2rtcManagedCameras(&cfg)
+	c.JSON(200, cfg)
+}
+
+func handleParseConfigForm(c *gin.Context) {
+	yamlBytes, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(400, gin.H{"error": "读取请求失败"})
+		return
+	}
+
+	cfg, err := parseConfigYAML(yamlBytes)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+	markGo2rtcManagedCameras(&cfg)
+	c.JSON(200, cfg)
+}
+
 func handleSaveConfig(c *gin.Context) {
 	yamlBytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
@@ -100,6 +133,7 @@ func handleSaveConfig(c *gin.Context) {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
+	markGo2rtcManagedCameras(&newConfig)
 
 	if err := os.WriteFile(constant.ConfigFilePath, yamlBytes, 0644); err != nil {
 		c.JSON(500, gin.H{"error": "保存配置失败: " + err.Error()})
@@ -109,6 +143,43 @@ func handleSaveConfig(c *gin.Context) {
 	// 异步重启任务，不阻塞前端请求
 	go restartTasks(newConfig)
 	c.JSON(200, gin.H{"msg": "配置已保存，系统正在热重启"})
+}
+
+func handleSaveConfigForm(c *gin.Context) {
+	var newConfig constant.Config
+	decoder := json.NewDecoder(c.Request.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&newConfig); err != nil {
+		c.JSON(400, gin.H{"error": "配置表单数据有误: " + err.Error()})
+		return
+	}
+	if err := validateConfig(newConfig); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+	markGo2rtcManagedCameras(&newConfig)
+
+	yamlBytes, err := yaml.Marshal(newConfig)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "生成 YAML 配置失败: " + err.Error()})
+		return
+	}
+
+	if err := os.WriteFile(constant.ConfigFilePath, yamlBytes, 0644); err != nil {
+		c.JSON(500, gin.H{"error": "保存配置失败: " + err.Error()})
+		return
+	}
+
+	go restartTasks(newConfig)
+	c.JSON(200, gin.H{"msg": "配置已保存，系统正在热重启", "yaml": string(yamlBytes)})
+}
+
+func markGo2rtcManagedCameras(cfg *constant.Config) {
+	for i := range cfg.Cameras {
+		if constant.IsManagedByGo2rtcURL(cfg.Cameras[i].RTSPUrl) {
+			cfg.Cameras[i].AutoDiscovered = true
+		}
+	}
 }
 
 func handleValidateConfig(c *gin.Context) {

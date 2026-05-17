@@ -127,11 +127,30 @@ async function executeConfirmAction() {
 }
 
 // --- 系统配置相关 ---
+let configEditMode = 'form';
+let configFormState = {daily_merge: {enabled: false, time: '03:30'}, cameras: []};
+
 async function openConfig() {
-    const resp = await fetch('/api/config');
-    document.getElementById('configYaml').value = await resp.text();
-    syncMergeControlsFromYaml();
+    const yamlResp = await fetch('/api/config');
+    const yamlText = await yamlResp.text();
+    document.getElementById('configYaml').value = yamlText;
+
+    try {
+        const formResp = await fetch('/api/config/form');
+        if (!formResp.ok) {
+            const err = await formResp.json().catch(() => ({}));
+            throw new Error(err.error || '无法读取表单配置');
+        }
+        configFormState = normalizeConfigForm(await formResp.json());
+        renderConfigForm();
+        switchConfigMode('form', {skipSync: true});
+    } catch (e) {
+        switchConfigMode('yaml', {skipSync: true});
+        alert('表单配置读取失败，已切换到 YAML 高级模式: ' + e.message);
+    }
+
     document.getElementById('configModal').classList.remove('hidden');
+    void scanUnmanagedStreams();
 }
 
 function closeConfig() {
@@ -139,14 +158,39 @@ function closeConfig() {
 }
 
 async function saveConfig() {
-    applyMergeControlsToYaml();
+    if (configEditMode === 'form') {
+        let payload;
+        try {
+            payload = collectConfigForm();
+        } catch (e) {
+            alert('配置表单检查失败: ' + e.message);
+            return;
+        }
+
+        const resp = await fetch('/api/config/form', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        if (resp.ok) {
+            const result = await resp.json().catch(() => ({}));
+            if (result.yaml) document.getElementById('configYaml').value = result.yaml;
+            alert('配置已生效并自动重启任务！');
+            closeConfig();
+            loadStatus();
+        } else {
+            const err = await resp.json().catch(() => ({}));
+            alert('保存失败: ' + (err.error || '配置内容不合法'));
+        }
+        return;
+    }
+
     const yamlText = document.getElementById('configYaml').value;
     const validation = await validateConfigYaml(yamlText);
     if (!validation.ok) {
         alert('配置格式检查失败: ' + validation.error);
         return;
     }
-
     const resp = await fetch('/api/config', {method: 'POST', body: yamlText});
     if (resp.ok) {
         alert('配置已生效并自动重启任务！');
@@ -156,6 +200,35 @@ async function saveConfig() {
         const err = await resp.json();
         alert('保存失败: ' + err.error);
     }
+}
+
+async function switchConfigMode(mode, options = {}) {
+    if (mode === 'form' && configEditMode !== 'form' && !options.skipSync) {
+        const parsed = await parseConfigYamlToForm(document.getElementById('configYaml').value);
+        if (!parsed.ok) {
+            alert('YAML 无法转换为表单: ' + parsed.error);
+            return;
+        }
+        configFormState = normalizeConfigForm(parsed.config);
+        renderConfigForm();
+    }
+    if (mode === 'yaml' && configEditMode !== 'yaml' && !options.skipSync) {
+        try {
+            document.getElementById('configYaml').value = configToYaml(collectConfigForm());
+        } catch (e) {
+            alert('表单内容还不完整，已保留当前 YAML 内容: ' + e.message);
+        }
+    }
+
+    configEditMode = mode;
+    document.getElementById('configFormPanel').classList.toggle('hidden', mode !== 'form');
+    document.getElementById('configYamlPanel').classList.toggle('hidden', mode !== 'yaml');
+    document.getElementById('configFormTab').className = mode === 'form'
+        ? 'flex-1 rounded-lg px-4 py-2 text-sm font-extrabold text-slate-800 bg-white shadow-sm transition-all'
+        : 'flex-1 rounded-lg px-4 py-2 text-sm font-extrabold text-slate-500 hover:text-slate-800 transition-all';
+    document.getElementById('configYamlTab').className = mode === 'yaml'
+        ? 'flex-1 rounded-lg px-4 py-2 text-sm font-extrabold text-slate-800 bg-white shadow-sm transition-all'
+        : 'flex-1 rounded-lg px-4 py-2 text-sm font-extrabold text-slate-500 hover:text-slate-800 transition-all';
 }
 
 async function validateConfigYaml(yamlText) {
@@ -168,30 +241,6 @@ async function validateConfigYaml(yamlText) {
     } catch (e) {
         return {ok: false, error: '无法连接配置检查接口: ' + e.message};
     }
-}
-
-function syncMergeControlsFromYaml() {
-    const yamlText = document.getElementById('configYaml').value;
-    const enabledMatch = yamlText.match(/daily_merge:\s*\n(?:[ \t].*\n)*?[ \t]+enabled:\s*(true|false)/i);
-    const timeMatch = yamlText.match(/daily_merge:\s*\n(?:[ \t].*\n)*?[ \t]+time:\s*["']?([0-2]\d:[0-5]\d)["']?/i);
-
-    document.getElementById('dailyMergeEnabled').checked = enabledMatch ? enabledMatch[1].toLowerCase() === 'true' : false;
-    document.getElementById('dailyMergeTime').value = timeMatch ? timeMatch[1] : '03:30';
-}
-
-function applyMergeControlsToYaml() {
-    const textArea = document.getElementById('configYaml');
-    const enabled = document.getElementById('dailyMergeEnabled').checked ? 'true' : 'false';
-    const time = document.getElementById('dailyMergeTime').value || '03:30';
-    const block = `daily_merge:\n  enabled: ${enabled}\n  time: "${time}"`;
-
-    let content = textArea.value.trimStart();
-    if (content.match(/(^|\n)daily_merge:\s*\n(?:[ \t].*\n)*/)) {
-        content = content.replace(/(^|\n)daily_merge:\s*\n(?:[ \t].*\n)*/, `$1${block}\n`);
-    } else {
-        content = block + '\n' + content;
-    }
-    textArea.value = content;
 }
 
 async function scanUnmanagedStreams() {
@@ -214,12 +263,14 @@ async function scanUnmanagedStreams() {
 
         listDiv.innerHTML = '';
         streams.forEach(stream => {
+            const streamID = encodeURIComponent(stream);
+            const streamArg = escapeHtml(JSON.stringify(stream));
             const tag = document.createElement('div');
-            tag.id = `unmanaged-${stream}`;
+            tag.id = `unmanaged-${streamID}`;
             tag.className = 'flex items-center bg-white border border-blue-200 pl-3 pr-1 py-1 rounded-md shadow-sm';
             tag.innerHTML = `
-                <span class="text-xs font-mono font-bold text-slate-700 mr-3">${stream}</span>
-                <button onclick="appendStreamToConfig('${stream}')" class="text-[10px] bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white px-2 py-1 rounded transition-colors font-bold">
+                <span class="text-xs font-mono font-bold text-slate-700 mr-3">${escapeHtml(stream)}</span>
+                <button onclick="appendStreamToConfig(${streamArg})" class="text-[10px] bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white px-2 py-1 rounded transition-colors font-bold">
                     ➕ 追加到配置
                 </button>
             `;
@@ -230,7 +281,321 @@ async function scanUnmanagedStreams() {
     }
 }
 
+async function parseConfigYamlToForm(yamlText) {
+    try {
+        const resp = await fetch('/api/config/form/parse', {method: 'POST', body: yamlText});
+        if (resp.ok) return {ok: true, config: await resp.json()};
+
+        const err = await resp.json().catch(() => ({}));
+        return {ok: false, error: err.error || '配置内容不合法'};
+    } catch (e) {
+        return {ok: false, error: '无法连接配置转换接口: ' + e.message};
+    }
+}
+
+function normalizeConfigForm(cfg) {
+    return {
+        daily_merge: {
+            enabled: Boolean(readConfigValue(cfg.daily_merge, ['enabled', 'Enabled'], false)),
+            time: readConfigValue(cfg.daily_merge, ['time', 'Time'], '03:30') || '03:30'
+        },
+        cameras: (readConfigValue(cfg, ['cameras', 'Cameras'], []) || []).map(normalizeConfigCamera)
+    };
+}
+
+function normalizeConfigCamera(cam) {
+    const rtspURL = readConfigValue(cam, ['rtsp_url', 'RTSPUrl'], '');
+    const segmentDuration = readConfigNumber(cam, ['segment_duration', 'SegmentDuration'], 600);
+    const minSizeKb = readConfigNumber(cam, ['min_size_kb', 'MinSizeKb'], 1024);
+    const captureInterval = readConfigNumber(cam, ['capture_interval', 'CaptureInterval'], 1);
+    const motionRatio = readConfigNumber(cam, ['motionDetectRatioThreshold', 'MotionDetectRatioThreshold'], 0.01);
+
+    return {
+        id: readConfigValue(cam, ['id', 'ID'], ''),
+        rtsp_url: rtspURL,
+        motion_url: readConfigValue(cam, ['motion_url', 'MotionURL'], ''),
+        retention_days: readConfigNumber(cam, ['retention_days', 'RetentionDays'], 7),
+        segment_duration: segmentDuration > 0 ? segmentDuration : 600,
+        format: readConfigValue(cam, ['format', 'Format'], 'ts') || 'ts',
+        min_size_kb: minSizeKb > 0 ? minSizeKb : 1024,
+        record_time: readConfigValue(cam, ['record_time', 'RecordTime'], '00:00-23:59') || '00:00-23:59',
+        mode: readConfigValue(cam, ['mode', 'Mode'], 'normal') || 'normal',
+        capture_interval: captureInterval > 0 ? captureInterval : 1,
+        motion_detect: Boolean(readConfigValue(cam, ['motion_detect', 'MotionDetect'], false)),
+        motionDetectRatioThreshold: motionRatio > 0 ? motionRatio : 0.01,
+        auto_discovered: isManagedByGo2rtcURL(rtspURL) || Boolean(readConfigValue(cam, ['auto_discovered', 'AutoDiscovered'], false))
+    };
+}
+
+function readConfigValue(source, keys, fallback) {
+    if (!source) return fallback;
+    for (const key of keys) {
+        if (Object.prototype.hasOwnProperty.call(source, key) && source[key] !== null && source[key] !== undefined) {
+            return source[key];
+        }
+    }
+    return fallback;
+}
+
+function readConfigNumber(source, keys, fallback) {
+    const value = readConfigValue(source, keys, fallback);
+    if (value === '') return fallback;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function isManagedByGo2rtcURL(rtspURL) {
+    return String(rtspURL || '').trim() === 'managed_by_go2rtc';
+}
+
+function renderConfigForm() {
+    document.getElementById('dailyMergeEnabled').checked = Boolean(configFormState.daily_merge.enabled);
+    document.getElementById('dailyMergeTime').value = configFormState.daily_merge.time || '03:30';
+
+    const list = document.getElementById('configCameraList');
+    const empty = document.getElementById('configCameraEmpty');
+    list.innerHTML = '';
+    empty.classList.toggle('hidden', configFormState.cameras.length > 0);
+
+    configFormState.cameras.forEach((cam, index) => {
+        const managedClass = isManagedByGo2rtcURL(cam.rtsp_url) ? ' is-go2rtc-managed' : '';
+        const card = document.createElement('div');
+        card.className = `config-camera-card${managedClass} rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-3 shadow-sm`;
+        card.dataset.index = String(index);
+        card.innerHTML = renderConfigCameraCard(cam, index);
+        list.appendChild(card);
+    });
+}
+
+function renderConfigCameraCard(cam, index) {
+    const normalMode = cam.mode !== 'timelapse';
+    const managedByGo2rtc = isManagedByGo2rtcURL(cam.rtsp_url);
+    const motionDisabled = normalMode ? '' : 'disabled';
+    const sourceHint = managedByGo2rtc ? '使用 go2rtc 已有同名流，不会重新注册 RTSP 源' : 'CamKeep 会把 rtsp_url 注册到 go2rtc';
+    const motionHint = normalMode ? '动检开启后仅事件录像' : '延时录像模式会忽略动检';
+    return `
+        <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="rounded-full bg-slate-900 px-2 py-0.5 text-[11px] font-extrabold text-white">#${index + 1}</span>
+                    <h4 class="truncate text-sm font-extrabold text-slate-800">${escapeHtml(cam.id || '未命名摄像头')}</h4>
+                    ${managedByGo2rtc ? '<span class="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-extrabold text-blue-700 ring-1 ring-blue-100">go2rtc 接管</span>' : ''}
+                    ${cam.motion_detect && normalMode ? '<span class="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-extrabold text-emerald-700 ring-1 ring-emerald-100">动检</span>' : ''}
+                    <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-extrabold text-slate-600">${escapeHtml(cam.mode || 'normal')} / ${escapeHtml(cam.format || 'ts')}</span>
+                </div>
+                <p class="mt-1 truncate text-[11px] font-medium text-slate-500">${sourceHint}；${motionHint}</p>
+            </div>
+            <button onclick="removeConfigCamera(${index})" class="shrink-0 rounded-lg border border-red-100 bg-red-50 px-2.5 py-1 text-[11px] font-extrabold text-red-600 transition-all hover:bg-red-600 hover:text-white active:scale-95">删除</button>
+        </div>
+        <div class="config-camera-grid">
+            ${configTextInput('摄像头 ID', 'id', cam.id, 'front-door', true)}
+            ${managedByGo2rtc ? configManagedRTSPField(cam.id) : configTextInput('主码流 rtsp_url', 'rtsp_url', cam.rtsp_url, '录像使用的 RTSP 地址', true, 'config-field-wide')}
+            ${configTextInput('动检流 motion_url', 'motion_url', cam.motion_url, '可选，低码率子码流，仅用于识别', false, 'config-field-wide')}
+            ${configTextInput('录制时间', 'record_time', cam.record_time, '00:00-23:59')}
+            ${configSelectInput('模式', 'mode', cam.mode, [['normal', '普通'], ['timelapse', '延时']], `onchange="refreshConfigFormFromDom()"`)}
+            ${configSelectInput('格式', 'format', cam.format, [['ts', 'ts'], ['mp4', 'mp4']])}
+            ${configCheckboxInput('动检录制', 'motion_detect', cam.motion_detect && normalMode, motionDisabled)}
+        </div>
+        <details class="config-advanced mt-2">
+            <summary>高级参数</summary>
+            <div class="config-camera-grid mt-2">
+                ${configNumberInput('保留天数', 'retention_days', cam.retention_days, '0 不清理')}
+                ${configNumberInput('切片秒数', 'segment_duration', cam.segment_duration, '300 / 600')}
+                ${configNumberInput('最小文件 KB', 'min_size_kb', cam.min_size_kb, '1024')}
+                ${configNumberInput('延时抓拍间隔', 'capture_interval', cam.capture_interval, '仅延时生效')}
+                ${configNumberInput('动检阈值', 'motionDetectRatioThreshold', cam.motionDetectRatioThreshold, '0.01 表示 1%', '0.001')}
+            </div>
+        </details>
+    `;
+}
+
+function configTextInput(label, field, value, placeholder, required = false, extraClass = '', attrs = '') {
+    return `
+        <label class="config-field ${extraClass}">
+            <span class="mb-1 block text-[11px] font-extrabold text-slate-500">${label}</span>
+            <input data-field="${field}" type="text" value="${escapeHtml(value || '')}" placeholder="${escapeHtml(placeholder || '')}" ${required ? 'required' : ''} ${attrs} class="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10">
+        </label>
+    `;
+}
+
+function configManagedRTSPField(camID) {
+    return `
+        <label class="config-field config-field-wide">
+            <span class="mb-1 block text-[11px] font-extrabold text-slate-500">主码流来源</span>
+            <input data-field="rtsp_url" type="hidden" value="managed_by_go2rtc">
+            <div class="config-managed-rtsp">
+                <span class="config-managed-rtsp-title">go2rtc 已接管</span>
+                <span class="config-managed-rtsp-desc">使用 go2rtc 中名为 ${escapeHtml(camID || '当前摄像头 ID')} 的同名流，CamKeep 不再注册 RTSP 地址。</span>
+            </div>
+        </label>
+    `;
+}
+
+function configNumberInput(label, field, value, placeholder, step = '1') {
+    return `
+        <label class="config-field">
+            <span class="mb-1 block text-[11px] font-extrabold text-slate-500">${label}</span>
+            <input data-field="${field}" type="number" step="${step}" value="${escapeHtml(value ?? '')}" placeholder="${escapeHtml(placeholder || '')}" class="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10">
+        </label>
+    `;
+}
+
+function configSelectInput(label, field, value, options, attrs = '') {
+    const opts = options.map(([optionValue, optionLabel]) => {
+        const selected = String(value || '') === optionValue ? 'selected' : '';
+        return `<option value="${optionValue}" ${selected}>${optionLabel}</option>`;
+    }).join('');
+    return `
+        <label class="config-field">
+            <span class="mb-1 block text-[11px] font-extrabold text-slate-500">${label}</span>
+            <select data-field="${field}" ${attrs} class="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10">${opts}</select>
+        </label>
+    `;
+}
+
+function configCheckboxInput(label, field, checked, extraAttrs = '') {
+    return `
+        <label class="config-field">
+            <span class="mb-1 block text-[11px] font-extrabold text-slate-500">${label}</span>
+            <span class="config-toggle-control">
+                <span class="text-xs font-extrabold text-slate-700">启用</span>
+                <span class="relative inline-flex h-5 w-9 shrink-0 items-center">
+                    <input data-field="${field}" type="checkbox" ${checked ? 'checked' : ''} ${extraAttrs} class="peer sr-only">
+                    <span class="config-toggle-track absolute inset-0 rounded-full transition-colors peer-disabled:opacity-50"></span>
+                    <span class="config-toggle-thumb absolute left-0.5 h-4 w-4 rounded-full shadow transition-transform peer-checked:translate-x-4"></span>
+                </span>
+            </span>
+        </label>
+    `;
+}
+
+function refreshConfigFormFromDom() {
+    configFormState = collectConfigForm({allowEmptyID: true});
+    renderConfigForm();
+}
+
+function collectConfigForm(options = {}) {
+    const cfg = {
+        daily_merge: {
+            enabled: document.getElementById('dailyMergeEnabled').checked,
+            time: document.getElementById('dailyMergeTime').value || '03:30'
+        },
+        cameras: []
+    };
+
+    document.querySelectorAll('.config-camera-card').forEach((card, index) => {
+        const mode = readCardField(card, 'mode') || 'normal';
+        const cam = {
+            id: readCardField(card, 'id').trim(),
+            rtsp_url: readCardField(card, 'rtsp_url').trim(),
+            motion_url: readCardField(card, 'motion_url').trim(),
+            retention_days: readCardNumber(card, 'retention_days', 0),
+            segment_duration: readCardNumber(card, 'segment_duration', 0),
+            format: readCardField(card, 'format') || 'ts',
+            min_size_kb: readCardNumber(card, 'min_size_kb', 0),
+            record_time: readCardField(card, 'record_time').trim() || '00:00-23:59',
+            mode,
+            capture_interval: readCardNumber(card, 'capture_interval', 0),
+            motion_detect: mode === 'normal' && readCardCheckbox(card, 'motion_detect'),
+            motionDetectRatioThreshold: readCardFloat(card, 'motionDetectRatioThreshold', 0),
+            auto_discovered: isManagedByGo2rtcURL(readCardField(card, 'rtsp_url'))
+        };
+        if (!cam.id && !options.allowEmptyID) throw new Error(`第 ${index + 1} 个摄像头 ID 不能为空`);
+        cfg.cameras.push(cam);
+    });
+    return cfg;
+}
+
+function readCardField(card, field) {
+    return card.querySelector(`[data-field="${field}"]`)?.value || '';
+}
+
+function readCardNumber(card, field, fallback) {
+    const value = readCardField(card, field);
+    if (value === '') return fallback;
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function readCardFloat(card, field, fallback) {
+    const value = readCardField(card, field);
+    if (value === '') return fallback;
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function readCardCheckbox(card, field) {
+    return Boolean(card.querySelector(`[data-field="${field}"]`)?.checked);
+}
+
+function addConfigCamera(seed = {}) {
+    configFormState = collectConfigForm({allowEmptyID: true});
+    configFormState.cameras.push(normalizeConfigCamera({
+        id: '',
+        rtsp_url: '',
+        motion_url: '',
+        retention_days: 7,
+        segment_duration: 600,
+        format: 'ts',
+        min_size_kb: 1024,
+        record_time: '00:00-23:59',
+        mode: 'normal',
+        capture_interval: 1,
+        motion_detect: false,
+        motionDetectRatioThreshold: 0.01,
+        auto_discovered: false,
+        ...seed
+    }));
+    renderConfigForm();
+}
+
+function removeConfigCamera(index) {
+    configFormState = collectConfigForm({allowEmptyID: true});
+    configFormState.cameras.splice(index, 1);
+    renderConfigForm();
+}
+
+function configToYaml(cfg) {
+    const lines = [
+        'daily_merge:',
+        `  enabled: ${cfg.daily_merge.enabled ? 'true' : 'false'}`,
+        `  time: ${yamlScalar(cfg.daily_merge.time || '03:30')}`,
+        '',
+        'cameras:'
+    ];
+    cfg.cameras.forEach(cam => {
+        lines.push(`  - id: ${yamlScalar(cam.id)}`);
+        lines.push(`    rtsp_url: ${yamlScalar(cam.rtsp_url)}`);
+        lines.push(`    motion_url: ${yamlScalar(cam.motion_url)}`);
+        lines.push(`    retention_days: ${cam.retention_days}`);
+        lines.push(`    segment_duration: ${cam.segment_duration}`);
+        lines.push(`    format: ${yamlScalar(cam.format)}`);
+        lines.push(`    min_size_kb: ${cam.min_size_kb}`);
+        lines.push(`    record_time: ${yamlScalar(cam.record_time)}`);
+        lines.push(`    mode: ${yamlScalar(cam.mode)}`);
+        lines.push(`    capture_interval: ${cam.capture_interval}`);
+        lines.push(`    motion_detect: ${cam.motion_detect ? 'true' : 'false'}`);
+        lines.push(`    motionDetectRatioThreshold: ${cam.motionDetectRatioThreshold}`);
+        if (cam.auto_discovered) lines.push('    auto_discovered: true');
+    });
+    return lines.join('\n') + '\n';
+}
+
+function yamlScalar(value) {
+    return JSON.stringify(String(value ?? ''));
+}
+
 function appendStreamToConfig(streamId) {
+    if (configEditMode === 'form') {
+        addConfigCamera({
+            id: streamId,
+            rtsp_url: 'managed_by_go2rtc',
+            auto_discovered: true
+        });
+        finishAppendStream(streamId);
+        return;
+    }
+
     const textArea = document.getElementById('configYaml');
     let content = textArea.value;
 
@@ -253,16 +618,19 @@ function appendStreamToConfig(streamId) {
 
     textArea.value = content + newCamYaml;
 
-    const tag = document.getElementById(`unmanaged-${streamId}`);
-    if (tag) tag.remove();
+    finishAppendStream(streamId);
 
+    textArea.classList.add('ring-2', 'ring-emerald-400', 'transition-all', 'duration-300');
+    setTimeout(() => textArea.classList.remove('ring-2', 'ring-emerald-400'), 800);
+}
+
+function finishAppendStream(streamId) {
+    const tag = document.getElementById(`unmanaged-${encodeURIComponent(streamId)}`);
+    if (tag) tag.remove();
     const listDiv = document.getElementById('unmanagedList');
     if (listDiv.children.length === 0) {
         listDiv.innerHTML = '<span class="text-xs text-emerald-600 font-bold">🎉 所有发现设备已追加到下方配置框，请根据需要调整参数后点击【保存并应用】。</span>';
     }
-
-    textArea.classList.add('ring-2', 'ring-emerald-400', 'transition-all', 'duration-300');
-    setTimeout(() => textArea.classList.remove('ring-2', 'ring-emerald-400'), 800);
 }
 
 // --- 状态加载 ---
@@ -295,13 +663,13 @@ async function loadStatus() {
 
             if (streamState === 'online') {
                 streamLight = 'bg-green-500 shadow-[0_0_5px_#22c55e]';
-                streamText = '<span class="text-[10px] text-green-600 font-bold">流在线</span>';
+                streamText = '<span class="text-[9px] leading-none text-green-600 font-bold">流在线</span>';
             } else if (streamState === 'idle') {
                 streamLight = 'bg-blue-400 shadow-[0_0_5px_#60a5fa]';
-                streamText = '<span class="text-[10px] text-blue-500 font-bold">就绪待机</span>';
+                streamText = '<span class="text-[9px] leading-none text-blue-500 font-bold">就绪待机</span>';
             } else {
                 streamLight = 'bg-red-500 shadow-[0_0_5px_#ef4444]';
-                streamText = '<span class="text-[10px] text-red-500 font-bold">流断线</span>';
+                streamText = '<span class="text-[9px] leading-none text-red-500 font-bold">流断线</span>';
             }
 
             if (recordState === 'motion_recording') {
@@ -323,55 +691,53 @@ async function loadStatus() {
             }
 
             const item = document.createElement('div');
-            item.className = `px-2.5 py-2 rounded-lg border cursor-pointer transition-all flex flex-col group ${isSelected ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-100' : 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-sm'} ${isRunning ? '' : 'opacity-80'}`;
+            item.className = `px-2 py-1.5 rounded-lg border cursor-pointer transition-all flex flex-col group ${isSelected ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-100' : 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-sm'} ${isRunning ? '' : 'opacity-80'}`;
             item.onclick = () => selectCamera(id);
 
             item.innerHTML = `
-                <div class="flex items-start justify-between gap-2">
+                <div class="flex items-center justify-between gap-1.5">
                     <div class="min-w-0 flex-1">
                         <div class="flex min-w-0 items-center gap-1.5">
-                            <span class="truncate font-bold text-gray-800 text-[13px] leading-5 tracking-tight">${id}</span>
-                            <span class="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-slate-400">${cam.mode || 'Normal'}</span>
+                            <span class="truncate font-bold text-gray-800 text-xs leading-4 tracking-tight">${id}</span>
+                            <span class="shrink-0 rounded bg-slate-100 px-1 py-0.5 text-[8px] font-bold uppercase leading-none text-slate-400">${cam.mode || 'Normal'}</span>
                         </div>
-                        <div class="mt-1 flex flex-wrap items-center gap-1">
-                            <span class="inline-flex items-center rounded-full bg-slate-50 px-1.5 py-0.5 ring-1 ring-slate-100" title="摄像机实时流状态">
-                                <span class="w-1.5 h-1.5 rounded-full ${streamLight} mr-1 shrink-0"></span>
+                        <div class="mt-0.5 flex flex-wrap items-center gap-0.5">
+                            <span class="inline-flex items-center rounded bg-slate-50 px-1 py-0.5 ring-1 ring-slate-100" title="摄像机实时流状态">
+                                <span class="w-1.5 h-1.5 rounded-full ${streamLight} mr-0.5 shrink-0"></span>
                                 ${streamText}
                             </span>
-                            <span class="inline-flex items-center rounded-full bg-slate-50 px-1.5 py-0.5 ring-1 ring-slate-100" title="本地录制状态">
-                                <span class="w-1.5 h-1.5 rounded-full ${recordLight} mr-1 shrink-0"></span>
-                                <span class="text-[10px] ${recordTextClass} font-bold">${recordText}</span>
+                            <span class="inline-flex items-center rounded bg-slate-50 px-1 py-0.5 ring-1 ring-slate-100" title="本地录制状态">
+                                <span class="w-1.5 h-1.5 rounded-full ${recordLight} mr-0.5 shrink-0"></span>
+                                <span class="text-[9px] ${recordTextClass} font-bold leading-none">${recordText}</span>
                             </span>
                         </div>
                     </div>
                     <button onclick="event.stopPropagation(); previewLive('${id}')"
-                            class="w-7 h-7 shrink-0 flex items-center justify-center rounded-md bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-colors text-xs"
+                            class="w-6 h-6 shrink-0 flex items-center justify-center rounded bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-colors text-[10px]"
                             title="主动拉流直播">▶</button>
                 </div>
 
-                <div class="mt-1.5 flex min-w-0 items-center gap-1.5 rounded-md border ${recordSchedule.borderClass} ${recordSchedule.bgClass} px-1.5 py-1"
-                     title="${escapeHtml(recordSchedule.title)}">
-                    <svg class="h-3 w-3 shrink-0 ${recordSchedule.iconClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2"></path>
-                        <circle cx="12" cy="12" r="9"></circle>
-                    </svg>
-                    <span class="shrink-0 text-[9px] font-bold ${recordSchedule.badgeClass}">${recordSchedule.badge}</span>
-                    <span class="min-w-0 flex-1 truncate font-mono text-[10px] font-semibold ${recordSchedule.textClass}">${escapeHtml(recordSchedule.text)}</span>
-                </div>
-
-                <div class="flex justify-between items-center border-t border-gray-100 pt-1.5 mt-1.5">
-                    <span class="text-[10px] font-bold text-gray-400">录制控制</span>
-                    <div class="flex space-x-1">
+                <div class="mt-1 flex min-w-0 items-center gap-1 border-t border-gray-100 pt-1">
+                    <div class="flex min-w-0 flex-1 items-center gap-1 rounded border ${recordSchedule.borderClass} ${recordSchedule.bgClass} px-1 py-0.5"
+                         title="${escapeHtml(recordSchedule.title)}">
+                        <svg class="h-2.5 w-2.5 shrink-0 ${recordSchedule.iconClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2"></path>
+                            <circle cx="12" cy="12" r="9"></circle>
+                        </svg>
+                        <span class="shrink-0 text-[8px] font-bold leading-none ${recordSchedule.badgeClass}">${recordSchedule.badge}</span>
+                        <span class="min-w-0 flex-1 truncate font-mono text-[9px] font-semibold leading-none ${recordSchedule.textClass}">${escapeHtml(recordSchedule.text)}</span>
+                    </div>
+                    <div class="flex shrink-0 space-x-0.5">
                         <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'start')"
-                                class="group/btn flex items-center px-1.5 py-0.5 text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200 rounded hover:bg-emerald-500 hover:text-white hover:border-emerald-500 transition-all duration-200 active:scale-95">
+                                class="group/btn flex items-center px-1 py-0.5 text-[9px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200 rounded hover:bg-emerald-500 hover:text-white hover:border-emerald-500 transition-all duration-200 active:scale-95">
                             强录
                         </button>
                         <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'stop')"
-                                class="group/btn flex items-center px-1.5 py-0.5 text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200 rounded hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-all duration-200 active:scale-95">
+                                class="group/btn flex items-center px-1 py-0.5 text-[9px] font-bold bg-rose-50 text-rose-600 border border-rose-200 rounded hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-all duration-200 active:scale-95">
                             停录
                         </button>
                         <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'auto')"
-                                class="group/btn flex items-center px-1.5 py-0.5 text-[10px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-200 rounded hover:bg-indigo-500 hover:text-white hover:border-indigo-500 transition-all duration-200 active:scale-95">
+                                class="group/btn flex items-center px-1 py-0.5 text-[9px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-200 rounded hover:bg-indigo-500 hover:text-white hover:border-indigo-500 transition-all duration-200 active:scale-95">
                             计划
                         </button>
                     </div>

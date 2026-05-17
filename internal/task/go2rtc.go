@@ -149,7 +149,7 @@ func InitGo2rtcStreams(config constant.Config) {
 
 			// 2. 遍历当前配置文件中的摄像头
 			for _, cam := range config.Cameras {
-				if cam.AutoDiscovered {
+				if constant.CameraManagedByGo2rtc(cam) {
 					log.Printf("[%s] 识别为 go2rtc 原生流，已接管", cam.ID)
 					continue
 				}
@@ -196,7 +196,7 @@ func CleanupGo2rtcStreams(config constant.Config) {
 	log.Println("正在从 go2rtc 注销视频流...")
 
 	for _, cam := range config.Cameras {
-		if cam.AutoDiscovered {
+		if constant.CameraManagedByGo2rtc(cam) {
 			// go2rtc 上注册的流，不能注销
 			log.Printf("[%s] go2rtc 上注册的流，不注销", cam.ID)
 			continue
@@ -383,7 +383,7 @@ func checkCameraTCPAlive(rawURL string) bool {
 		return false
 	}
 
-	if rawURL == "managed_by_go2rtc" {
+	if constant.IsManagedByGo2rtcURL(rawURL) {
 		return true
 	}
 

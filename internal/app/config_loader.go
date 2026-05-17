@@ -33,6 +33,7 @@ func loadOrInitConfig() constant.Config {
 					{
 						ID:                         "camkeep",
 						RTSPUrl:                    "rtsp://admin:password@192.168.1.100:554/live",
+						MotionURL:                  "",
 						RetentionDays:              7,
 						SegmentDuration:            600,
 						Format:                     "ts",
@@ -177,6 +178,10 @@ func validateAndFixConfig(cfg constant.Config) constant.Config {
 			continue
 		}
 		seen[cam.ID] = true
+
+		if constant.IsManagedByGo2rtcURL(cam.RTSPUrl) {
+			cam.AutoDiscovered = true
+		}
 
 		// 预置默认录像策略。如果用户在 conf.yaml 中没写，就走这里的兜底。
 		if cam.RetentionDays == 0 {

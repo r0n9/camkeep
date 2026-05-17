@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/r0n9/camkeep/constant"
 	"github.com/r0n9/camkeep/internal/service"
 )
 
@@ -135,6 +136,24 @@ cameras:
 	}
 	if cfg.Cameras[0].MotionURL != "rtsp://example/substream" {
 		t.Fatalf("expected motion_url to be parsed, got %q", cfg.Cameras[0].MotionURL)
+	}
+}
+
+func TestMarkGo2rtcManagedCamerasUsesRTSPURLSentinel(t *testing.T) {
+	cfg := constant.Config{
+		Cameras: []constant.Camera{
+			{ID: "managed", RTSPUrl: constant.ManagedByGo2rtcURL},
+			{ID: "direct", RTSPUrl: "rtsp://example/live"},
+		},
+	}
+
+	markGo2rtcManagedCameras(&cfg)
+
+	if !cfg.Cameras[0].AutoDiscovered {
+		t.Fatal("expected managed_by_go2rtc camera to be marked auto_discovered")
+	}
+	if cfg.Cameras[1].AutoDiscovered {
+		t.Fatal("expected normal RTSP camera to remain manually managed")
 	}
 }
 

@@ -1202,6 +1202,217 @@ html.dark .record-timeline-card-action-delete:hover {
     background: rgba(127, 29, 29, 0.58);
 }
 
+.config-modal-card {
+    background: #ffffff;
+}
+
+.config-camera-card {
+    transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.config-camera-card.is-go2rtc-managed {
+    border-color: #bfdbfe;
+    background:
+        linear-gradient(135deg, rgba(239, 246, 255, 0.98), rgba(255, 255, 255, 0.98)),
+        linear-gradient(90deg, #2563eb 0 4px, transparent 4px);
+    box-shadow: 0 12px 28px -24px rgba(37, 99, 235, 0.7);
+}
+
+.config-camera-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+}
+
+.config-field {
+    min-width: 0;
+}
+
+.config-field input,
+.config-field select {
+    min-height: 32px;
+}
+
+.config-managed-rtsp {
+    display: flex;
+    min-height: 32px;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border: 1px solid #bfdbfe;
+    border-radius: 10px;
+    background: #eff6ff;
+}
+
+.config-managed-rtsp-title {
+    flex: 0 0 auto;
+    color: #1d4ed8;
+    font-size: 11px;
+    font-weight: 900;
+}
+
+.config-managed-rtsp-desc {
+    min-width: 0;
+    overflow: hidden;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.config-field-wide {
+    grid-column: 1 / -1;
+}
+
+.config-toggle-control {
+    display: flex;
+    min-height: 32px;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #ffffff;
+}
+
+.config-toggle-track {
+    background: #cbd5e1;
+}
+
+.config-toggle-thumb {
+    background: #ffffff;
+}
+
+.config-toggle-control input:checked ~ .config-toggle-track {
+    background: #10b981;
+}
+
+.config-toggle-control input:disabled ~ .config-toggle-thumb {
+    opacity: 0.65;
+}
+
+.config-advanced {
+    border-top: 1px dashed #e2e8f0;
+    padding-top: 8px;
+}
+
+.config-advanced summary {
+    width: fit-content;
+    cursor: pointer;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 800;
+    user-select: none;
+}
+
+.config-advanced summary:hover {
+    color: #2563eb;
+}
+
+@media (min-width: 768px) {
+    .config-camera-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 1180px) {
+    .config-camera-grid {
+        grid-template-columns: minmax(150px, 0.8fr) minmax(260px, 1.8fr) minmax(260px, 1.8fr) minmax(130px, 0.7fr);
+    }
+
+    .config-field-wide {
+        grid-column: span 1;
+    }
+
+    .config-toggle-control {
+        grid-column: span 1;
+    }
+}
+
+html.dark .config-modal-card {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+    box-shadow: 0 24px 70px -28px rgba(0, 0, 0, 0.78);
+}
+
+html.dark .config-tabs {
+    background: rgba(15, 23, 42, 0.92) !important;
+    border-color: #334155 !important;
+}
+
+html.dark .config-section,
+html.dark .config-camera-card {
+    background: linear-gradient(135deg, rgba(17, 24, 39, 0.98), rgba(15, 23, 42, 0.98)) !important;
+    border-color: #334155 !important;
+}
+
+html.dark .config-camera-card.is-go2rtc-managed {
+    border-color: rgba(96, 165, 250, 0.54) !important;
+    background:
+        linear-gradient(135deg, rgba(30, 58, 138, 0.42), rgba(15, 23, 42, 0.98)),
+        linear-gradient(90deg, #60a5fa 0 4px, transparent 4px) !important;
+}
+
+html.dark .config-toggle-control {
+    background: rgba(15, 23, 42, 0.72);
+    border-color: #334155;
+}
+
+html.dark .config-toggle-track {
+    background: #475569;
+}
+
+html.dark .config-toggle-control input:checked ~ .config-toggle-track {
+    background: #34d399;
+}
+
+html.dark .config-toggle-thumb {
+    background: #f8fafc;
+}
+
+html.dark .config-toggle-control input:disabled ~ .config-toggle-track {
+    background: #1e293b;
+}
+
+html.dark .config-advanced {
+    border-top-color: #334155;
+}
+
+html.dark .config-advanced summary {
+    color: #94a3b8;
+}
+
+html.dark .config-advanced summary:hover {
+    color: #60a5fa;
+}
+
+html.dark select,
+html.dark .config-field input,
+html.dark .config-field select {
+    background-color: #020617 !important;
+    color: #e2e8f0 !important;
+    border-color: #334155 !important;
+}
+
+html.dark .config-managed-rtsp {
+    border-color: rgba(96, 165, 250, 0.46);
+    background: rgba(30, 58, 138, 0.35);
+}
+
+html.dark .config-managed-rtsp-title {
+    color: #93c5fd;
+}
+
+html.dark .config-managed-rtsp-desc {
+    color: #cbd5e1;
+}
+
+html.dark .config-field input::placeholder {
+    color: #64748b;
+}
+
 #themeIconDark {
     display: block;
 }

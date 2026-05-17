@@ -9,3 +9,5 @@ const DefaultRecordBaseDir = "./records"
 
 const DefaultGo2rtcHost = "127.0.0.1"
 const DefaultGo2rtcApiPort = 1984
+
+const ManagedByGo2rtcURL = "managed_by_go2rtc"
