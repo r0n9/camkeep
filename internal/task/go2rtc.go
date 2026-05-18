@@ -1,6 +1,7 @@
 package task
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -22,20 +23,33 @@ var httpClient = &http.Client{
 	Timeout: 3 * time.Second, // 3秒超时，防止任何请求卡死
 }
 
-// StartGo2rtcDaemon 负责启动并守护底层流媒体引擎
-func StartGo2rtcDaemon() {
+// StartGo2rtcDaemon 负责启动并守护底层流媒体引擎。
+// 返回的 channel 会在守护 goroutine 退出后关闭。
+func StartGo2rtcDaemon(ctx context.Context) <-chan struct{} {
+	done := make(chan struct{})
 	go func() {
+		defer close(done)
 		for {
+			select {
+			case <-ctx.Done():
+				log.Println("go2rtc 守护进程已停止")
+				return
+			default:
+			}
+
 			log.Println("正在启动底层流媒体引擎 go2rtc...")
 
 			if err := prepareGo2rtcConfig(constant.LegacyGo2rtcConfigFilePath, constant.Go2rtcConfigFilePath); err != nil {
 				log.Printf("go2rtc 配置文件准备失败: %v，3秒后尝试重试...", err)
-				time.Sleep(3 * time.Second)
+				if !waitGo2rtcDaemonRetry(ctx, 3*time.Second) {
+					log.Println("go2rtc 守护进程已停止")
+					return
+				}
 				continue
 			}
 
 			// 调用同目录下的 go2rtc 二进制文件
-			cmd := exec.Command("./go2rtc", "-config", constant.Go2rtcConfigFilePath)
+			cmd := exec.CommandContext(ctx, "./go2rtc", "-config", constant.Go2rtcConfigFilePath)
 
 			// 如果你想在终端看到 go2rtc 的原生日志，可以取消下面两行的注释
 			cmd.Stdout = os.Stdout
@@ -44,10 +58,31 @@ func StartGo2rtcDaemon() {
 			// 阻塞运行，直到进程意外退出
 			err := cmd.Run()
 
+			if ctx.Err() != nil {
+				log.Println("go2rtc 进程已随 CamKeep 退出")
+				return
+			}
+
 			log.Printf("go2rtc 进程退出: %v，3秒后尝试重启...", err)
-			time.Sleep(3 * time.Second) // 缓冲时间，防止死循环狂刷日志
+			if !waitGo2rtcDaemonRetry(ctx, 3*time.Second) {
+				log.Println("go2rtc 守护进程已停止")
+				return
+			}
 		}
 	}()
+	return done
+}
+
+func waitGo2rtcDaemonRetry(ctx context.Context, delay time.Duration) bool {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
+	}
 }
 
 func prepareGo2rtcConfig(legacyPath, configPath string) error {
@@ -368,11 +403,15 @@ func PollGo2rtcStatus(cfg *constant.Config) {
 						constant.ConfigMux.RUnlock()
 					}
 
-					// 发起毫秒级轻量探活
-					if checkCameraTCPAlive(probeURL) {
+					if strings.HasPrefix(probeURL, "exec") || strings.HasPrefix(probeURL, "ffmpeg") {
 						streamState = "idle" // 端口通，才是真休眠
 					} else {
-						streamState = "offline" // 端口不通（如断网/断电），伪装成休眠也没用，标记为离线
+						// 发起毫秒级轻量探活
+						if checkCameraTCPAlive(probeURL) {
+							streamState = "idle" // 端口通，才是真休眠
+						} else {
+							streamState = "offline" // 端口不通（如断网/断电），伪装成休眠也没用，标记为离线
+						}
 					}
 				}
 			}

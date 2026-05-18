@@ -49,6 +49,17 @@ type probeResult struct {
 	ProbeNote string `json:"probe_note,omitempty"`
 }
 
+type go2rtcStreamScanResponse struct {
+	Streams   map[string]go2rtcStreamInfo `json:"streams"`
+	Unmanaged []go2rtcStreamInfo          `json:"unmanaged"`
+}
+
+type go2rtcStreamInfo struct {
+	ID          string `json:"id"`
+	SourceLabel string `json:"source_label"`
+	Managed     bool   `json:"managed"`
+}
+
 const (
 	recordDateLayout    = "2006-01-02"
 	maxRecordRangeDays  = 7
@@ -462,17 +473,6 @@ func handleUnmanagedStreams(c *gin.Context) {
 		return
 	}
 
-	var streamKeys []string
-	if streamsObj, ok := result["streams"].(map[string]interface{}); ok {
-		for k := range streamsObj {
-			streamKeys = append(streamKeys, k)
-		}
-	} else {
-		for k := range result {
-			streamKeys = append(streamKeys, k)
-		}
-	}
-
 	// 过滤掉已经在 conf.yaml 中被 CamKeep 管理的流
 	constant.ConfigMux.RLock()
 	managed := make(map[string]bool)
@@ -481,14 +481,170 @@ func handleUnmanagedStreams(c *gin.Context) {
 	}
 	constant.ConfigMux.RUnlock()
 
-	var unmanaged []string
-	for _, k := range streamKeys {
-		if !managed[k] {
-			unmanaged = append(unmanaged, k)
-		}
+	configSources := loadGo2rtcConfigStreamSources(constant.Go2rtcConfigFilePath, constant.LegacyGo2rtcConfigFilePath)
+	c.JSON(http.StatusOK, buildGo2rtcStreamScanResponse(result, managed, configSources))
+}
+
+func buildGo2rtcStreamScanResponse(result map[string]interface{}, managed map[string]bool, configSources map[string][]string) go2rtcStreamScanResponse {
+	streamsObj := result
+	if nestedStreams, ok := result["streams"].(map[string]interface{}); ok {
+		streamsObj = nestedStreams
 	}
 
-	c.JSON(http.StatusOK, unmanaged)
+	streamIDs := make([]string, 0, len(streamsObj))
+	for id := range streamsObj {
+		streamIDs = appendUniqueString(streamIDs, id)
+	}
+	for id := range configSources {
+		streamIDs = appendUniqueString(streamIDs, id)
+	}
+	sort.Strings(streamIDs)
+
+	scan := go2rtcStreamScanResponse{
+		Streams:   make(map[string]go2rtcStreamInfo, len(streamIDs)),
+		Unmanaged: make([]go2rtcStreamInfo, 0),
+	}
+	for _, id := range streamIDs {
+		sources := configSources[id]
+		info := go2rtcStreamInfo{
+			ID:          id,
+			SourceLabel: formatGo2rtcSourceLabels(sources),
+			Managed:     managed[id],
+		}
+		scan.Streams[id] = info
+		if !managed[id] {
+			scan.Unmanaged = append(scan.Unmanaged, info)
+		}
+	}
+	return scan
+}
+
+func loadGo2rtcConfigStreamSources(paths ...string) map[string][]string {
+	for _, path := range paths {
+		sources, ok := readGo2rtcConfigStreamSources(path)
+		if ok {
+			return sources
+		}
+	}
+	return map[string][]string{}
+}
+
+func readGo2rtcConfigStreamSources(path string) (map[string][]string, bool) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, false
+	}
+
+	var cfg struct {
+		Streams map[string]interface{} `yaml:"streams"`
+	}
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		log.Printf("解析 go2rtc 配置失败: %v", err)
+		return nil, false
+	}
+
+	sources := make(map[string][]string, len(cfg.Streams))
+	for id, streamConfig := range cfg.Streams {
+		sources[id] = extractGo2rtcConfigStreamSources(streamConfig)
+	}
+	return sources, true
+}
+
+func extractGo2rtcConfigStreamSources(streamData interface{}) []string {
+	var sources []string
+	switch data := streamData.(type) {
+	case string:
+		sources = appendUniqueString(sources, data)
+	case []string:
+		for _, source := range data {
+			sources = appendUniqueString(sources, source)
+		}
+	case []interface{}:
+		for _, item := range data {
+			for _, source := range extractGo2rtcConfigStreamSources(item) {
+				sources = appendUniqueString(sources, source)
+			}
+		}
+	case map[string]interface{}:
+		for _, key := range []string{"url", "src", "source", "input"} {
+			if source, ok := data[key].(string); ok {
+				sources = appendUniqueString(sources, source)
+			}
+		}
+		for _, key := range []string{"sources", "inputs"} {
+			if items, ok := data[key].([]interface{}); ok {
+				for _, item := range items {
+					for _, source := range extractGo2rtcConfigStreamSources(item) {
+						sources = appendUniqueString(sources, source)
+					}
+				}
+			}
+		}
+	}
+	return sources
+}
+
+func formatGo2rtcSourceLabels(sources []string) string {
+	var labels []string
+	for _, source := range sources {
+		for _, label := range inferGo2rtcSourceLabels(source) {
+			labels = appendUniqueString(labels, label)
+		}
+	}
+	if len(labels) == 0 {
+		return "未知"
+	}
+	return strings.Join(labels, " / ")
+}
+
+func inferGo2rtcSourceLabels(source string) []string {
+	source = strings.TrimSpace(source)
+	if source == "" {
+		return nil
+	}
+
+	colon := strings.Index(source, ":")
+	schemeSep := strings.Index(source, "://")
+	if colon <= 0 {
+		return nil
+	}
+	if schemeSep >= 0 && colon < schemeSep {
+		labels := []string{formatGo2rtcSourceLabel(source[:colon])}
+		for _, label := range inferGo2rtcSourceLabels(source[colon+1:]) {
+			labels = appendUniqueString(labels, label)
+		}
+		return labels
+	}
+	return []string{formatGo2rtcSourceLabel(source[:colon])}
+}
+
+func formatGo2rtcSourceLabel(sourceType string) string {
+	switch strings.ToLower(strings.TrimSpace(sourceType)) {
+	case "ffmpeg":
+		return "FFmpeg"
+	case "rtsp", "rtsps", "rtmp", "rtmps", "http", "https", "hls", "mjpeg", "srt":
+		return strings.ToUpper(sourceType)
+	case "onvif":
+		return "ONVIF"
+	case "webrtc":
+		return "WebRTC"
+	case "homekit":
+		return "HomeKit"
+	case "hass":
+		return "Hass"
+	case "exec":
+		return "Exec"
+	default:
+		return sourceType
+	}
+}
+
+func appendUniqueString(values []string, value string) []string {
+	value = strings.TrimSpace(value)
+	if value == "" || slices.Contains(values, value) {
+		return values
+	}
+	return append(values, value)
 }
 
 func handlePlayHLS(c *gin.Context) {

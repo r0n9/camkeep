@@ -32,11 +32,17 @@ func Run(appVersion string) {
 
 	log.Printf("CamKeep version=%s", version)
 
+	// 设置全局 Context，确保 go2rtc 子进程和后台任务能在退出时一起停止。
+	var cancelGlobal context.CancelFunc
+	ctxGlobal, cancelGlobal = context.WithCancel(context.Background())
+
 	// 在 CamKeep 业务逻辑启动前，先拉起底座进程
-	task.StartGo2rtcDaemon()
+	go2rtcDone := task.StartGo2rtcDaemon(ctxGlobal)
 	// 动态轮询等待，确保 go2rtc API 彻底就绪（最大等待 10 秒）
 	log.Println("等待底层流媒体引擎 go2rtc 启动...")
 	if err := task.WaitForGo2rtcReady(10 * time.Second); err != nil {
+		cancelGlobal()
+		<-go2rtcDone
 		// 如果 10 秒了还没起来，说明底座进程严重故障，直接让主程序退出
 		log.Fatalf("致命错误: 无法连接到底层引擎: %v", err)
 	}
@@ -50,10 +56,6 @@ func Run(appVersion string) {
 	// 加载持久化的手动录像覆盖指令
 	task.LoadOverrides()
 	task.PruneOverridesForCameras(currentConfig.Cameras)
-
-	// 设置全局 Context
-	var cancelGlobal context.CancelFunc
-	ctxGlobal, cancelGlobal = context.WithCancel(context.Background())
 
 	// 初始化流
 	task.InitGo2rtcStreams(currentConfig)
@@ -75,5 +77,6 @@ func Run(appVersion string) {
 
 	cancelGlobal() // 通知所有层级的 Context 退出
 	taskWg.Wait()  // 等待所有任务完成
+	<-go2rtcDone   // 等待 go2rtc 子进程退出，避免留下孤儿进程
 	log.Println("程序已安全退出。")
 }

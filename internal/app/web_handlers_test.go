@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -211,6 +213,80 @@ cameras:
 func TestParseConfigYAMLRejectsEmptyConfig(t *testing.T) {
 	if _, err := parseConfigYAML([]byte("  \n")); err == nil {
 		t.Fatal("expected empty config to fail")
+	}
+}
+
+func TestBuildGo2rtcStreamScanResponseUsesConfigSourceLabels(t *testing.T) {
+	scan := buildGo2rtcStreamScanResponse(map[string]interface{}{
+		"streams": map[string]interface{}{
+			"managed_rtsp": map[string]interface{}{
+				"producers": []interface{}{
+					map[string]interface{}{"url": "webrtc://runtime-state-should-not-win"},
+				},
+			},
+			"onvif_cam": map[string]interface{}{
+				"producers": []interface{}{
+					map[string]interface{}{"url": "rtsp://runtime-state-should-not-win"},
+				},
+			},
+			"wrapped_ffmpeg": map[string]interface{}{
+				"producers": []interface{}{
+					map[string]interface{}{"url": "rtsp://runtime-state-should-not-win"},
+				},
+			},
+		},
+	}, map[string]bool{"managed_rtsp": true}, map[string][]string{
+		"managed_rtsp":   {"rtsp://example/live"},
+		"onvif_cam":      {"onvif://admin:password@example/onvif/device"},
+		"wrapped_ffmpeg": {"ffmpeg:rtsp://example/live"},
+		"config_only":    {"exec:ffmpeg -re -f lavfi -i testsrc -f rtsp {output}"},
+	})
+
+	if got := scan.Streams["managed_rtsp"].SourceLabel; got != "RTSP" {
+		t.Fatalf("expected RTSP source label, got %q", got)
+	}
+	if got := scan.Streams["onvif_cam"].SourceLabel; got != "ONVIF" {
+		t.Fatalf("expected ONVIF source label, got %q", got)
+	}
+	if got := scan.Streams["wrapped_ffmpeg"].SourceLabel; got != "FFmpeg / RTSP" {
+		t.Fatalf("expected FFmpeg / RTSP source label, got %q", got)
+	}
+	if got := scan.Streams["config_only"].SourceLabel; got != "Exec" {
+		t.Fatalf("expected Exec source label, got %q", got)
+	}
+	if !scan.Streams["managed_rtsp"].Managed {
+		t.Fatal("expected managed stream to be marked managed")
+	}
+	if got := len(scan.Unmanaged); got != 3 {
+		t.Fatalf("expected three unmanaged streams, got %d", got)
+	}
+}
+
+func TestReadGo2rtcConfigStreamSources(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "go2rtc.yaml")
+	if err := os.WriteFile(configPath, []byte(`
+streams:
+  rtsp_cam: rtsp://example/live
+  ffmpeg_cam:
+    - ffmpeg:rtsp://example/live
+  onvif_cam:
+    - onvif://admin:password@example/onvif/device
+`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	sources, ok := readGo2rtcConfigStreamSources(configPath)
+	if !ok {
+		t.Fatal("expected go2rtc config sources to be parsed")
+	}
+	if got := formatGo2rtcSourceLabels(sources["rtsp_cam"]); got != "RTSP" {
+		t.Fatalf("expected RTSP label, got %q", got)
+	}
+	if got := formatGo2rtcSourceLabels(sources["ffmpeg_cam"]); got != "FFmpeg / RTSP" {
+		t.Fatalf("expected FFmpeg / RTSP label, got %q", got)
+	}
+	if got := formatGo2rtcSourceLabels(sources["onvif_cam"]); got != "ONVIF" {
+		t.Fatalf("expected ONVIF label, got %q", got)
 	}
 }
 

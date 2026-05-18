@@ -129,8 +129,10 @@ async function executeConfirmAction() {
 // --- 系统配置相关 ---
 let configEditMode = 'form';
 let configFormState = {daily_merge: {enabled: false, time: '03:30'}, cameras: []};
+let go2rtcStreamInfoMap = new Map();
 
 async function openConfig() {
+    go2rtcStreamInfoMap = new Map();
     const yamlResp = await fetch('/api/config');
     const yamlText = await yamlResp.text();
     document.getElementById('configYaml').value = yamlText;
@@ -254,22 +256,29 @@ async function scanUnmanagedStreams() {
             const err = await resp.json();
             throw new Error(err.error || '请求失败');
         }
-        const streams = await resp.json();
+        const scanPayload = await resp.json();
+        const scan = normalizeGo2rtcScanPayload(scanPayload);
+        go2rtcStreamInfoMap = scan.streams;
+        rerenderConfigFormPreservingInput();
 
-        if (!streams || streams.length === 0) {
+        if (!scan.unmanaged || scan.unmanaged.length === 0) {
             listDiv.innerHTML = '<span class="text-xs text-emerald-600 font-bold">🎉 所有 go2rtc 流均已接入系统，暂无新发现。</span>';
             return;
         }
 
         listDiv.innerHTML = '';
-        streams.forEach(stream => {
-            const streamID = encodeURIComponent(stream);
+        scan.unmanaged.forEach(stream => {
+            const streamID = encodeURIComponent(stream.id);
             const streamArg = escapeHtml(JSON.stringify(stream));
+            const sourceLabel = stream.source_label && stream.source_label !== '未知'
+                ? `<span class="mr-3 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-extrabold text-slate-500">${escapeHtml(stream.source_label)}</span>`
+                : '';
             const tag = document.createElement('div');
             tag.id = `unmanaged-${streamID}`;
             tag.className = 'flex items-center bg-white border border-blue-200 pl-3 pr-1 py-1 rounded-md shadow-sm';
             tag.innerHTML = `
-                <span class="text-xs font-mono font-bold text-slate-700 mr-3">${escapeHtml(stream)}</span>
+                <span class="text-xs font-mono font-bold text-slate-700 mr-3">${escapeHtml(stream.id)}</span>
+                ${sourceLabel}
                 <button onclick="appendStreamToConfig(${streamArg})" class="text-[10px] bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white px-2 py-1 rounded transition-colors font-bold">
                     ➕ 追加到配置
                 </button>
@@ -279,6 +288,59 @@ async function scanUnmanagedStreams() {
     } catch (e) {
         listDiv.innerHTML = `<span class="text-xs text-red-500 font-bold">扫描失败: ${e.message}</span>`;
     }
+}
+
+function normalizeGo2rtcScanPayload(payload) {
+    if (Array.isArray(payload)) {
+        const unmanaged = payload.map(stream => normalizeGo2rtcStreamInfo(stream)).filter(stream => stream.id);
+        return {
+            streams: new Map(unmanaged.map(stream => [stream.id, stream])),
+            unmanaged
+        };
+    }
+
+    const streams = new Map();
+    const rawStreams = payload?.streams || {};
+    Object.entries(rawStreams).forEach(([id, info]) => {
+        const stream = normalizeGo2rtcStreamInfo(info, id);
+        if (stream.id) streams.set(stream.id, stream);
+    });
+
+    const unmanaged = (payload?.unmanaged || []).map(stream => {
+        const normalized = normalizeGo2rtcStreamInfo(stream);
+        return streams.get(normalized.id) || normalized;
+    }).filter(stream => stream.id);
+
+    return {streams, unmanaged};
+}
+
+function normalizeGo2rtcStreamInfo(stream, fallbackID = '') {
+    if (typeof stream === 'string') {
+        return {
+            id: stream,
+            source_label: '',
+            managed: false
+        };
+    }
+
+    return {
+        id: String(readConfigValue(stream, ['id', 'ID'], fallbackID) || ''),
+        source_label: readConfigValue(stream, ['source_label', 'SourceLabel'], ''),
+        managed: Boolean(readConfigValue(stream, ['managed', 'Managed'], false))
+    };
+}
+
+function rerenderConfigFormPreservingInput() {
+    if (configEditMode !== 'form') return;
+    const modal = document.getElementById('configModal');
+    if (modal?.classList.contains('hidden')) return;
+
+    try {
+        configFormState = collectConfigForm({allowEmptyID: true});
+    } catch (e) {
+        // 表单刚初始化或正在切换模式时，保留现有状态即可。
+    }
+    renderConfigForm();
 }
 
 async function parseConfigYamlToForm(yamlText) {
@@ -373,7 +435,7 @@ function renderConfigCameraCard(cam, index) {
     const normalMode = cam.mode !== 'timelapse';
     const managedByGo2rtc = isManagedByGo2rtcURL(cam.stream_url);
     const motionDisabled = normalMode ? '' : 'disabled';
-    const sourceHint = managedByGo2rtc ? '使用 go2rtc 已有同名流，不会重新注册外部源' : 'CamKeep 会把 stream_url 注册到 go2rtc';
+    const sourceHint = managedByGo2rtc ? '使用 go2rtc 同名流' : 'CamKeep 会把 stream_url 注册到 go2rtc';
     const motionHint = normalMode ? '动检开启后仅事件录像' : '延时录像模式会忽略动检';
     return `
         <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -421,16 +483,23 @@ function configTextInput(label, field, value, placeholder, required = false, ext
 }
 
 function configManagedStreamField(camID) {
+    const desc = configManagedStreamDesc(camID);
     return `
         <label class="config-field config-field-wide">
             <span class="mb-1 block text-[11px] font-extrabold text-slate-500">主码流来源</span>
             <input data-field="stream_url" type="hidden" value="managed_by_go2rtc">
             <div class="config-managed-rtsp">
                 <span class="config-managed-rtsp-title">go2rtc 已接管</span>
-                <span class="config-managed-rtsp-desc">使用 go2rtc 中名为 ${escapeHtml(camID || '当前摄像头 ID')} 的同名流，CamKeep 不再注册外部源。</span>
+                <span class="config-managed-rtsp-desc">${escapeHtml(desc)}</span>
             </div>
         </label>
     `;
+}
+
+function configManagedStreamDesc(camID) {
+    const streamInfo = go2rtcStreamInfoMap.get(String(camID || ''));
+    const sourceLabel = streamInfo?.source_label || '未知';
+    return `接入方式：${sourceLabel}`;
 }
 
 function configNumberInput(label, field, value, placeholder, step = '1') {
@@ -587,7 +656,12 @@ function yamlScalar(value) {
     return JSON.stringify(String(value ?? ''));
 }
 
-function appendStreamToConfig(streamId) {
+function appendStreamToConfig(stream) {
+    const streamInfo = normalizeGo2rtcStreamInfo(stream);
+    const streamId = streamInfo.id;
+    if (!streamId) return;
+    go2rtcStreamInfoMap.set(streamId, streamInfo);
+
     if (configEditMode === 'form') {
         addConfigCamera({
             id: streamId,
