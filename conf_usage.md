@@ -8,7 +8,7 @@ daily_merge:
 
 cameras:
   - id: "cam_01"
-    rtsp_url: "rtsp://admin:password@192.168.1.100:554/live"
+    stream_url: "rtsp://admin:password@192.168.1.100:554/live"
     motion_url: ""
     retention_days: 7
     segment_duration: 600
@@ -19,7 +19,7 @@ cameras:
     motion_detect: false
     motionDetectRatioThreshold: 0.01
   - id: "cam_02"
-    rtsp_url: "rtsp://admin:password@192.168.1.100:554/live"
+    stream_url: "rtsp://admin:password@192.168.1.100:554/live"
     motion_url: ""
     retention_days: 7
     segment_duration: 600
@@ -46,12 +46,13 @@ cameras:
 * **推荐值**：使用英文字母、数字或简短中文（如 `"cam_front"`、`"大门监控"`）。
 * **注意**：绝对不要包含特殊字符（如 `/`、`\`、`:` 等），否则会导致系统无法创建存储文件夹。
 
-#### 2. `rtsp_url` (视频流地址)
-* **作用**：摄像机的 RTSP 原始拉流地址。
-* **推荐值**：需根据您的摄像机品牌（海康、大华、宇视等）填写。务必在 URL 中包含账号和密码，例如：`rtsp://admin:123456@192.168.1.88:554/Streaming/Channels/101`。
+#### 2. `stream_url` (主码流地址)
+* **作用**：摄像机主码流地址，支持 go2rtc 兼容的各类源地址。
+* **兼容性**：旧字段 `rtsp_url` 仍然可用；如果两者都填写，系统优先使用 `stream_url` 同步到 go2rtc。
+* **推荐值**：按你的设备填写对应地址，RTSP 只是其中一种，例如：`rtsp://admin:123456@192.168.1.88:554/Streaming/Channels/101`。
 
 #### 3. `motion_url` (动检流地址，可选)
-* **作用**：仅在 `motion_detect: true` 且 `mode: "normal"` 时用于画面变化检测。检测到运动后，事件录像仍使用 `rtsp_url` 对应的原录像码流。
+* **作用**：仅在 `motion_detect: true` 且 `mode: "normal"` 时用于画面变化检测。检测到运动后，事件录像仍使用主码流地址。
 * **默认值**：留空或不配置时保持原逻辑，动检继续使用系统为该摄像头注册的默认流。
 * **推荐值**：可填写摄像机低分辨率子码流，例如海康常见的 `/Streaming/Channels/102`，用于降低动检 CPU 和带宽开销。
 

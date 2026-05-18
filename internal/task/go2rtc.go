@@ -149,20 +149,25 @@ func InitGo2rtcStreams(config constant.Config) {
 
 			// 2. 遍历当前配置文件中的摄像头
 			for _, cam := range config.Cameras {
+				streamURL := cam.EffectiveStreamURL()
 				if constant.CameraManagedByGo2rtc(cam) {
 					log.Printf("[%s] 识别为 go2rtc 原生流，已接管", cam.ID)
 					continue
 				}
+				if streamURL == "" {
+					log.Printf("[%s] 未配置主码流地址，跳过注册到 go2rtc", cam.ID)
+					continue
+				}
 
 				// 只针对当前 conf.yaml 里存在的流，先删后加
-				// 这一步确保了如果该流被修改了 RTSP 地址，旧地址会被彻底顶替掉
+				// 这一步确保了如果该流被修改了主码流地址，旧地址会被彻底顶替掉
 				reqDel, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/api/streams?src=%s", go2rtcHost, url.QueryEscape(cam.ID)), nil)
 				if respDel, errDel := httpClient.Do(reqDel); errDel == nil && respDel != nil {
 					respDel.Body.Close()
 				}
 
 				// 注册最新的流配置
-				addStreamURL := fmt.Sprintf("%s/api/streams?name=%s&src=%s", go2rtcHost, url.QueryEscape(cam.ID), url.QueryEscape(cam.RTSPUrl))
+				addStreamURL := fmt.Sprintf("%s/api/streams?name=%s&src=%s", go2rtcHost, url.QueryEscape(cam.ID), url.QueryEscape(streamURL))
 				reqAdd, _ := http.NewRequest("PUT", addStreamURL, nil)
 				respAdd, errAdd := httpClient.Do(reqAdd)
 
@@ -356,7 +361,7 @@ func PollGo2rtcStatus(cfg *constant.Config) {
 						constant.ConfigMux.RLock()
 						for _, c := range cfg.Cameras {
 							if c.ID == id {
-								probeURL = c.RTSPUrl
+								probeURL = c.EffectiveStreamURL()
 								break
 							}
 						}
@@ -377,7 +382,7 @@ func PollGo2rtcStatus(cfg *constant.Config) {
 	}
 }
 
-// checkCameraTCPAlive 极低损耗的旁路探活：仅验证摄像头的 RTSP 端口是否存活
+// checkCameraTCPAlive 极低损耗的旁路探活：仅验证主码流地址对应的 TCP 端口是否存活
 func checkCameraTCPAlive(rawURL string) bool {
 	if rawURL == "" {
 		return false
@@ -387,13 +392,7 @@ func checkCameraTCPAlive(rawURL string) bool {
 		return true
 	}
 
-	// 如果配置了 ffmpeg 实时转码 (例如 ffmpeg:rtsp://...)，需要剥离前缀
-	cleanURL := rawURL
-	if strings.HasPrefix(cleanURL, "ffmpeg:") {
-		cleanURL = strings.TrimPrefix(cleanURL, "ffmpeg:")
-	}
-
-	u, err := url.Parse(cleanURL)
+	u, err := url.Parse(unwrapGo2rtcNetworkURL(rawURL))
 	if err != nil {
 		return false
 	}
@@ -405,7 +404,10 @@ func checkCameraTCPAlive(rawURL string) bool {
 
 	port := u.Port()
 	if port == "" {
-		port = "554" // RTSP 协议默认端口
+		port = defaultPortForScheme(u.Scheme)
+		if port == "" {
+			return false
+		}
 	}
 
 	// 1秒超时，不占用 CPU，只进行 TCP 握手
@@ -416,6 +418,42 @@ func checkCameraTCPAlive(rawURL string) bool {
 
 	conn.Close()
 	return true
+}
+
+func unwrapGo2rtcNetworkURL(rawURL string) string {
+	cleanURL := strings.TrimSpace(rawURL)
+	schemeEnd := strings.Index(cleanURL, "://")
+	if schemeEnd <= 0 {
+		return cleanURL
+	}
+
+	schemeStart := schemeEnd - 1
+	for schemeStart >= 0 && isURLSchemeChar(cleanURL[schemeStart]) {
+		schemeStart--
+	}
+	return cleanURL[schemeStart+1:]
+}
+
+func isURLSchemeChar(ch byte) bool {
+	return (ch >= 'a' && ch <= 'z') ||
+		(ch >= 'A' && ch <= 'Z') ||
+		(ch >= '0' && ch <= '9') ||
+		ch == '+' || ch == '-' || ch == '.'
+}
+
+func defaultPortForScheme(scheme string) string {
+	switch strings.ToLower(scheme) {
+	case "rtsp":
+		return "554"
+	case "rtsps":
+		return "322"
+	case "http":
+		return "80"
+	case "https":
+		return "443"
+	default:
+		return ""
+	}
 }
 
 func markAllStreamOffline(currentConfig *constant.Config) {

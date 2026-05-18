@@ -9,8 +9,9 @@ var ConfigMux sync.RWMutex
 
 type Camera struct {
 	ID              string `yaml:"id" json:"id"`
-	RTSPUrl         string `yaml:"rtsp_url" json:"rtsp_url"`
-	MotionURL       string `yaml:"motion_url" json:"motion_url"` // 可选：仅用于动检识别的流地址，录像仍使用 rtsp_url 对应主码流
+	StreamURL       string `yaml:"stream_url,omitempty" json:"stream_url,omitempty"`
+	RTSPUrl         string `yaml:"rtsp_url,omitempty" json:"rtsp_url,omitempty"` // 兼容旧配置；stream_url 有值时优先使用 stream_url
+	MotionURL       string `yaml:"motion_url" json:"motion_url"`                 // 可选：仅用于动检识别的流地址，录像仍使用主码流
 	RetentionDays   int    `yaml:"retention_days" json:"retention_days"`
 	SegmentDuration int    `yaml:"segment_duration" json:"segment_duration"`
 	Format          string `yaml:"format" json:"format"`
@@ -36,10 +37,21 @@ type Config struct {
 	Cameras    []Camera         `yaml:"cameras" json:"cameras"`
 }
 
-func IsManagedByGo2rtcURL(rtspURL string) bool {
-	return strings.TrimSpace(rtspURL) == ManagedByGo2rtcURL
+func IsManagedByGo2rtcURL(streamURL string) bool {
+	return strings.TrimSpace(streamURL) == ManagedByGo2rtcURL
+}
+
+func (cam Camera) EffectiveStreamURL() string {
+	if streamURL := strings.TrimSpace(cam.StreamURL); streamURL != "" {
+		return streamURL
+	}
+	return strings.TrimSpace(cam.RTSPUrl)
 }
 
 func CameraManagedByGo2rtc(cam Camera) bool {
-	return cam.AutoDiscovered || IsManagedByGo2rtcURL(cam.RTSPUrl)
+	streamURL := cam.EffectiveStreamURL()
+	if streamURL != "" {
+		return IsManagedByGo2rtcURL(streamURL)
+	}
+	return cam.AutoDiscovered
 }

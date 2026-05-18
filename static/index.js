@@ -304,7 +304,9 @@ function normalizeConfigForm(cfg) {
 }
 
 function normalizeConfigCamera(cam) {
-    const rtspURL = readConfigValue(cam, ['rtsp_url', 'RTSPUrl'], '');
+    const streamURL = readConfigValue(cam, ['stream_url', 'StreamURL'], '');
+    const legacyRTSPURL = readConfigValue(cam, ['rtsp_url', 'RTSPUrl'], '');
+    const effectiveStreamURL = String(streamURL || '').trim() !== '' ? streamURL : legacyRTSPURL;
     const segmentDuration = readConfigNumber(cam, ['segment_duration', 'SegmentDuration'], 600);
     const minSizeKb = readConfigNumber(cam, ['min_size_kb', 'MinSizeKb'], 1024);
     const captureInterval = readConfigNumber(cam, ['capture_interval', 'CaptureInterval'], 1);
@@ -312,7 +314,7 @@ function normalizeConfigCamera(cam) {
 
     return {
         id: readConfigValue(cam, ['id', 'ID'], ''),
-        rtsp_url: rtspURL,
+        stream_url: effectiveStreamURL,
         motion_url: readConfigValue(cam, ['motion_url', 'MotionURL'], ''),
         retention_days: readConfigNumber(cam, ['retention_days', 'RetentionDays'], 7),
         segment_duration: segmentDuration > 0 ? segmentDuration : 600,
@@ -323,7 +325,7 @@ function normalizeConfigCamera(cam) {
         capture_interval: captureInterval > 0 ? captureInterval : 1,
         motion_detect: Boolean(readConfigValue(cam, ['motion_detect', 'MotionDetect'], false)),
         motionDetectRatioThreshold: motionRatio > 0 ? motionRatio : 0.01,
-        auto_discovered: isManagedByGo2rtcURL(rtspURL) || Boolean(readConfigValue(cam, ['auto_discovered', 'AutoDiscovered'], false))
+        auto_discovered: isManagedByGo2rtcURL(effectiveStreamURL) || Boolean(readConfigValue(cam, ['auto_discovered', 'AutoDiscovered'], false))
     };
 }
 
@@ -344,8 +346,8 @@ function readConfigNumber(source, keys, fallback) {
     return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function isManagedByGo2rtcURL(rtspURL) {
-    return String(rtspURL || '').trim() === 'managed_by_go2rtc';
+function isManagedByGo2rtcURL(streamURL) {
+    return String(streamURL || '').trim() === 'managed_by_go2rtc';
 }
 
 function renderConfigForm() {
@@ -358,7 +360,7 @@ function renderConfigForm() {
     empty.classList.toggle('hidden', configFormState.cameras.length > 0);
 
     configFormState.cameras.forEach((cam, index) => {
-        const managedClass = isManagedByGo2rtcURL(cam.rtsp_url) ? ' is-go2rtc-managed' : '';
+        const managedClass = isManagedByGo2rtcURL(cam.stream_url) ? ' is-go2rtc-managed' : '';
         const card = document.createElement('div');
         card.className = `config-camera-card${managedClass} rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-3 shadow-sm`;
         card.dataset.index = String(index);
@@ -369,9 +371,9 @@ function renderConfigForm() {
 
 function renderConfigCameraCard(cam, index) {
     const normalMode = cam.mode !== 'timelapse';
-    const managedByGo2rtc = isManagedByGo2rtcURL(cam.rtsp_url);
+    const managedByGo2rtc = isManagedByGo2rtcURL(cam.stream_url);
     const motionDisabled = normalMode ? '' : 'disabled';
-    const sourceHint = managedByGo2rtc ? '使用 go2rtc 已有同名流，不会重新注册 RTSP 源' : 'CamKeep 会把 rtsp_url 注册到 go2rtc';
+    const sourceHint = managedByGo2rtc ? '使用 go2rtc 已有同名流，不会重新注册外部源' : 'CamKeep 会把 stream_url 注册到 go2rtc';
     const motionHint = normalMode ? '动检开启后仅事件录像' : '延时录像模式会忽略动检';
     return `
         <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -389,7 +391,7 @@ function renderConfigCameraCard(cam, index) {
         </div>
         <div class="config-camera-grid">
             ${configTextInput('摄像头 ID', 'id', cam.id, 'front-door', true)}
-            ${managedByGo2rtc ? configManagedRTSPField(cam.id) : configTextInput('主码流 rtsp_url', 'rtsp_url', cam.rtsp_url, '录像使用的 RTSP 地址', true, 'config-field-wide')}
+            ${managedByGo2rtc ? configManagedStreamField(cam.id) : configTextInput('主码流 stream_url', 'stream_url', cam.stream_url, 'go2rtc 支持的 URL / 源地址', true, 'config-field-wide')}
             ${configTextInput('动检流 motion_url', 'motion_url', cam.motion_url, '可选，低码率子码流，仅用于识别', false, 'config-field-wide')}
             ${configTextInput('录制时间', 'record_time', cam.record_time, '00:00-23:59')}
             ${configSelectInput('模式', 'mode', cam.mode, [['normal', '普通'], ['timelapse', '延时']], `onchange="refreshConfigFormFromDom()"`)}
@@ -418,14 +420,14 @@ function configTextInput(label, field, value, placeholder, required = false, ext
     `;
 }
 
-function configManagedRTSPField(camID) {
+function configManagedStreamField(camID) {
     return `
         <label class="config-field config-field-wide">
             <span class="mb-1 block text-[11px] font-extrabold text-slate-500">主码流来源</span>
-            <input data-field="rtsp_url" type="hidden" value="managed_by_go2rtc">
+            <input data-field="stream_url" type="hidden" value="managed_by_go2rtc">
             <div class="config-managed-rtsp">
                 <span class="config-managed-rtsp-title">go2rtc 已接管</span>
-                <span class="config-managed-rtsp-desc">使用 go2rtc 中名为 ${escapeHtml(camID || '当前摄像头 ID')} 的同名流，CamKeep 不再注册 RTSP 地址。</span>
+                <span class="config-managed-rtsp-desc">使用 go2rtc 中名为 ${escapeHtml(camID || '当前摄像头 ID')} 的同名流，CamKeep 不再注册外部源。</span>
             </div>
         </label>
     `;
@@ -487,7 +489,7 @@ function collectConfigForm(options = {}) {
         const mode = readCardField(card, 'mode') || 'normal';
         const cam = {
             id: readCardField(card, 'id').trim(),
-            rtsp_url: readCardField(card, 'rtsp_url').trim(),
+            stream_url: readCardField(card, 'stream_url').trim(),
             motion_url: readCardField(card, 'motion_url').trim(),
             retention_days: readCardNumber(card, 'retention_days', 0),
             segment_duration: readCardNumber(card, 'segment_duration', 0),
@@ -498,7 +500,7 @@ function collectConfigForm(options = {}) {
             capture_interval: readCardNumber(card, 'capture_interval', 0),
             motion_detect: mode === 'normal' && readCardCheckbox(card, 'motion_detect'),
             motionDetectRatioThreshold: readCardFloat(card, 'motionDetectRatioThreshold', 0),
-            auto_discovered: isManagedByGo2rtcURL(readCardField(card, 'rtsp_url'))
+            auto_discovered: isManagedByGo2rtcURL(readCardField(card, 'stream_url'))
         };
         if (!cam.id && !options.allowEmptyID) throw new Error(`第 ${index + 1} 个摄像头 ID 不能为空`);
         cfg.cameras.push(cam);
@@ -532,7 +534,7 @@ function addConfigCamera(seed = {}) {
     configFormState = collectConfigForm({allowEmptyID: true});
     configFormState.cameras.push(normalizeConfigCamera({
         id: '',
-        rtsp_url: '',
+        stream_url: '',
         motion_url: '',
         retention_days: 7,
         segment_duration: 600,
@@ -565,7 +567,7 @@ function configToYaml(cfg) {
     ];
     cfg.cameras.forEach(cam => {
         lines.push(`  - id: ${yamlScalar(cam.id)}`);
-        lines.push(`    rtsp_url: ${yamlScalar(cam.rtsp_url)}`);
+        lines.push(`    stream_url: ${yamlScalar(cam.stream_url)}`);
         lines.push(`    motion_url: ${yamlScalar(cam.motion_url)}`);
         lines.push(`    retention_days: ${cam.retention_days}`);
         lines.push(`    segment_duration: ${cam.segment_duration}`);
@@ -589,7 +591,7 @@ function appendStreamToConfig(streamId) {
     if (configEditMode === 'form') {
         addConfigCamera({
             id: streamId,
-            rtsp_url: 'managed_by_go2rtc',
+            stream_url: 'managed_by_go2rtc',
             auto_discovered: true
         });
         finishAppendStream(streamId);
@@ -607,7 +609,7 @@ function appendStreamToConfig(streamId) {
         propIndent = listIndent + "  ";
     }
 
-    const newCamYaml = [`${listIndent}- id: "${streamId}"`, `${propIndent}rtsp_url: "managed_by_go2rtc"`, `${propIndent}motion_url: ""`, `${propIndent}auto_discovered: true`, `${propIndent}retention_days: 7`, `${propIndent}segment_duration: 600`, `${propIndent}format: ts`, `${propIndent}min_size_kb: 1024`, `${propIndent}record_time: "00:00-23:59"`, `${propIndent}mode: normal`, `${propIndent}motion_detect: false`, `${propIndent}motionDetectRatioThreshold: 0.01`].join('\n') + '\n';
+    const newCamYaml = [`${listIndent}- id: "${streamId}"`, `${propIndent}stream_url: "managed_by_go2rtc"`, `${propIndent}motion_url: ""`, `${propIndent}auto_discovered: true`, `${propIndent}retention_days: 7`, `${propIndent}segment_duration: 600`, `${propIndent}format: ts`, `${propIndent}min_size_kb: 1024`, `${propIndent}record_time: "00:00-23:59"`, `${propIndent}mode: normal`, `${propIndent}motion_detect: false`, `${propIndent}motionDetectRatioThreshold: 0.01`].join('\n') + '\n';
 
     if (content.trim() === '') {
         content = 'cameras:\n';

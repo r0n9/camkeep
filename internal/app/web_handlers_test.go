@@ -122,7 +122,7 @@ daily_merge:
   time: "03:30"
 cameras:
   - id: "cam_01"
-    rtsp_url: "rtsp://example/live"
+    stream_url: "rtsp://example/live"
     motion_url: "rtsp://example/substream"
     record_time: "00:00-23:59"
 `)
@@ -137,13 +137,46 @@ cameras:
 	if cfg.Cameras[0].MotionURL != "rtsp://example/substream" {
 		t.Fatalf("expected motion_url to be parsed, got %q", cfg.Cameras[0].MotionURL)
 	}
+	if cfg.Cameras[0].EffectiveStreamURL() != "rtsp://example/live" {
+		t.Fatalf("expected stream_url to be parsed, got %q", cfg.Cameras[0].EffectiveStreamURL())
+	}
 }
 
-func TestMarkGo2rtcManagedCamerasUsesRTSPURLSentinel(t *testing.T) {
+func TestParseConfigYAMLSupportsLegacyRTSPURL(t *testing.T) {
+	cfg, err := parseConfigYAML([]byte(`
+cameras:
+  - id: "cam_01"
+    rtsp_url: "rtsp://legacy.example/live"
+`))
+	if err != nil {
+		t.Fatalf("expected legacy rtsp_url to pass, got %v", err)
+	}
+	if got := cfg.Cameras[0].EffectiveStreamURL(); got != "rtsp://legacy.example/live" {
+		t.Fatalf("expected legacy rtsp_url fallback, got %q", got)
+	}
+}
+
+func TestParseConfigYAMLStreamURLTakesPriorityOverRTSPURL(t *testing.T) {
+	cfg, err := parseConfigYAML([]byte(`
+cameras:
+  - id: "cam_01"
+    stream_url: "rtsp://new.example/live"
+    rtsp_url: "rtsp://old.example/live"
+`))
+	if err != nil {
+		t.Fatalf("expected config with both stream_url and rtsp_url to pass, got %v", err)
+	}
+	if got := cfg.Cameras[0].EffectiveStreamURL(); got != "rtsp://new.example/live" {
+		t.Fatalf("expected stream_url to win, got %q", got)
+	}
+}
+
+func TestMarkGo2rtcManagedCamerasUsesEffectiveStreamURLSentinel(t *testing.T) {
 	cfg := constant.Config{
 		Cameras: []constant.Camera{
-			{ID: "managed", RTSPUrl: constant.ManagedByGo2rtcURL},
-			{ID: "direct", RTSPUrl: "rtsp://example/live"},
+			{ID: "managed", StreamURL: constant.ManagedByGo2rtcURL},
+			{ID: "legacy-managed", RTSPUrl: constant.ManagedByGo2rtcURL},
+			{ID: "direct", StreamURL: "rtsp://example/live", RTSPUrl: constant.ManagedByGo2rtcURL, AutoDiscovered: true},
 		},
 	}
 
@@ -152,8 +185,11 @@ func TestMarkGo2rtcManagedCamerasUsesRTSPURLSentinel(t *testing.T) {
 	if !cfg.Cameras[0].AutoDiscovered {
 		t.Fatal("expected managed_by_go2rtc camera to be marked auto_discovered")
 	}
-	if cfg.Cameras[1].AutoDiscovered {
-		t.Fatal("expected normal RTSP camera to remain manually managed")
+	if !cfg.Cameras[1].AutoDiscovered {
+		t.Fatal("expected legacy managed_by_go2rtc camera to be marked auto_discovered")
+	}
+	if cfg.Cameras[2].AutoDiscovered {
+		t.Fatal("expected explicit stream_url to clear stale auto_discovered")
 	}
 }
 
@@ -161,7 +197,7 @@ func TestParseConfigYAMLRejectsUnknownFields(t *testing.T) {
 	_, err := parseConfigYAML([]byte(`
 cameras:
   - id: "cam_01"
-    rtsp_url: "rtsp://example/live"
+    stream_url: "rtsp://example/live"
     typo_field: true
 `))
 	if err == nil {

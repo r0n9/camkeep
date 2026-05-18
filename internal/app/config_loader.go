@@ -32,7 +32,7 @@ func loadOrInitConfig() constant.Config {
 				Cameras: []constant.Camera{
 					{
 						ID:                         "camkeep",
-						RTSPUrl:                    "rtsp://admin:password@192.168.1.100:554/live",
+						StreamURL:                  "rtsp://admin:password@192.168.1.100:554/live",
 						MotionURL:                  "",
 						RetentionDays:              7,
 						SegmentDuration:            600,
@@ -179,7 +179,7 @@ func validateAndFixConfig(cfg constant.Config) constant.Config {
 		}
 		seen[cam.ID] = true
 
-		if constant.IsManagedByGo2rtcURL(cam.RTSPUrl) {
+		if constant.CameraManagedByGo2rtc(cam) {
 			cam.AutoDiscovered = true
 		}
 

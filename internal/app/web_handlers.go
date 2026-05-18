@@ -177,8 +177,10 @@ func handleSaveConfigForm(c *gin.Context) {
 
 func markGo2rtcManagedCameras(cfg *constant.Config) {
 	for i := range cfg.Cameras {
-		if constant.IsManagedByGo2rtcURL(cfg.Cameras[i].RTSPUrl) {
+		if constant.CameraManagedByGo2rtc(cfg.Cameras[i]) {
 			cfg.Cameras[i].AutoDiscovered = true
+		} else if cfg.Cameras[i].EffectiveStreamURL() != "" {
+			cfg.Cameras[i].AutoDiscovered = false
 		}
 	}
 }
