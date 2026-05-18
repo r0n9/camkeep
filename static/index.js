@@ -23,6 +23,8 @@ window.onload = function () {
     setLayout(1);
     loadStatus();
     setInterval(loadStatus, 5000);
+    window.addEventListener('pagehide', stopAllCellPlayback);
+    window.addEventListener('beforeunload', stopAllCellPlayback);
     window.addEventListener('resize', () => {
         const nextCompactGrid = window.innerWidth < 640;
         if (nextCompactGrid !== compactGrid) {
@@ -1078,6 +1080,7 @@ function renderGrid() {
     const grid = document.getElementById('video-grid');
     grid.className = 'w-full flex-1 min-h-0 p-1 bg-black grid gap-1 transition-all duration-300 ' + (currentLayout === 1 ? 'grid-cols-1 grid-rows-1' : currentLayout === 4 ? 'grid-cols-2 grid-rows-2' : compactGrid ? 'grid-cols-2 grid-rows-3' : 'grid-cols-3 grid-rows-2');
 
+    stopAllCellPlayback();
     grid.innerHTML = '';
 
     for (let i = 0; i < currentLayout; i++) {
@@ -1167,8 +1170,25 @@ function stopCellPlayback(index) {
         nativePlayer.load();
     }
     if (liveIframe) {
-        liveIframe.src = 'about:blank';
+        closeLiveIframe(liveIframe);
     }
+}
+
+function stopAllCellPlayback() {
+    for (let i = 0; i < dpInstances.length; i++) {
+        stopCellPlayback(i);
+    }
+}
+
+function closeLiveIframe(liveIframe) {
+    try {
+        if (liveIframe.contentWindow) {
+            liveIframe.contentWindow.location.replace('about:blank');
+        }
+    } catch (e) {
+        // 如果浏览器阻止访问 iframe window，继续用 src 导航触发卸载。
+    }
+    liveIframe.src = 'about:blank';
 }
 
 function setActiveCell(index) {
