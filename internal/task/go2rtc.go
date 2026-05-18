@@ -180,7 +180,7 @@ func InitGo2rtcStreams(config constant.Config) {
 	for i := 0; i < 10; i++ {
 		resp, err := httpClient.Get(go2rtcHost + "/api/streams")
 		if err == nil && resp.StatusCode == http.StatusOK {
-			resp.Body.Close() // 服务已就绪，不再需要解析历史流
+			_ = resp.Body.Close() // 服务已就绪，不再需要解析历史流
 
 			// 2. 遍历当前配置文件中的摄像头
 			for _, cam := range config.Cameras {
@@ -198,7 +198,7 @@ func InitGo2rtcStreams(config constant.Config) {
 				// 这一步确保了如果该流被修改了主码流地址，旧地址会被彻底顶替掉
 				reqDel, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/api/streams?src=%s", go2rtcHost, url.QueryEscape(cam.ID)), nil)
 				if respDel, errDel := httpClient.Do(reqDel); errDel == nil && respDel != nil {
-					respDel.Body.Close()
+					_ = respDel.Body.Close()
 				}
 
 				// 注册最新的流配置
@@ -214,11 +214,15 @@ func InitGo2rtcStreams(config constant.Config) {
 					} else {
 						log.Printf("[%s] 已成功注册到 go2rtc", cam.ID)
 					}
-					respAdd.Body.Close()
+					_ = respAdd.Body.Close()
 				}
 			}
 			log.Println("go2rtc 视频流初始化完毕！")
 			return // 初始化成功，退出循环
+		}
+
+		if resp != nil {
+			_ = resp.Body.Close()
 		}
 
 		if i == 0 {
@@ -252,7 +256,7 @@ func CleanupGo2rtcStreams(config constant.Config) {
 		client := &http.Client{Timeout: 2 * time.Second}
 		resp, errDel := client.Do(reqDel)
 		if errDel == nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			log.Printf("[%s] go2rtc 视频流已注销", cam.ID)
 		} else {
 			log.Printf("[%s] go2rtc 视频流注销失败: %v", cam.ID, errDel)
@@ -272,7 +276,7 @@ func PollGo2rtcStatus(cfg *constant.Config) {
 		resp, err := httpClient.Get(go2rtcHost + "/api/streams")
 		if err != nil || resp.StatusCode != http.StatusOK { // 加入状态码判断
 			if resp != nil && resp.Body != nil {
-				resp.Body.Close()
+				_ = resp.Body.Close()
 			}
 			markAllStreamOffline(cfg)
 			continue
@@ -280,10 +284,10 @@ func PollGo2rtcStatus(cfg *constant.Config) {
 
 		var result map[string]interface{}
 		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			continue
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		var streams map[string]interface{}
 		if s, ok := result["streams"].(map[string]interface{}); ok {
@@ -455,7 +459,7 @@ func checkCameraTCPAlive(rawURL string) bool {
 		return false
 	}
 
-	conn.Close()
+	_ = conn.Close()
 	return true
 }
 

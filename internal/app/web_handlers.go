@@ -243,7 +243,7 @@ func handleRecords(c *gin.Context) {
 	var entries []recordEntry
 	baseDir := filepath.Join(constant.DefaultRecordBaseDir, camID)
 
-	filepath.WalkDir(baseDir, func(path string, d os.DirEntry, err error) error {
+	_ = filepath.WalkDir(baseDir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}

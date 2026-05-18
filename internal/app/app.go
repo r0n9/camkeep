@@ -27,7 +27,7 @@ var (
 func Run(appVersion string) {
 	version = appVersion
 
-	mime.AddExtensionType(".ts", "video/mp2t")
+	_ = mime.AddExtensionType(".ts", "video/mp2t")
 	slog.Init()
 
 	log.Printf("CamKeep version=%s", version)
@@ -51,7 +51,10 @@ func Run(appVersion string) {
 	// 1. 读取或初始化配置 (如果不存在则创建空配置)
 	currentConfig = loadOrInitConfig()
 
-	os.MkdirAll(constant.DefaultRecordBaseDir, 0755)
+	err := os.MkdirAll(constant.DefaultRecordBaseDir, 0755)
+	if err != nil {
+		log.Fatalf("致命错误: 创建录像存储文件夹失败: %v", err)
+	}
 
 	// 加载持久化的手动录像覆盖指令
 	task.LoadOverrides()
