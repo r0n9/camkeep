@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -60,6 +61,18 @@ type go2rtcStreamInfo struct {
 	SourceLabel  string `json:"source_label"`
 	Managed      bool   `json:"managed"`
 	ONVIFEnabled bool   `json:"onvif_enabled"`
+}
+
+type ptzMoveRequest struct {
+	X          float64 `json:"x"`
+	Y          float64 `json:"y"`
+	Zoom       float64 `json:"zoom"`
+	DurationMS int     `json:"duration_ms"`
+}
+
+type ptzStopRequest struct {
+	PanTilt bool `json:"pan_tilt"`
+	Zoom    bool `json:"zoom"`
 }
 
 const (
@@ -273,12 +286,138 @@ func handlePTZStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, status)
 }
 
+func handlePTZMove(c *gin.Context) {
+	id := c.Param("id")
+	candidate, status, ok := getPTZReadyTarget(c, id)
+	if !ok {
+		return
+	}
+
+	var req ptzMoveRequest
+	if err := json.NewDecoder(c.Request.Body).Decode(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "PTZ 移动参数有误"})
+		return
+	}
+	req.X = clampPTZVelocity(req.X)
+	req.Y = clampPTZVelocity(req.Y)
+	req.Zoom = clampPTZVelocity(req.Zoom)
+	if req.X == 0 && req.Y == 0 && req.Zoom == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "PTZ 移动速度不能全为 0"})
+		return
+	}
+	if req.DurationMS <= 0 {
+		req.DurationMS = 800
+	}
+	if req.DurationMS > 3000 {
+		req.DurationMS = 3000
+	}
+
+	client := onvif.NewClient(candidate)
+	ctx, cancel := contextWithHTTPTimeout(c.Request.Context(), 3*time.Second)
+	defer cancel()
+
+	err := client.ContinuousMove(ctx, status.PTZXAddr, status.ProfileToken, onvif.PTZMove{
+		PanTiltX:  req.X,
+		PanTiltY:  req.Y,
+		ZoomX:     req.Zoom,
+		TimeoutMS: req.DurationMS,
+	})
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "PTZ 移动失败: " + err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"msg": "PTZ 移动指令已下发"})
+}
+
+func handlePTZStop(c *gin.Context) {
+	id := c.Param("id")
+	candidate, status, ok := getPTZReadyTarget(c, id)
+	if !ok {
+		return
+	}
+
+	req := ptzStopRequest{PanTilt: true, Zoom: true}
+	if c.Request.Body != nil && c.Request.ContentLength != 0 {
+		if err := json.NewDecoder(c.Request.Body).Decode(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "PTZ 停止参数有误"})
+			return
+		}
+	}
+	if !req.PanTilt && !req.Zoom {
+		req.PanTilt = true
+		req.Zoom = true
+	}
+
+	client := onvif.NewClient(candidate)
+	ctx, cancel := contextWithHTTPTimeout(c.Request.Context(), 3*time.Second)
+	defer cancel()
+
+	if err := client.Stop(ctx, status.PTZXAddr, status.ProfileToken, req.PanTilt, req.Zoom); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "PTZ 停止失败: " + err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"msg": "PTZ 停止指令已下发"})
+}
+
 func cameraExists(camID string) bool {
 	constant.ConfigMux.RLock()
 	defer constant.ConfigMux.RUnlock()
 	return slices.ContainsFunc(currentConfig.Cameras, func(cam constant.Camera) bool {
 		return cam.ID == camID
 	})
+}
+
+func getPTZReadyTarget(c *gin.Context, camID string) (onvif.Candidate, service.OnvifStatus, bool) {
+	if !cameraExists(camID) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "找不到该摄像头"})
+		return onvif.Candidate{}, service.OnvifStatus{}, false
+	}
+
+	status, ok := service.GetOnvifStatus(camID)
+	if !ok {
+		c.JSON(http.StatusNotFound, gin.H{"error": "该摄像头不是 ONVIF 接入设备"})
+		return onvif.Candidate{}, service.OnvifStatus{}, false
+	}
+	if status.PTZState != service.OnvifStateAvailable || status.PTZXAddr == "" || status.ProfileToken == "" {
+		c.JSON(http.StatusConflict, gin.H{"error": "该摄像头 PTZ 尚不可用"})
+		return onvif.Candidate{}, service.OnvifStatus{}, false
+	}
+
+	candidate, ok := currentOnvifCandidate(camID)
+	if !ok {
+		c.JSON(http.StatusConflict, gin.H{"error": "无法解析该摄像头的 ONVIF 连接信息"})
+		return onvif.Candidate{}, service.OnvifStatus{}, false
+	}
+	return candidate, status, true
+}
+
+func currentOnvifCandidate(camID string) (onvif.Candidate, bool) {
+	constant.ConfigMux.RLock()
+	cfg := currentConfig
+	constant.ConfigMux.RUnlock()
+
+	configSources := loadGo2rtcConfigStreamSources(constant.Go2rtcConfigFilePath, constant.LegacyGo2rtcConfigFilePath)
+	for _, cam := range cfg.Cameras {
+		if cam.ID != camID {
+			continue
+		}
+		return onvif.CandidateFromCamera(cam, configSources[cam.ID])
+	}
+	return onvif.Candidate{}, false
+}
+
+func clampPTZVelocity(value float64) float64 {
+	if value > 1 {
+		return 1
+	}
+	if value < -1 {
+		return -1
+	}
+	return value
+}
+
+func contextWithHTTPTimeout(parent context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(parent, timeout)
 }
 
 func handleRecords(c *gin.Context) {

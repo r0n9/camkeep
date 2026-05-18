@@ -27,6 +27,31 @@
     object-fit: contain;
 }
 
+.ptz-btn {
+    display: flex;
+    aspect-ratio: 1 / 1;
+    min-width: 0;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgb(30 41 59);
+    border-radius: 8px;
+    transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, transform 80ms ease;
+    touch-action: none;
+}
+
+.ptz-btn:active {
+    transform: scale(0.96);
+}
+
+.ptz-btn:disabled {
+    cursor: not-allowed;
+}
+
+.vertical-rl {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+}
+
 .record-watermark-window {
     position: relative;
     isolation: isolate;

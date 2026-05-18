@@ -23,6 +23,8 @@ func TestUpdateOnvifProbeResultStoresCapabilities(t *testing.T) {
 		PTZXAddr:         "http://example/onvif/ptz",
 		EventXAddr:       "http://example/onvif/events",
 		PullPointSupport: true,
+		ProfileToken:     "profile_1",
+		ProfileName:      "Main",
 	})
 
 	status, ok := GetOnvifStatus("front")

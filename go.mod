@@ -3,6 +3,7 @@ module github.com/r0n9/camkeep
 go 1.25.4
 
 require (
+	github.com/0x524a/onvif-go v1.1.4
 	github.com/gin-gonic/gin v1.12.0
 	gopkg.in/yaml.v3 v3.0.1
 )

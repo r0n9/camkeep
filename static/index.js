@@ -11,6 +11,11 @@ let selectedRecordPath = '';
 const maxRecordRangeDays = 7;
 const recordArchiveOpenDates = new Set();
 const recordArchiveViewModes = new Map();
+const onvifStatusCache = new Map();
+let ptzPanelCollapsed = false;
+let ptzStopTimer = null;
+let ptzMoveInFlight = false;
+let ptzSpeedValue = 0.55;
 
 window.onload = function () {
     initThemeControls();
@@ -823,6 +828,7 @@ async function loadStatus() {
             `;
             list.appendChild(item);
         });
+        refreshPTZPanel();
     } catch (e) {
         updateCameraStats([], true);
         console.error("同步状态失败:", e);
@@ -1078,7 +1084,7 @@ function setLayout(layoutCount) {
 
 function renderGrid() {
     const grid = document.getElementById('video-grid');
-    grid.className = 'w-full flex-1 min-h-0 p-1 bg-black grid gap-1 transition-all duration-300 ' + (currentLayout === 1 ? 'grid-cols-1 grid-rows-1' : currentLayout === 4 ? 'grid-cols-2 grid-rows-2' : compactGrid ? 'grid-cols-2 grid-rows-3' : 'grid-cols-3 grid-rows-2');
+    grid.className = 'min-w-0 flex-1 h-full p-1 bg-black grid gap-1 transition-all duration-300 ' + (currentLayout === 1 ? 'grid-cols-1 grid-rows-1' : currentLayout === 4 ? 'grid-cols-2 grid-rows-2' : compactGrid ? 'grid-cols-2 grid-rows-3' : 'grid-cols-3 grid-rows-2');
 
     stopAllCellPlayback();
     grid.innerHTML = '';
@@ -1117,6 +1123,7 @@ function renderGrid() {
         }
     }
     updateFocusUI();
+    refreshPTZPanel();
 }
 
 function closeActiveCell() {
@@ -1154,6 +1161,7 @@ function clearCell(index) {
         closeBtn.classList.remove('flex');
     }
     updateFocusUI();
+    refreshPTZPanel();
 }
 
 function stopCellPlayback(index) {
@@ -1195,6 +1203,7 @@ function setActiveCell(index) {
     activeCell = index;
     syncSelectedRecordFromActiveCell();
     updateFocusUI();
+    refreshPTZPanel();
 }
 
 function updateFocusUI() {
@@ -1231,7 +1240,7 @@ function previewLive(camId) {
 }
 
 function playVideo(source, isLive, title) {
-    cellData[activeCell] = {source, isLive, title};
+    cellData[activeCell] = {source, isLive, title, camId: isLive ? source : ''};
     if (isLive) {
         setSelectedRecordPath('');
     }
@@ -1243,6 +1252,242 @@ function playVideo(source, isLive, title) {
     } else {
         updateFocusUI();
     }
+    refreshPTZPanel();
+}
+
+function getActiveLiveCamId() {
+    if (currentLayout !== 1) return '';
+    const data = cellData[activeCell];
+    if (!data || !data.isLive) return '';
+    return String(data.camId || data.source || '').trim();
+}
+
+async function refreshPTZPanel() {
+    const camId = getActiveLiveCamId();
+    if (!camId) {
+        hidePTZPanel();
+        return;
+    }
+
+    const cached = onvifStatusCache.get(camId);
+    if (cached) renderPTZPanel(camId, cached);
+
+    try {
+        const resp = await fetch(`/api/camera/${encodeURIComponent(camId)}/ptz/status`);
+        if (getActiveLiveCamId() !== camId) return;
+        if (!resp.ok) {
+            onvifStatusCache.delete(camId);
+            hidePTZPanel();
+            return;
+        }
+        const status = await resp.json();
+        onvifStatusCache.set(camId, status);
+        renderPTZPanel(camId, status);
+    } catch (e) {
+        if (!cached) hidePTZPanel();
+    }
+}
+
+function hidePTZPanel() {
+    const panel = document.getElementById('ptz-panel');
+    if (!panel) return;
+    panel.className = 'hidden shrink-0 border-l border-gray-800 bg-slate-950 text-slate-100 transition-all duration-300';
+    panel.innerHTML = '';
+}
+
+function renderPTZPanel(camId, status) {
+    const panel = document.getElementById('ptz-panel');
+    if (!panel || getActiveLiveCamId() !== camId) return;
+    if (status && status.ptz_state === 'unavailable') {
+        hidePTZPanel();
+        return;
+    }
+
+    const available = status && status.ptz_state === 'available';
+    const stateText = ptzStateText(status);
+    const collapsedClass = ptzPanelCollapsed ? 'w-[42px]' : 'w-[236px]';
+    panel.className = `shrink-0 border-l border-gray-800 bg-slate-950 text-slate-100 transition-all duration-300 ${collapsedClass}`;
+
+    if (ptzPanelCollapsed) {
+        panel.innerHTML = `
+            <button onclick="togglePTZPanel(event)" class="flex h-full w-full flex-col items-center justify-center gap-2 text-slate-400 transition-colors hover:bg-slate-900 hover:text-white" title="展开 PTZ">
+                <svg class="h-4 w-4 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9 5l7 7-7 7"></path></svg>
+                <span class="vertical-rl text-[10px] font-black tracking-widest">PTZ</span>
+            </button>
+        `;
+        return;
+    }
+
+    const disabled = available ? '' : 'disabled';
+    const disabledClass = available ? '' : ' opacity-45 pointer-events-none';
+    panel.innerHTML = `
+        <div class="custom-scrollbar flex h-full flex-col overflow-y-auto p-3">
+            <div class="mb-3 flex items-center justify-between gap-2">
+                <div class="min-w-0">
+                    <div class="text-xs font-black uppercase tracking-wider text-slate-100">PTZ</div>
+                    <div id="ptz-feedback" class="mt-0.5 truncate text-[10px] font-bold text-slate-500">${escapeHtml(stateText)}</div>
+                </div>
+                <button onclick="togglePTZPanel(event)" class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-800 bg-slate-900 text-slate-400 transition-colors hover:border-slate-700 hover:text-white" title="折叠 PTZ">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9 5l7 7-7 7"></path></svg>
+                </button>
+            </div>
+
+            <div class="grid grid-cols-3 gap-1.5${disabledClass}">
+                ${ptzMoveButton('左上', -1, 1, 0, '<path d="M7 17V7h10M7 7l10 10" />', disabled)}
+                ${ptzMoveButton('上', 0, 1, 0, '<path d="M12 19V5m0 0l-6 6m6-6l6 6" />', disabled)}
+                ${ptzMoveButton('右上', 1, 1, 0, '<path d="M17 17V7H7m10 0L7 17" />', disabled)}
+                ${ptzMoveButton('左', -1, 0, 0, '<path d="M19 12H5m0 0l6-6m-6 6l6 6" />', disabled)}
+                <button onclick="ptzStopMove(event, true)" class="ptz-btn bg-slate-800 text-slate-300 hover:bg-slate-700" title="停止" ${disabled}>
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="8" y="8" width="8" height="8" rx="1.5" stroke-width="2.2"></rect></svg>
+                </button>
+                ${ptzMoveButton('右', 1, 0, 0, '<path d="M5 12h14m0 0l-6-6m6 6l-6 6" />', disabled)}
+                ${ptzMoveButton('左下', -1, -1, 0, '<path d="M7 7v10h10M7 17L17 7" />', disabled)}
+                ${ptzMoveButton('下', 0, -1, 0, '<path d="M12 5v14m0 0l-6-6m6 6l6-6" />', disabled)}
+                ${ptzMoveButton('右下', 1, -1, 0, '<path d="M17 7v10H7m10 0L7 7" />', disabled)}
+            </div>
+
+            <div class="mt-3 grid grid-cols-2 gap-1.5${disabledClass}">
+                ${ptzMoveButton('拉近', 0, 0, 1, '<path d="M12 5v14M5 12h14" />', disabled)}
+                ${ptzMoveButton('拉远', 0, 0, -1, '<path d="M5 12h14" />', disabled)}
+            </div>
+
+            <div class="mt-3 rounded-lg border border-slate-800 bg-slate-900/70 px-2.5 py-2${disabledClass}">
+                <div class="mb-1.5 flex items-center justify-between">
+                    <span class="text-[10px] font-black text-slate-500">速度</span>
+                    <span id="ptz-speed-label" class="font-mono text-[10px] font-black text-slate-300">55%</span>
+                </div>
+                <input id="ptz-speed" type="range" min="0.15" max="1" step="0.05" value="${ptzSpeedValue}" oninput="updatePTZSpeedLabel()" class="w-full accent-blue-500" ${disabled}>
+            </div>
+        </div>
+    `;
+    updatePTZSpeedLabel();
+}
+
+function ptzMoveButton(title, x, y, zoom, path, disabled = '') {
+    return `
+        <button class="ptz-btn bg-slate-900 text-slate-300 hover:bg-blue-600 hover:text-white"
+                title="${title}"
+                onpointerdown="ptzStartMove(event, ${x}, ${y}, ${zoom})"
+                onpointerup="ptzStopMove(event)"
+                onpointercancel="ptzStopMove(event)"
+                ${disabled}>
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">${path}</svg>
+        </button>
+    `;
+}
+
+function togglePTZPanel(event) {
+    if (event) event.stopPropagation();
+    ptzPanelCollapsed = !ptzPanelCollapsed;
+    const camId = getActiveLiveCamId();
+    if (!camId) return;
+    renderPTZPanel(camId, onvifStatusCache.get(camId));
+}
+
+function updatePTZSpeedLabel() {
+    const slider = document.getElementById('ptz-speed');
+    const label = document.getElementById('ptz-speed-label');
+    if (!slider || !label) return;
+    ptzSpeedValue = currentPTZSpeed();
+    label.innerText = `${Math.round(ptzSpeedValue * 100)}%`;
+}
+
+function currentPTZSpeed() {
+    const slider = document.getElementById('ptz-speed');
+    const speed = Number(slider?.value || ptzSpeedValue || 0.55);
+    if (!Number.isFinite(speed)) return ptzSpeedValue || 0.55;
+    return Math.min(1, Math.max(0.15, speed));
+}
+
+async function ptzStartMove(event, x, y, zoom) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.currentTarget && event.pointerId !== undefined) {
+        try {
+            event.currentTarget.setPointerCapture(event.pointerId);
+        } catch (_) {
+        }
+    }
+
+    const camId = getActiveLiveCamId();
+    if (!camId || ptzMoveInFlight) return;
+    clearPTZStopTimer();
+
+    const speed = currentPTZSpeed();
+    ptzMoveInFlight = true;
+    setPTZFeedback('移动中');
+    try {
+        const resp = await fetch(`/api/camera/${encodeURIComponent(camId)}/ptz/move`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                x: x * speed,
+                y: y * speed,
+                zoom: zoom * speed,
+                duration_ms: 900
+            })
+        });
+        if (!resp.ok) throw new Error(await readPTZError(resp));
+        ptzStopTimer = setTimeout(() => ptzStopMove(null, true), 900);
+    } catch (e) {
+        setPTZFeedback(e.message || 'PTZ 指令失败', true);
+    } finally {
+        ptzMoveInFlight = false;
+    }
+}
+
+async function ptzStopMove(event, force = false) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    clearPTZStopTimer();
+
+    const camId = getActiveLiveCamId();
+    if (!camId) return;
+    try {
+        const resp = await fetch(`/api/camera/${encodeURIComponent(camId)}/ptz/stop`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({pan_tilt: true, zoom: true})
+        });
+        if (!resp.ok && force) throw new Error(await readPTZError(resp));
+        setPTZFeedback('就绪');
+    } catch (e) {
+        if (force) setPTZFeedback(e.message || 'PTZ 停止失败', true);
+    }
+}
+
+function clearPTZStopTimer() {
+    if (ptzStopTimer) {
+        clearTimeout(ptzStopTimer);
+        ptzStopTimer = null;
+    }
+}
+
+async function readPTZError(resp) {
+    try {
+        const payload = await resp.json();
+        return payload.error || 'PTZ 请求失败';
+    } catch (_) {
+        return 'PTZ 请求失败';
+    }
+}
+
+function setPTZFeedback(text, isError = false) {
+    const feedback = document.getElementById('ptz-feedback');
+    if (!feedback) return;
+    feedback.innerText = text;
+    feedback.classList.toggle('text-rose-400', isError);
+    feedback.classList.toggle('text-slate-500', !isError);
+}
+
+function ptzStateText(status) {
+    if (!status) return '未探测';
+    if (status.ptz_state === 'available') return '就绪';
+    if (status.capability_state === 'probing' || status.ptz_state === 'probing') return '探测中';
+    if (status.capability_state === 'error' || status.ptz_state === 'error') return status.last_error || '探测失败';
+    return '不可用';
 }
 
 function getRecordPath(file) {
@@ -1597,6 +1842,7 @@ function executePlayInCell(index, source, isLive, title, forceNative = false, wa
             });
         }
     }
+    refreshPTZPanel();
 }
 
 function resetEmptyState(index) {

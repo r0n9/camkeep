@@ -241,7 +241,10 @@
 
         <div id="video-wrapper" class="bg-gray-900 rounded-xl shadow-xl overflow-hidden relative h-[58vh] min-h-[320px] max-h-[620px] lg:h-[560px] lg:max-h-none flex flex-col border border-gray-800 transition-all duration-300">
 
-            <div id="video-grid" class="w-full flex-1 min-h-0 p-1 bg-black grid gap-1 transition-all duration-300"></div>
+            <div id="video-stage" class="flex min-h-0 flex-1 bg-black">
+                <div id="video-grid" class="min-w-0 flex-1 h-full p-1 bg-black grid gap-1 transition-all duration-300"></div>
+                <aside id="ptz-panel" class="hidden shrink-0 border-l border-gray-800 bg-slate-950 text-slate-100 transition-all duration-300"></aside>
+            </div>
 
             <div class="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center px-3 sm:px-4 py-3 bg-[#0f172a] border-t border-gray-800 shrink-0 z-20">
                 <div class="bg-gray-800/80 text-gray-300 px-3 py-1.5 text-xs font-bold rounded-lg border border-gray-700/50 truncate" id="focusIndicator">

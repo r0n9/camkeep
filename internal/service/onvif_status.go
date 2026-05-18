@@ -32,6 +32,8 @@ type OnvifStatus struct {
 	PTZXAddr         string    `json:"ptz_xaddr,omitempty"`
 	EventXAddr       string    `json:"event_xaddr,omitempty"`
 	PullPointSupport bool      `json:"pull_point_support"`
+	ProfileToken     string    `json:"profile_token,omitempty"`
+	ProfileName      string    `json:"profile_name,omitempty"`
 	LastError        string    `json:"last_error,omitempty"`
 	UpdatedAt        time.Time `json:"updated_at"`
 
@@ -79,6 +81,8 @@ func ReplaceOnvifCandidates(candidates []onvif.Candidate) {
 			status.PTZXAddr = prev.PTZXAddr
 			status.EventXAddr = prev.EventXAddr
 			status.PullPointSupport = prev.PullPointSupport
+			status.ProfileToken = prev.ProfileToken
+			status.ProfileName = prev.ProfileName
 			status.LastError = prev.LastError
 		}
 		next[candidate.ID] = &status
@@ -102,13 +106,15 @@ func MarkOnvifProbeStarted(candidate onvif.Candidate) {
 func UpdateOnvifProbeResult(candidate onvif.Candidate, caps onvif.Capabilities) {
 	updateOnvifStatusForCandidate(candidate, func(status *OnvifStatus) {
 		status.CapabilityState = OnvifStateAvailable
-		status.PTZState = availabilityState(caps.PTZXAddr)
+		status.PTZState = ptzAvailabilityState(caps.PTZXAddr, caps.ProfileToken)
 		status.EventState = availabilityState(caps.EventXAddr)
 		status.DeviceXAddr = caps.DeviceXAddr
 		status.MediaXAddr = caps.MediaXAddr
 		status.PTZXAddr = caps.PTZXAddr
 		status.EventXAddr = caps.EventXAddr
 		status.PullPointSupport = caps.PullPointSupport
+		status.ProfileToken = caps.ProfileToken
+		status.ProfileName = caps.ProfileName
 		status.LastError = ""
 		status.UpdatedAt = time.Now()
 	})
@@ -173,6 +179,13 @@ func updateOnvifStatusForCandidate(candidate onvif.Candidate, update func(*Onvif
 
 func availabilityState(xaddr string) string {
 	if xaddr == "" {
+		return OnvifStateUnavailable
+	}
+	return OnvifStateAvailable
+}
+
+func ptzAvailabilityState(ptzXAddr, profileToken string) string {
+	if ptzXAddr == "" || profileToken == "" {
 		return OnvifStateUnavailable
 	}
 	return OnvifStateAvailable
