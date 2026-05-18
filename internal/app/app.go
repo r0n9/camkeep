@@ -62,6 +62,7 @@ func Run(appVersion string) {
 
 	// 初始化流
 	task.InitGo2rtcStreams(currentConfig)
+	syncOnvifCandidates(ctxGlobal, currentConfig)
 
 	// 启动实时流状态轮询任务
 	go task.PollGo2rtcStatus(&currentConfig)

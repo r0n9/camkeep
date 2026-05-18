@@ -20,12 +20,12 @@ CamKeep is a streaming and recording gateway written in Go, deeply integrated wi
 
 ## ✨ Feature Highlights
 
-CamKeep has one clear goal: keep RTSP cameras recording reliably to your own NAS, inside your local network, with minimal setup and low resource usage.
+CamKeep has one clear goal: keep RTSP / ONVIF cameras recording reliably to your own NAS, inside your local network, with minimal setup and low resource usage.
 
 * 🐳 **Simple single-container deployment**: go2rtc and FFmpeg are bundled in one Docker image. Start it, mount config and records, then manage updates from the Web UI.
 * 🔒 **Private local-network operation**: No cloud dependency, no required account, no public service required. Streams, recordings, and playback stay on your LAN and NAS.
 * ⚡ **Low-power friendly**: go2rtc acts as a stream proxy, so multiple viewers can share one upstream camera connection. Normal recording uses `copy` by default to avoid unnecessary re-encoding.
-* 📹 **Works with any RTSP source**: Hikvision, Dahua, TP-Link, flashed smart cameras, old phones, and existing go2rtc streams can all be brought into CamKeep.
+* 📹 **RTSP / ONVIF ingest**: Hikvision, Dahua, TP-Link, flashed smart cameras, old phones, and existing go2rtc streams can all be brought into CamKeep; `onvif://` sources are automatically tracked as ONVIF control candidates.
 * 🎥 **Practical recording modes**: Scheduled recording, manual start/stop, motion recording, timelapse, TS/MP4 segments, date-based playback, and historical clip browsing.
 * 🧠 **Efficient motion recording**: Motion detection uses low-resolution frame differencing with a Time-Shift buffer, creating event clips only when the scene changes.
 * 🧹 **Automatic retention**: Set `retention_days` and CamKeep will clean expired recordings in the background, making it suitable for long-running NAS deployments.

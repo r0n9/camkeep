@@ -61,6 +61,7 @@ func restartTasks(newConfig constant.Config) {
 	constant.ConfigMux.Lock()
 	currentConfig = newConfig
 	constant.ConfigMux.Unlock()
+	syncOnvifCandidates(ctxGlobal, newConfig)
 
 	// 4. 【新增】清理内存中被删除的“幽灵”摄像头状态
 	cleanGhostStatus(newConfig)

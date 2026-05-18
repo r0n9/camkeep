@@ -13,6 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/r0n9/camkeep/constant"
+	"github.com/r0n9/camkeep/internal/onvif"
 	"github.com/r0n9/camkeep/internal/service"
 )
 
@@ -248,6 +249,12 @@ func TestBuildGo2rtcStreamScanResponseUsesConfigSourceLabels(t *testing.T) {
 	if got := scan.Streams["onvif_cam"].SourceLabel; got != "ONVIF" {
 		t.Fatalf("expected ONVIF source label, got %q", got)
 	}
+	if !scan.Streams["onvif_cam"].ONVIFEnabled {
+		t.Fatal("expected ONVIF stream to be marked ONVIF enabled")
+	}
+	if scan.Streams["managed_rtsp"].ONVIFEnabled {
+		t.Fatal("expected RTSP stream not to be marked ONVIF enabled")
+	}
 	if got := scan.Streams["wrapped_ffmpeg"].SourceLabel; got != "FFmpeg / RTSP" {
 		t.Fatalf("expected FFmpeg / RTSP source label, got %q", got)
 	}
@@ -287,6 +294,63 @@ streams:
 	}
 	if got := formatGo2rtcSourceLabels(sources["onvif_cam"]); got != "ONVIF" {
 		t.Fatalf("expected ONVIF label, got %q", got)
+	}
+}
+
+func TestHandleOnvifStatusListsCandidates(t *testing.T) {
+	service.ReplaceOnvifCandidates([]onvif.Candidate{
+		{
+			ID:              "front",
+			SourceType:      onvif.SourceTypeDirect,
+			SourceURL:       "onvif://admin:secret@example/onvif/device_service",
+			Endpoint:        "http://example/onvif/device_service",
+			Username:        "admin",
+			ManagedByGo2rtc: false,
+		},
+	})
+	t.Cleanup(func() {
+		service.ReplaceOnvifCandidates(nil)
+	})
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	handleOnvifStatus(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var payload struct {
+		Count   int                   `json:"count"`
+		Devices []service.OnvifStatus `json:"devices"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.Count != 1 || len(payload.Devices) != 1 {
+		t.Fatalf("expected one ONVIF device, got %+v", payload)
+	}
+	if got := payload.Devices[0].SourceURL; strings.Contains(got, "secret") {
+		t.Fatalf("expected source URL to redact password, got %q", got)
+	}
+	if payload.Devices[0].PTZState != service.OnvifStateNotProbed {
+		t.Fatalf("expected PTZ state not_probed, got %q", payload.Devices[0].PTZState)
+	}
+}
+
+func TestHandlePTZStatusRequiresONVIFCandidate(t *testing.T) {
+	setCurrentConfigForAppTest(t, constant.Config{
+		Cameras: []constant.Camera{{ID: "plain", StreamURL: "rtsp://example/live"}},
+	})
+	service.ReplaceOnvifCandidates(nil)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Params = gin.Params{{Key: "id", Value: "plain"}}
+	handlePTZStatus(c)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for non-ONVIF camera, got %d", w.Code)
 	}
 }
 
@@ -416,5 +480,20 @@ func deleteStatusForAppTest(t *testing.T, camID string) {
 			delete(service.StatusMap, camID)
 		}
 		service.StatusMux.Unlock()
+	})
+}
+
+func setCurrentConfigForAppTest(t *testing.T, cfg constant.Config) {
+	t.Helper()
+
+	constant.ConfigMux.Lock()
+	oldConfig := currentConfig
+	currentConfig = cfg
+	constant.ConfigMux.Unlock()
+
+	t.Cleanup(func() {
+		constant.ConfigMux.Lock()
+		currentConfig = oldConfig
+		constant.ConfigMux.Unlock()
 	})
 }

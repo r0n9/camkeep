@@ -50,6 +50,7 @@ cameras:
 * **作用**：摄像机主码流地址，支持 go2rtc 兼容的各类源地址。
 * **兼容性**：旧字段 `rtsp_url` 仍然可用；如果两者都填写，系统优先使用 `stream_url` 同步到 go2rtc。
 * **推荐值**：按你的设备填写对应地址，RTSP 只是其中一种，例如：`rtsp://admin:123456@192.168.1.88:554/Streaming/Channels/101`。
+* **ONVIF**：如果该地址是 `onvif://...`，或从 go2rtc 同步的同名流来源是 `onvif://...`，CamKeep 会自动把它识别为 ONVIF 控制候选设备，不需要额外配置 `onvif` 块。
 
 #### 3. `motion_url` (动检流地址，可选)
 * **作用**：仅在 `motion_detect: true` 且 `mode: "normal"` 时用于画面变化检测。检测到运动后，事件录像仍使用主码流地址。

@@ -494,6 +494,8 @@ func defaultPortForScheme(scheme string) string {
 		return "80"
 	case "https":
 		return "443"
+	case "onvif":
+		return "80"
 	default:
 		return ""
 	}

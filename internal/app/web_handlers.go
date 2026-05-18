@@ -18,6 +18,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/r0n9/camkeep/constant"
+	"github.com/r0n9/camkeep/internal/onvif"
 	"github.com/r0n9/camkeep/internal/service"
 	"github.com/r0n9/camkeep/internal/task"
 	"gopkg.in/yaml.v3"
@@ -55,9 +56,10 @@ type go2rtcStreamScanResponse struct {
 }
 
 type go2rtcStreamInfo struct {
-	ID          string `json:"id"`
-	SourceLabel string `json:"source_label"`
-	Managed     bool   `json:"managed"`
+	ID           string `json:"id"`
+	SourceLabel  string `json:"source_label"`
+	Managed      bool   `json:"managed"`
+	ONVIFEnabled bool   `json:"onvif_enabled"`
 }
 
 const (
@@ -210,8 +212,17 @@ func handleValidateConfig(c *gin.Context) {
 }
 
 func handleCameraAction(c *gin.Context) {
+	handleCameraActionWithAction(c, c.Param("action"))
+}
+
+func handleCameraActionFor(action string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		handleCameraActionWithAction(c, action)
+	}
+}
+
+func handleCameraActionWithAction(c *gin.Context, action string) {
 	id := c.Param("id")
-	action := c.Param("action") // start, stop, auto
 
 	if !cameraExists(id) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "找不到该摄像头"})
@@ -222,6 +233,44 @@ func handleCameraAction(c *gin.Context) {
 		return
 	}
 	c.JSON(200, gin.H{"msg": "指令已下发"})
+}
+
+func handleOnvifStatus(c *gin.Context) {
+	statuses := service.ListOnvifStatuses()
+	c.JSON(http.StatusOK, gin.H{
+		"devices": statuses,
+		"count":   len(statuses),
+	})
+}
+
+func handleCameraOnvifStatus(c *gin.Context) {
+	id := c.Param("id")
+	if !cameraExists(id) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "找不到该摄像头"})
+		return
+	}
+
+	status, ok := service.GetOnvifStatus(id)
+	if !ok {
+		c.JSON(http.StatusNotFound, gin.H{"error": "该摄像头不是 ONVIF 接入设备"})
+		return
+	}
+	c.JSON(http.StatusOK, status)
+}
+
+func handlePTZStatus(c *gin.Context) {
+	id := c.Param("id")
+	if !cameraExists(id) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "找不到该摄像头"})
+		return
+	}
+
+	status, ok := service.GetOnvifStatus(id)
+	if !ok {
+		c.JSON(http.StatusNotFound, gin.H{"error": "该摄像头不是 ONVIF 接入设备"})
+		return
+	}
+	c.JSON(http.StatusOK, status)
 }
 
 func cameraExists(camID string) bool {
@@ -507,9 +556,10 @@ func buildGo2rtcStreamScanResponse(result map[string]interface{}, managed map[st
 	for _, id := range streamIDs {
 		sources := configSources[id]
 		info := go2rtcStreamInfo{
-			ID:          id,
-			SourceLabel: formatGo2rtcSourceLabels(sources),
-			Managed:     managed[id],
+			ID:           id,
+			SourceLabel:  formatGo2rtcSourceLabels(sources),
+			Managed:      managed[id],
+			ONVIFEnabled: onvif.HasONVIFSource(sources),
 		}
 		scan.Streams[id] = info
 		if !managed[id] {
