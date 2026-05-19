@@ -31,6 +31,11 @@
         return !capability || capability.onvif_enabled !== false;
     }
 
+    function canSendPTZCommand(camId) {
+        const capability = getCachedCapability(camId);
+        return !capability || capability.onvif_enabled !== false;
+    }
+
     function statusFromCachedCapability(camId) {
         const capability = getCachedCapability(camId);
         if (!capability || capability.onvif_enabled !== true) return null;
@@ -301,7 +306,7 @@
         if (event) event.stopPropagation();
         state.panelCollapsed = !state.panelCollapsed;
         const camId = getActiveCamId();
-        if (!camId) return;
+        if (!camId || !canSendPTZCommand(camId)) return;
         renderPanel(camId, state.onvifStatusCache.get(camId));
     }
 
@@ -349,7 +354,7 @@
         if (!shouldHandlePointer(event)) return;
 
         const camId = getActiveCamId();
-        if (!camId) return;
+        if (!camId || !canSendPTZCommand(camId)) return;
 
         if (state.activeMove) {
             await stopMove(null, true);
@@ -379,7 +384,7 @@
 
     async function sendMovePulse(move) {
         const camId = getActiveCamId();
-        if (!move || move.stopped || state.activeMove !== move || camId !== move.camId || move.requestInFlight) return;
+        if (!move || move.stopped || state.activeMove !== move || camId !== move.camId || move.requestInFlight || !canSendPTZCommand(camId)) return;
 
         const speed = currentSpeed();
         move.requestInFlight = true;
@@ -419,6 +424,7 @@
         if (!shouldHandlePointer(event)) return;
 
         const move = state.activeMove;
+        if (!move && !event) return;
         if (!move && !force) return;
         if (event && move && move.pointerId !== undefined && event.pointerId !== move.pointerId && !force) {
             return;
@@ -435,11 +441,12 @@
 
         const camId = getActiveCamId();
         const stopCamId = move?.camId || camId;
-        if (!stopCamId) return;
+        if (!stopCamId || !canSendPTZCommand(stopCamId)) return;
         await sendStop(stopCamId, force);
     }
 
     async function sendStop(camId, force = false) {
+        if (!canSendPTZCommand(camId)) return;
         try {
             const resp = await fetch(`/api/camera/${encodeURIComponent(camId)}/ptz/stop`, {
                 method: 'POST',
@@ -459,7 +466,7 @@
             event.stopPropagation();
         }
         const camId = getActiveCamId();
-        if (!camId || state.actionInFlight) return;
+        if (!camId || state.actionInFlight || !canSendPTZCommand(camId)) return;
 
         const step = currentImagingStep();
         state.actionInFlight = true;
