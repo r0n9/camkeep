@@ -268,9 +268,15 @@
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
 
-                    <button onclick="toggleMatrixFullscreen()" class="flex h-7 w-7 items-center justify-center rounded text-gray-400 hover:text-white hover:bg-gray-700 transition-all" title="多宫格全屏 (Esc退出)">
-                        <svg id="icon-fullscreen-enter" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
-                        <svg id="icon-fullscreen-exit" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9H5m0 0V5m0 4L3 7m12 2h4m0 0V5m0 4l2-2M9 15H5m0 0v4m0-4l-2 2m12-2h4m0 0v4m0-4l2 2"></path></svg>
+                    <div class="w-px h-4 bg-gray-600/50 mx-1"></div>
+
+                    <button onclick="toggleMatrixFullscreen()" id="btn-matrix-fullscreen" class="flex h-7 w-7 items-center justify-center rounded text-gray-400 hover:text-white hover:bg-gray-700 transition-all" title="多宫格全屏 (Esc退出)" aria-label="多宫格全屏">
+                        <svg id="icon-fullscreen-enter" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 4H4v4M4 4l5 5M16 4h4v4M20 4l-5 5M8 20H4v-4M4 20l5-5M16 20h4v-4M20 20l-5-5"></path>
+                        </svg>
+                        <svg id="icon-fullscreen-exit" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9 5v4H5M15 5v4h4M9 19v-4H5M15 19v-4h4"></path>
+                        </svg>
                     </button>
                 </div>
             </div>

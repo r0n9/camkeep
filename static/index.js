@@ -1093,6 +1093,7 @@ function renderGrid() {
 
     for (let i = 0; i < currentLayout; i++) {
         const isFocused = i === activeCell;
+        const activeCellClass = isFocused ? 'matrix-active-cell' : '';
         const cellFocusClass = currentLayout === 1
             ? 'border-gray-800'
             : (isFocused ? 'border-blue-500 shadow-[inset_0_0_20px_rgba(59,130,246,0.3)]' : 'border-gray-800 hover:border-gray-600');
@@ -1100,7 +1101,7 @@ function renderGrid() {
             ? 'w-full h-full border-0 hidden'
             : 'w-full h-full border-0 hidden pointer-events-none';
         const cellHtml = `
-            <div id="cell-${i}" onclick="setActiveCell(${i})" ondblclick="toggleCellFullscreen(${i})" class="relative w-full h-full bg-gray-900 border-[2px] transition-colors overflow-hidden group cursor-pointer ${cellFocusClass}">
+            <div id="cell-${i}" onclick="setActiveCell(${i})" ondblclick="toggleCellFullscreen(${i})" class="relative w-full h-full bg-gray-900 border-[2px] transition-colors overflow-hidden group cursor-pointer ${activeCellClass} ${cellFocusClass}">
                 <iframe id="live-iframe-${i}" class="${liveIframeClass}" allow="autoplay; fullscreen; microphone; camera"></iframe>
                 <div id="dplayer-${i}" class="w-full h-full hidden"></div>
                 <video id="native-player-${i}" class="w-full h-full object-contain hidden bg-black" playsinline controls></video>
@@ -2623,18 +2624,15 @@ function toggleCellFullscreen(index) {
 function scheduleMatrixToolbarAutoHide(wrapper) {
     clearTimeout(matrixToolbarTimer);
     matrixToolbarTimer = setTimeout(() => {
-        const toolbar = document.getElementById('video-toolbar');
-        if (toolbar && (toolbar.matches(':hover') || toolbar.matches(':focus-within'))) {
-            scheduleMatrixToolbarAutoHide(wrapper);
-            return;
-        }
         wrapper.classList.remove('matrix-toolbar-visible');
+        wrapper.classList.add('matrix-toolbar-idle');
     }, 1600);
 }
 
 function revealMatrixToolbar() {
     const wrapper = document.getElementById('video-wrapper');
     if ((document.fullscreenElement || document.webkitFullscreenElement) !== wrapper) return;
+    wrapper.classList.remove('matrix-toolbar-idle');
     wrapper.classList.add('matrix-toolbar-visible');
     scheduleMatrixToolbarAutoHide(wrapper);
 }
@@ -2644,6 +2642,7 @@ function revealMatrixToolbar() {
     document.addEventListener(eventType, () => {
         const enterIcon = document.getElementById('icon-fullscreen-enter');
         const exitIcon = document.getElementById('icon-fullscreen-exit');
+        const fullscreenButton = document.getElementById('btn-matrix-fullscreen');
         const wrapper = document.getElementById('video-wrapper');
         const stage = document.getElementById('video-stage');
         const grid = document.getElementById('video-grid');
@@ -2655,6 +2654,8 @@ function revealMatrixToolbar() {
         if (matrixFullscreen) {
             enterIcon.classList.add('hidden');
             exitIcon.classList.remove('hidden');
+            fullscreenButton.title = '退出全屏 (Esc)';
+            fullscreenButton.setAttribute('aria-label', '退出全屏');
 
             // 去除父容器圆角和边框，贴合显示器物理边缘
             wrapper.classList.remove('rounded-xl', 'border');
@@ -2662,6 +2663,7 @@ function revealMatrixToolbar() {
             stage.classList.add('h-full');
             grid.classList.remove('p-1', 'gap-1');
             grid.classList.add('p-0', 'gap-0');
+            wrapper.classList.remove('matrix-toolbar-idle');
             wrapper.classList.add('matrix-toolbar-visible');
             wrapper.addEventListener('mousemove', revealMatrixToolbar);
             toolbar.addEventListener('mouseenter', revealMatrixToolbar);
@@ -2672,10 +2674,12 @@ function revealMatrixToolbar() {
             clearTimeout(matrixToolbarTimer);
             enterIcon.classList.remove('hidden');
             exitIcon.classList.add('hidden');
+            fullscreenButton.title = '多宫格全屏 (Esc退出)';
+            fullscreenButton.setAttribute('aria-label', '多宫格全屏');
 
             wrapper.classList.add('rounded-xl', 'border');
             wrapper.classList.remove('rounded-none', 'border-0', 'h-screen', 'max-h-none');
-            wrapper.classList.remove('matrix-toolbar-visible');
+            wrapper.classList.remove('matrix-toolbar-visible', 'matrix-toolbar-idle');
             wrapper.removeEventListener('mousemove', revealMatrixToolbar);
             toolbar.removeEventListener('mouseenter', revealMatrixToolbar);
             toolbar.removeEventListener('mouseleave', revealMatrixToolbar);
