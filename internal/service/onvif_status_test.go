@@ -21,10 +21,12 @@ func TestUpdateOnvifProbeResultStoresCapabilities(t *testing.T) {
 	UpdateOnvifProbeResult(candidate, onvif.Capabilities{
 		MediaXAddr:       "http://example/onvif/media",
 		PTZXAddr:         "http://example/onvif/ptz",
+		ImagingXAddr:     "http://example/onvif/imaging",
 		EventXAddr:       "http://example/onvif/events",
 		PullPointSupport: true,
 		ProfileToken:     "profile_1",
 		ProfileName:      "Main",
+		VideoSourceToken: "video_1",
 	})
 
 	status, ok := GetOnvifStatus("front")
@@ -34,14 +36,17 @@ func TestUpdateOnvifProbeResultStoresCapabilities(t *testing.T) {
 	if status.CapabilityState != OnvifStateAvailable {
 		t.Fatalf("expected capability available, got %q", status.CapabilityState)
 	}
-	if status.PTZState != OnvifStateAvailable || status.EventState != OnvifStateAvailable {
-		t.Fatalf("unexpected PTZ/Event states: %+v", status)
+	if status.PTZState != OnvifStateAvailable || status.ImagingState != OnvifStateAvailable || status.EventState != OnvifStateAvailable {
+		t.Fatalf("unexpected PTZ/Imaging/Event states: %+v", status)
 	}
 	if status.SourceURL != "onvif://admin:redacted@example/onvif/device_service" {
 		t.Fatalf("expected redacted source URL, got %q", status.SourceURL)
 	}
 	if !status.PullPointSupport {
 		t.Fatal("expected pull point support to be stored")
+	}
+	if status.ImagingXAddr != "http://example/onvif/imaging" || status.VideoSourceToken != "video_1" {
+		t.Fatalf("expected imaging capability to be stored, got %+v", status)
 	}
 }
 

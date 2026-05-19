@@ -24,11 +24,13 @@ type Capabilities struct {
 	DeviceXAddr       string
 	MediaXAddr        string
 	PTZXAddr          string
+	ImagingXAddr      string
 	EventXAddr        string
 	PullPointSupport  bool
 	RawEventSupported bool
 	ProfileToken      string
 	ProfileName       string
+	VideoSourceToken  string
 }
 
 type Client struct {
@@ -58,7 +60,7 @@ func (c *Client) GetCapabilities(ctx context.Context) (Capabilities, error) {
 	}
 
 	result := mapCapabilities(c.Endpoint, caps)
-	if result.DeviceXAddr == "" && result.MediaXAddr == "" && result.PTZXAddr == "" && result.EventXAddr == "" {
+	if result.DeviceXAddr == "" && result.MediaXAddr == "" && result.PTZXAddr == "" && result.ImagingXAddr == "" && result.EventXAddr == "" {
 		return Capabilities{}, fmt.Errorf("ONVIF GetCapabilities 响应中没有可用服务地址")
 	}
 	return result, nil
@@ -79,6 +81,9 @@ func mapCapabilities(endpoint string, caps *onvifgo.Capabilities) Capabilities {
 	if caps.PTZ != nil {
 		result.PTZXAddr = normalizeServiceXAddr(endpoint, caps.PTZ.XAddr)
 	}
+	if caps.Imaging != nil {
+		result.ImagingXAddr = normalizeServiceXAddr(endpoint, caps.Imaging.XAddr)
+	}
 	if caps.Events != nil {
 		result.EventXAddr = normalizeServiceXAddr(endpoint, caps.Events.XAddr)
 		result.PullPointSupport = caps.Events.WSPullPointSupport
@@ -88,9 +93,10 @@ func mapCapabilities(endpoint string, caps *onvifgo.Capabilities) Capabilities {
 }
 
 type MediaProfile struct {
-	Token  string
-	Name   string
-	HasPTZ bool
+	Token            string
+	Name             string
+	VideoSourceToken string
+	HasPTZ           bool
 }
 
 func (c *Client) GetProfiles(ctx context.Context, mediaXAddr string) ([]MediaProfile, error) {
@@ -115,22 +121,49 @@ func (c *Client) GetProfiles(ctx context.Context, mediaXAddr string) ([]MediaPro
 			continue
 		}
 		result = append(result, MediaProfile{
-			Token:  strings.TrimSpace(profile.Token),
-			Name:   strings.TrimSpace(profile.Name),
-			HasPTZ: profile.PTZConfiguration != nil,
+			Token:            strings.TrimSpace(profile.Token),
+			Name:             strings.TrimSpace(profile.Name),
+			VideoSourceToken: profileVideoSourceToken(profile),
+			HasPTZ:           profile.PTZConfiguration != nil,
 		})
 	}
 	return result, nil
 }
 
+func profileVideoSourceToken(profile *onvifgo.Profile) string {
+	if profile == nil || profile.VideoSourceConfiguration == nil {
+		return ""
+	}
+	return strings.TrimSpace(profile.VideoSourceConfiguration.SourceToken)
+}
+
 func SelectPTZProfile(profiles []MediaProfile) (MediaProfile, bool) {
+	for _, profile := range profiles {
+		if profile.Token != "" && profile.HasPTZ && profile.VideoSourceToken != "" {
+			return profile, true
+		}
+	}
 	for _, profile := range profiles {
 		if profile.Token != "" && profile.HasPTZ {
 			return profile, true
 		}
 	}
 	for _, profile := range profiles {
+		if profile.Token != "" && profile.VideoSourceToken != "" {
+			return profile, true
+		}
+	}
+	for _, profile := range profiles {
 		if profile.Token != "" {
+			return profile, true
+		}
+	}
+	return MediaProfile{}, false
+}
+
+func SelectVideoSourceProfile(profiles []MediaProfile) (MediaProfile, bool) {
+	for _, profile := range profiles {
+		if profile.VideoSourceToken != "" {
 			return profile, true
 		}
 	}

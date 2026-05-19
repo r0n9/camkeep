@@ -49,6 +49,8 @@ func startWebServer() {
 	protected.GET("/api/camera/:id/ptz/status", handlePTZStatus)
 	protected.POST("/api/camera/:id/ptz/move", handlePTZMove)
 	protected.POST("/api/camera/:id/ptz/stop", handlePTZStop)
+	protected.POST("/api/camera/:id/ptz/focus", handlePTZFocus)
+	protected.POST("/api/camera/:id/ptz/iris", handlePTZIris)
 	protected.GET("/api/records/:id", handleRecords)
 	protected.GET("/api/record/probe", handleProbeRecord)
 	protected.GET("/api/record/download", handleDownloadRecord)

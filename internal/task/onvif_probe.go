@@ -27,24 +27,34 @@ func StartOnvifCapabilityProbes(ctx context.Context, candidates []onvif.Candidat
 				log.Printf("[%s] ONVIF capability probe 失败: %v", candidate.ID, err)
 				return
 			}
-			if caps.MediaXAddr != "" && caps.PTZXAddr != "" {
+			if caps.MediaXAddr != "" && (caps.PTZXAddr != "" || caps.ImagingXAddr != "") {
 				profiles, err := client.GetProfiles(probeCtx, caps.MediaXAddr)
 				if err != nil {
 					log.Printf("[%s] ONVIF media profile probe 失败: %v", candidate.ID, err)
 				} else if profile, ok := onvif.SelectPTZProfile(profiles); ok {
 					caps.ProfileToken = profile.Token
 					caps.ProfileName = profile.Name
+					if profile.VideoSourceToken != "" {
+						caps.VideoSourceToken = profile.VideoSourceToken
+					}
+				}
+				if caps.VideoSourceToken == "" {
+					if profile, ok := onvif.SelectVideoSourceProfile(profiles); ok {
+						caps.VideoSourceToken = profile.VideoSourceToken
+					}
 				}
 			}
 
 			service.UpdateOnvifProbeResult(candidate, caps)
-			log.Printf("[%s] ONVIF capability probe 完成: media=%t ptz=%t event=%t pullpoint=%t profile=%t",
+			log.Printf("[%s] ONVIF capability probe 完成: media=%t ptz=%t imaging=%t event=%t pullpoint=%t profile=%t source=%t",
 				candidate.ID,
 				caps.MediaXAddr != "",
 				caps.PTZXAddr != "",
+				caps.ImagingXAddr != "",
 				caps.EventXAddr != "",
 				caps.PullPointSupport,
 				caps.ProfileToken != "",
+				caps.VideoSourceToken != "",
 			)
 		}()
 	}

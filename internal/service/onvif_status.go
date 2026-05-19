@@ -26,14 +26,17 @@ type OnvifStatus struct {
 	ManagedByGo2rtc  bool      `json:"managed_by_go2rtc"`
 	CapabilityState  string    `json:"capability_state"`
 	PTZState         string    `json:"ptz_state"`
+	ImagingState     string    `json:"imaging_state"`
 	EventState       string    `json:"event_state"`
 	DeviceXAddr      string    `json:"device_xaddr,omitempty"`
 	MediaXAddr       string    `json:"media_xaddr,omitempty"`
 	PTZXAddr         string    `json:"ptz_xaddr,omitempty"`
+	ImagingXAddr     string    `json:"imaging_xaddr,omitempty"`
 	EventXAddr       string    `json:"event_xaddr,omitempty"`
 	PullPointSupport bool      `json:"pull_point_support"`
 	ProfileToken     string    `json:"profile_token,omitempty"`
 	ProfileName      string    `json:"profile_name,omitempty"`
+	VideoSourceToken string    `json:"video_source_token,omitempty"`
 	LastError        string    `json:"last_error,omitempty"`
 	UpdatedAt        time.Time `json:"updated_at"`
 
@@ -67,6 +70,7 @@ func ReplaceOnvifCandidates(candidates []onvif.Candidate) {
 			ManagedByGo2rtc:   candidate.ManagedByGo2rtc,
 			CapabilityState:   OnvifStateNotProbed,
 			PTZState:          OnvifStateNotProbed,
+			ImagingState:      OnvifStateNotProbed,
 			EventState:        OnvifStateNotProbed,
 			UpdatedAt:         now,
 			sourceFingerprint: onvif.SourceFingerprint(candidate.SourceURL),
@@ -75,14 +79,17 @@ func ReplaceOnvifCandidates(candidates []onvif.Candidate) {
 		if prev, ok := previous[candidate.ID]; ok && prev.sourceFingerprint == status.sourceFingerprint && prev.Endpoint == status.Endpoint {
 			status.CapabilityState = keepOnvifState(prev.CapabilityState)
 			status.PTZState = keepOnvifState(prev.PTZState)
+			status.ImagingState = keepOnvifState(prev.ImagingState)
 			status.EventState = keepOnvifState(prev.EventState)
 			status.DeviceXAddr = prev.DeviceXAddr
 			status.MediaXAddr = prev.MediaXAddr
 			status.PTZXAddr = prev.PTZXAddr
+			status.ImagingXAddr = prev.ImagingXAddr
 			status.EventXAddr = prev.EventXAddr
 			status.PullPointSupport = prev.PullPointSupport
 			status.ProfileToken = prev.ProfileToken
 			status.ProfileName = prev.ProfileName
+			status.VideoSourceToken = prev.VideoSourceToken
 			status.LastError = prev.LastError
 		}
 		next[candidate.ID] = &status
@@ -97,6 +104,7 @@ func MarkOnvifProbeStarted(candidate onvif.Candidate) {
 	updateOnvifStatusForCandidate(candidate, func(status *OnvifStatus) {
 		status.CapabilityState = OnvifStateProbing
 		status.PTZState = OnvifStateProbing
+		status.ImagingState = OnvifStateProbing
 		status.EventState = OnvifStateProbing
 		status.LastError = ""
 		status.UpdatedAt = time.Now()
@@ -107,14 +115,17 @@ func UpdateOnvifProbeResult(candidate onvif.Candidate, caps onvif.Capabilities) 
 	updateOnvifStatusForCandidate(candidate, func(status *OnvifStatus) {
 		status.CapabilityState = OnvifStateAvailable
 		status.PTZState = ptzAvailabilityState(caps.PTZXAddr, caps.ProfileToken)
+		status.ImagingState = imagingAvailabilityState(caps.ImagingXAddr, caps.VideoSourceToken)
 		status.EventState = availabilityState(caps.EventXAddr)
 		status.DeviceXAddr = caps.DeviceXAddr
 		status.MediaXAddr = caps.MediaXAddr
 		status.PTZXAddr = caps.PTZXAddr
+		status.ImagingXAddr = caps.ImagingXAddr
 		status.EventXAddr = caps.EventXAddr
 		status.PullPointSupport = caps.PullPointSupport
 		status.ProfileToken = caps.ProfileToken
 		status.ProfileName = caps.ProfileName
+		status.VideoSourceToken = caps.VideoSourceToken
 		status.LastError = ""
 		status.UpdatedAt = time.Now()
 	})
@@ -124,6 +135,7 @@ func UpdateOnvifProbeError(candidate onvif.Candidate, err error) {
 	updateOnvifStatusForCandidate(candidate, func(status *OnvifStatus) {
 		status.CapabilityState = OnvifStateError
 		status.PTZState = OnvifStateError
+		status.ImagingState = OnvifStateError
 		status.EventState = OnvifStateError
 		if err != nil {
 			status.LastError = err.Error()
@@ -186,6 +198,13 @@ func availabilityState(xaddr string) string {
 
 func ptzAvailabilityState(ptzXAddr, profileToken string) string {
 	if ptzXAddr == "" || profileToken == "" {
+		return OnvifStateUnavailable
+	}
+	return OnvifStateAvailable
+}
+
+func imagingAvailabilityState(imagingXAddr, videoSourceToken string) string {
+	if imagingXAddr == "" || videoSourceToken == "" {
 		return OnvifStateUnavailable
 	}
 	return OnvifStateAvailable

@@ -75,6 +75,11 @@ type ptzStopRequest struct {
 	Zoom    bool `json:"zoom"`
 }
 
+type imagingAdjustRequest struct {
+	Direction float64 `json:"direction"`
+	Step      float64 `json:"step"`
+}
+
 const (
 	recordDateLayout    = "2006-01-02"
 	maxRecordRangeDays  = 7
@@ -359,6 +364,66 @@ func handlePTZStop(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"msg": "PTZ 停止指令已下发"})
 }
 
+func handlePTZFocus(c *gin.Context) {
+	id := c.Param("id")
+	candidate, status, ok := getImagingReadyTarget(c, id)
+	if !ok {
+		return
+	}
+
+	var req imagingAdjustRequest
+	if err := json.NewDecoder(c.Request.Body).Decode(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "聚焦参数有误"})
+		return
+	}
+	req.Direction = clampPTZVelocity(req.Direction)
+	req.Step = clampImagingStep(req.Step)
+	if req.Direction == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "聚焦方向不能为空"})
+		return
+	}
+
+	client := onvif.NewClient(candidate)
+	ctx, cancel := contextWithHTTPTimeout(c.Request.Context(), 3*time.Second)
+	defer cancel()
+
+	if err := client.AdjustFocus(ctx, status.ImagingXAddr, status.VideoSourceToken, req.Direction, req.Step, currentControlSpeed(req.Step)); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "聚焦失败: " + err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"msg": "聚焦指令已下发"})
+}
+
+func handlePTZIris(c *gin.Context) {
+	id := c.Param("id")
+	candidate, status, ok := getImagingReadyTarget(c, id)
+	if !ok {
+		return
+	}
+
+	var req imagingAdjustRequest
+	if err := json.NewDecoder(c.Request.Body).Decode(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "光圈参数有误"})
+		return
+	}
+	req.Direction = clampPTZVelocity(req.Direction)
+	req.Step = clampImagingStep(req.Step)
+	if req.Direction == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "光圈方向不能为空"})
+		return
+	}
+
+	client := onvif.NewClient(candidate)
+	ctx, cancel := contextWithHTTPTimeout(c.Request.Context(), 3*time.Second)
+	defer cancel()
+
+	if err := client.AdjustIris(ctx, status.ImagingXAddr, status.VideoSourceToken, req.Direction*req.Step); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "光圈调整失败: " + err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"msg": "光圈指令已下发"})
+}
+
 func cameraExists(camID string) bool {
 	constant.ConfigMux.RLock()
 	defer constant.ConfigMux.RUnlock()
@@ -380,6 +445,30 @@ func getPTZReadyTarget(c *gin.Context, camID string) (onvif.Candidate, service.O
 	}
 	if status.PTZState != service.OnvifStateAvailable || status.PTZXAddr == "" || status.ProfileToken == "" {
 		c.JSON(http.StatusConflict, gin.H{"error": "该摄像头 PTZ 尚不可用"})
+		return onvif.Candidate{}, service.OnvifStatus{}, false
+	}
+
+	candidate, ok := currentOnvifCandidate(camID)
+	if !ok {
+		c.JSON(http.StatusConflict, gin.H{"error": "无法解析该摄像头的 ONVIF 连接信息"})
+		return onvif.Candidate{}, service.OnvifStatus{}, false
+	}
+	return candidate, status, true
+}
+
+func getImagingReadyTarget(c *gin.Context, camID string) (onvif.Candidate, service.OnvifStatus, bool) {
+	if !cameraExists(camID) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "找不到该摄像头"})
+		return onvif.Candidate{}, service.OnvifStatus{}, false
+	}
+
+	status, ok := service.GetOnvifStatus(camID)
+	if !ok {
+		c.JSON(http.StatusNotFound, gin.H{"error": "该摄像头不是 ONVIF 接入设备"})
+		return onvif.Candidate{}, service.OnvifStatus{}, false
+	}
+	if status.ImagingState != service.OnvifStateAvailable || status.ImagingXAddr == "" || status.VideoSourceToken == "" {
+		c.JSON(http.StatusConflict, gin.H{"error": "该摄像头云台成像控制尚不可用"})
 		return onvif.Candidate{}, service.OnvifStatus{}, false
 	}
 
@@ -414,6 +503,26 @@ func clampPTZVelocity(value float64) float64 {
 		return -1
 	}
 	return value
+}
+
+func clampImagingStep(value float64) float64 {
+	if value <= 0 {
+		return 0.08
+	}
+	if value < 0.02 {
+		return 0.02
+	}
+	if value > 0.25 {
+		return 0.25
+	}
+	return value
+}
+
+func currentControlSpeed(step float64) float64 {
+	if step <= 0 {
+		return 0.5
+	}
+	return clampPTZVelocity(step * 6)
 }
 
 func contextWithHTTPTimeout(parent context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {

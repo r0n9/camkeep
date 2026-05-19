@@ -15,6 +15,7 @@ const onvifStatusCache = new Map();
 let ptzPanelCollapsed = false;
 let ptzStopTimer = null;
 let ptzMoveInFlight = false;
+let ptzActionInFlight = false;
 let ptzSpeedValue = 0.55;
 
 window.onload = function () {
@@ -1298,46 +1299,51 @@ function hidePTZPanel() {
 function renderPTZPanel(camId, status) {
     const panel = document.getElementById('ptz-panel');
     if (!panel || getActiveLiveCamId() !== camId) return;
-    if (status && status.ptz_state === 'unavailable') {
+    const ptzAvailable = status && status.ptz_state === 'available';
+    const imagingAvailable = status && status.imaging_state === 'available';
+    if (status && status.ptz_state === 'unavailable' && !imagingAvailable) {
         hidePTZPanel();
         return;
     }
 
-    const available = status && status.ptz_state === 'available';
-    const stateText = ptzStateText(status);
-    const collapsedClass = ptzPanelCollapsed ? 'w-[42px]' : 'w-[236px]';
+    const stateText = ptzPanelStateText(status);
+    const collapsedClass = ptzPanelCollapsed ? 'w-[34px]' : 'w-[236px]';
     panel.className = `shrink-0 border-l border-gray-800 bg-slate-950 text-slate-100 transition-all duration-300 ${collapsedClass}`;
 
     if (ptzPanelCollapsed) {
         panel.innerHTML = `
-            <button onclick="togglePTZPanel(event)" class="flex h-full w-full flex-col items-center justify-center gap-2 text-slate-400 transition-colors hover:bg-slate-900 hover:text-white" title="展开 PTZ">
-                <svg class="h-4 w-4 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9 5l7 7-7 7"></path></svg>
-                <span class="vertical-rl text-[10px] font-black tracking-widest">PTZ</span>
+            <button onclick="togglePTZPanel(event)" class="ptz-collapse-tab flex h-full w-full flex-col items-center justify-center gap-1.5 text-slate-400 transition-colors hover:text-white" title="展开云台" aria-label="展开云台">
+                <svg class="h-3.5 w-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9 5l7 7-7 7"></path></svg>
+                <span class="vertical-rl text-[11px] font-black tracking-normal">云台</span>
             </button>
         `;
         return;
     }
 
-    const disabled = available ? '' : 'disabled';
-    const disabledClass = available ? '' : ' opacity-45 pointer-events-none';
+    const disabled = ptzAvailable ? '' : 'disabled';
+    const disabledClass = ptzAvailable ? '' : ' opacity-45 pointer-events-none';
+    const imagingDisabled = imagingAvailable ? '' : 'disabled';
+    const imagingDisabledClass = imagingAvailable ? '' : ' opacity-45 pointer-events-none';
+    const speedDisabled = ptzAvailable || imagingAvailable ? '' : 'disabled';
+    const speedDisabledClass = ptzAvailable || imagingAvailable ? '' : ' opacity-45 pointer-events-none';
     panel.innerHTML = `
         <div class="custom-scrollbar flex h-full flex-col overflow-y-auto p-3">
             <div class="mb-3 flex items-center justify-between gap-2">
                 <div class="min-w-0">
-                    <div class="text-xs font-black uppercase tracking-wider text-slate-100">PTZ</div>
+                    <div class="text-sm font-extrabold tracking-normal text-slate-100">云台</div>
                     <div id="ptz-feedback" class="mt-0.5 truncate text-[10px] font-bold text-slate-500">${escapeHtml(stateText)}</div>
                 </div>
-                <button onclick="togglePTZPanel(event)" class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-800 bg-slate-900 text-slate-400 transition-colors hover:border-slate-700 hover:text-white" title="折叠 PTZ">
+                <button onclick="togglePTZPanel(event)" class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-800 bg-slate-900 text-slate-400 shadow-[0_6px_16px_-12px_rgba(2,6,23,0.9)] transition-colors hover:border-slate-700 hover:text-white" title="折叠云台" aria-label="折叠云台">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9 5l7 7-7 7"></path></svg>
                 </button>
             </div>
 
-            <div class="grid grid-cols-3 gap-1.5${disabledClass}">
+            <div class="ptz-dial grid grid-cols-3 gap-1.5${disabledClass}">
                 ${ptzMoveButton('左上', -1, 1, 0, '<path d="M7 17V7h10M7 7l10 10" />', disabled)}
                 ${ptzMoveButton('上', 0, 1, 0, '<path d="M12 19V5m0 0l-6 6m6-6l6 6" />', disabled)}
                 ${ptzMoveButton('右上', 1, 1, 0, '<path d="M17 17V7H7m10 0L7 17" />', disabled)}
                 ${ptzMoveButton('左', -1, 0, 0, '<path d="M19 12H5m0 0l6-6m-6 6l6 6" />', disabled)}
-                <button onclick="ptzStopMove(event, true)" class="ptz-btn bg-slate-800 text-slate-300 hover:bg-slate-700" title="停止" ${disabled}>
+                <button onclick="ptzStopMove(event, true)" class="ptz-btn ptz-stop" title="停止" aria-label="停止" ${disabled}>
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="8" y="8" width="8" height="8" rx="1.5" stroke-width="2.2"></rect></svg>
                 </button>
                 ${ptzMoveButton('右', 1, 0, 0, '<path d="M5 12h14m0 0l-6-6m6 6l-6 6" />', disabled)}
@@ -1346,17 +1352,30 @@ function renderPTZPanel(camId, status) {
                 ${ptzMoveButton('右下', 1, -1, 0, '<path d="M17 7v10H7m10 0L7 7" />', disabled)}
             </div>
 
-            <div class="mt-3 grid grid-cols-2 gap-1.5${disabledClass}">
-                ${ptzMoveButton('拉近', 0, 0, 1, '<path d="M12 5v14M5 12h14" />', disabled)}
-                ${ptzMoveButton('拉远', 0, 0, -1, '<path d="M5 12h14" />', disabled)}
+            <div class="ptz-tool-panel mt-2 p-1.5${disabledClass}">
+                <div class="ptz-control-grid">
+                    ${ptzControlButton('拉近', 'ptz-zoom', '<path d="M12 5v14M5 12h14" />', disabled, 'ptzStartMove(event, 0, 0, 1)', 'ptzStopMove(event)')}
+                    ${ptzControlButton('拉远', 'ptz-zoom', '<path d="M5 12h14" />', disabled, 'ptzStartMove(event, 0, 0, -1)', 'ptzStopMove(event)')}
+                </div>
             </div>
 
-            <div class="mt-3 rounded-lg border border-slate-800 bg-slate-900/70 px-2.5 py-2${disabledClass}">
-                <div class="mb-1.5 flex items-center justify-between">
-                    <span class="text-[10px] font-black text-slate-500">速度</span>
-                    <span id="ptz-speed-label" class="font-mono text-[10px] font-black text-slate-300">55%</span>
+            <div class="ptz-tool-panel mt-1.5 p-1.5${imagingDisabledClass}">
+                <div class="ptz-control-grid">
+                    ${ptzControlButton('近焦', 'ptz-focus', '<path d="M12 5v14M5 12h14" /><circle cx="12" cy="12" r="6" />', imagingDisabled, null, null, 'ptzAdjustFocus(event, -1)')}
+                    ${ptzControlButton('远焦', 'ptz-focus', '<circle cx="12" cy="12" r="7" /><path d="M7 12h10" />', imagingDisabled, null, null, 'ptzAdjustFocus(event, 1)')}
                 </div>
-                <input id="ptz-speed" type="range" min="0.15" max="1" step="0.05" value="${ptzSpeedValue}" oninput="updatePTZSpeedLabel()" class="w-full accent-blue-500" ${disabled}>
+            </div>
+
+            <div class="ptz-tool-panel mt-1.5 p-1.5${imagingDisabledClass}">
+                <div class="ptz-control-grid">
+                    ${ptzControlButton('开大', 'ptz-iris', '<circle cx="12" cy="12" r="7" /><path d="M12 8v8M8 12h8" />', imagingDisabled, null, null, 'ptzAdjustIris(event, 1)')}
+                    ${ptzControlButton('收小', 'ptz-iris', '<circle cx="12" cy="12" r="7" /><path d="M8 12h8" />', imagingDisabled, null, null, 'ptzAdjustIris(event, -1)')}
+                </div>
+            </div>
+
+            <div class="ptz-speed-panel mt-2 flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1.5${speedDisabledClass}">
+                <input id="ptz-speed" type="range" min="0.15" max="1" step="0.05" value="${ptzSpeedValue}" oninput="updatePTZSpeedLabel()" aria-label="控制速度" class="block min-w-0 flex-1 accent-blue-500" ${speedDisabled}>
+                <span id="ptz-speed-label" class="w-8 shrink-0 text-right font-mono text-[10px] font-black text-slate-300">55%</span>
             </div>
         </div>
     `;
@@ -1364,14 +1383,34 @@ function renderPTZPanel(camId, status) {
 }
 
 function ptzMoveButton(title, x, y, zoom, path, disabled = '') {
+    const variantClass = zoom !== 0 ? 'ptz-zoom' : 'ptz-direction';
     return `
-        <button class="ptz-btn bg-slate-900 text-slate-300 hover:bg-blue-600 hover:text-white"
+        <button class="ptz-btn ${variantClass}"
                 title="${title}"
+                aria-label="${title}"
                 onpointerdown="ptzStartMove(event, ${x}, ${y}, ${zoom})"
                 onpointerup="ptzStopMove(event)"
                 onpointercancel="ptzStopMove(event)"
                 ${disabled}>
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">${path}</svg>
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">${path}</svg>
+        </button>
+    `;
+}
+
+function ptzControlButton(title, variantClass, path, disabled = '', pointerDownAction = null, pointerUpAction = null, clickAction = null) {
+    const pointerAttrs = pointerDownAction ? `
+                onpointerdown="${pointerDownAction}"
+                onpointerup="${pointerUpAction || ''}"
+                onpointercancel="${pointerUpAction || ''}"` : '';
+    const clickAttr = clickAction ? ` onclick="${clickAction}"` : '';
+    return `
+        <button class="ptz-action-btn px-2 ${variantClass}"
+                title="${title}"
+                aria-label="${title}"
+                ${clickAttr}${pointerAttrs}
+                ${disabled}>
+            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">${path}</svg>
+            <span class="truncate">${title}</span>
         </button>
     `;
 }
@@ -1387,9 +1426,12 @@ function togglePTZPanel(event) {
 function updatePTZSpeedLabel() {
     const slider = document.getElementById('ptz-speed');
     const label = document.getElementById('ptz-speed-label');
-    if (!slider || !label) return;
+    if (!slider) return;
     ptzSpeedValue = currentPTZSpeed();
-    label.innerText = `${Math.round(ptzSpeedValue * 100)}%`;
+    const speedText = `${Math.round(ptzSpeedValue * 100)}%`;
+    if (label) label.innerText = speedText;
+    slider.title = speedText;
+    slider.setAttribute('aria-valuetext', speedText);
 }
 
 function currentPTZSpeed() {
@@ -1397,6 +1439,10 @@ function currentPTZSpeed() {
     const speed = Number(slider?.value || ptzSpeedValue || 0.55);
     if (!Number.isFinite(speed)) return ptzSpeedValue || 0.55;
     return Math.min(1, Math.max(0.15, speed));
+}
+
+function currentImagingStep() {
+    return Math.min(0.25, Math.max(0.02, currentPTZSpeed() * 0.12));
 }
 
 async function ptzStartMove(event, x, y, zoom) {
@@ -1430,7 +1476,7 @@ async function ptzStartMove(event, x, y, zoom) {
         if (!resp.ok) throw new Error(await readPTZError(resp));
         ptzStopTimer = setTimeout(() => ptzStopMove(null, true), 900);
     } catch (e) {
-        setPTZFeedback(e.message || 'PTZ 指令失败', true);
+        setPTZFeedback(e.message || '云台指令失败', true);
     } finally {
         ptzMoveInFlight = false;
     }
@@ -1454,7 +1500,44 @@ async function ptzStopMove(event, force = false) {
         if (!resp.ok && force) throw new Error(await readPTZError(resp));
         setPTZFeedback('就绪');
     } catch (e) {
-        if (force) setPTZFeedback(e.message || 'PTZ 停止失败', true);
+        if (force) setPTZFeedback(e.message || '云台停止失败', true);
+    }
+}
+
+async function ptzAdjustFocus(event, direction) {
+    await ptzAdjustImaging(event, 'focus', direction, '聚焦', '聚焦已下发');
+}
+
+async function ptzAdjustIris(event, direction) {
+    await ptzAdjustImaging(event, 'iris', direction, '光圈', '光圈已调整');
+}
+
+async function ptzAdjustImaging(event, kind, direction, label, successText) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    const camId = getActiveLiveCamId();
+    if (!camId || ptzActionInFlight) return;
+
+    const step = currentImagingStep();
+    ptzActionInFlight = true;
+    setPTZFeedback(`${label}中`);
+    try {
+        const resp = await fetch(`/api/camera/${encodeURIComponent(camId)}/ptz/${kind}`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                direction,
+                step
+            })
+        });
+        if (!resp.ok) throw new Error(await readPTZError(resp));
+        setPTZFeedback(successText);
+    } catch (e) {
+        setPTZFeedback(e.message || `${label}失败`, true);
+    } finally {
+        ptzActionInFlight = false;
     }
 }
 
@@ -1468,25 +1551,39 @@ function clearPTZStopTimer() {
 async function readPTZError(resp) {
     try {
         const payload = await resp.json();
-        return payload.error || 'PTZ 请求失败';
+        return friendlyPTZText(payload.error || '云台请求失败');
     } catch (_) {
-        return 'PTZ 请求失败';
+        return '云台请求失败';
     }
 }
 
 function setPTZFeedback(text, isError = false) {
     const feedback = document.getElementById('ptz-feedback');
     if (!feedback) return;
-    feedback.innerText = text;
+    feedback.innerText = friendlyPTZText(text);
     feedback.classList.toggle('text-rose-400', isError);
     feedback.classList.toggle('text-slate-500', !isError);
+}
+
+function friendlyPTZText(text) {
+    return String(text || '').replace(/PTZ\s*/g, '云台').trim();
+}
+
+function ptzPanelStateText(status) {
+    if (!status) return '未探测';
+    const ptzReady = status.ptz_state === 'available';
+    const imagingReady = status.imaging_state === 'available';
+    if (ptzReady && imagingReady) return '云台/成像就绪';
+    if (ptzReady) return '云台就绪';
+    if (imagingReady) return '聚焦/光圈就绪';
+    return ptzStateText(status);
 }
 
 function ptzStateText(status) {
     if (!status) return '未探测';
     if (status.ptz_state === 'available') return '就绪';
     if (status.capability_state === 'probing' || status.ptz_state === 'probing') return '探测中';
-    if (status.capability_state === 'error' || status.ptz_state === 'error') return status.last_error || '探测失败';
+    if (status.capability_state === 'error' || status.ptz_state === 'error') return friendlyPTZText(status.last_error || '探测失败');
     return '不可用';
 }
 

@@ -58,6 +58,9 @@ func TestGetCapabilitiesSendsSOAPAndParsesResponse(t *testing.T) {
 	if caps.PTZXAddr != "http://camera/onvif/ptz" {
 		t.Fatalf("unexpected PTZ xaddr: %q", caps.PTZXAddr)
 	}
+	if caps.ImagingXAddr != "http://camera/onvif/imaging" {
+		t.Fatalf("unexpected imaging xaddr: %q", caps.ImagingXAddr)
+	}
 	if caps.EventXAddr != "http://camera/onvif/events" || !caps.PullPointSupport {
 		t.Fatalf("unexpected event capabilities: %+v", caps)
 	}
@@ -175,6 +178,9 @@ func TestGetProfilesSelectsPTZProfile(t *testing.T) {
       </trt:Profiles>
       <trt:Profiles token="ptz-main">
         <tt:Name>Main</tt:Name>
+        <tt:VideoSourceConfiguration>
+          <tt:SourceToken>video_1</tt:SourceToken>
+        </tt:VideoSourceConfiguration>
         <tt:PTZConfiguration></tt:PTZConfiguration>
       </trt:Profiles>
     </trt:GetProfilesResponse>
@@ -195,6 +201,22 @@ func TestGetProfilesSelectsPTZProfile(t *testing.T) {
 	}
 	if profile.Token != "ptz-main" || profile.Name != "Main" {
 		t.Fatalf("unexpected selected profile: %+v", profile)
+	}
+	if profile.VideoSourceToken != "video_1" {
+		t.Fatalf("unexpected selected profile source token: %+v", profile)
+	}
+}
+
+func TestSelectVideoSourceProfileFallsBackToProfileWithoutPTZ(t *testing.T) {
+	profile, ok := SelectVideoSourceProfile([]MediaProfile{
+		{Token: "ptz-only", HasPTZ: true},
+		{Token: "video-only", VideoSourceToken: "video_1"},
+	})
+	if !ok {
+		t.Fatal("expected a profile to be selected")
+	}
+	if profile.Token != "video-only" || profile.VideoSourceToken != "video_1" {
+		t.Fatalf("expected profile with video source token, got %+v", profile)
 	}
 }
 
@@ -233,6 +255,193 @@ func TestContinuousMoveSendsPTZVelocity(t *testing.T) {
 	}
 }
 
+func TestRelativeFocusSendsImagingMove(t *testing.T) {
+	var gotBody string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		gotBody = string(body)
+		w.Header().Set("Content-Type", "application/soap+xml")
+		_, _ = w.Write([]byte(`<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"><s:Body><timg:MoveResponse xmlns:timg="http://www.onvif.org/ver20/imaging/wsdl"/></s:Body></s:Envelope>`))
+	}))
+	defer server.Close()
+
+	client := &Client{Endpoint: server.URL, Username: "admin", Password: "secret", HTTPClient: server.Client()}
+	if err := client.RelativeFocus(context.Background(), server.URL, "video_1", -0.08, 0.5); err != nil {
+		t.Fatalf("expected imaging move to pass, got %v", err)
+	}
+	for _, want := range []string{"Move", "video_1", "onvif:Relative", "onvif:Distance", "-0.08", "onvif:Speed", ">0.5<", "UsernameToken"} {
+		if !strings.Contains(gotBody, want) {
+			t.Fatalf("expected imaging move request to contain %q, got %s", want, gotBody)
+		}
+	}
+}
+
+func TestAdjustFocusUsesRelativeMoveOptions(t *testing.T) {
+	var gotBodies []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		bodyText := string(body)
+		gotBodies = append(gotBodies, bodyText)
+		w.Header().Set("Content-Type", "application/soap+xml")
+		switch {
+		case strings.Contains(bodyText, "GetMoveOptions"):
+			_, _ = w.Write([]byte(focusRelativeMoveOptionsSOAPResponse()))
+		case strings.Contains(bodyText, "Move"):
+			_, _ = w.Write([]byte(`<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"><s:Body><timg:MoveResponse xmlns:timg="http://www.onvif.org/ver20/imaging/wsdl"/></s:Body></s:Envelope>`))
+		default:
+			t.Fatalf("unexpected ONVIF request: %s", bodyText)
+		}
+	}))
+	defer server.Close()
+
+	client := &Client{Endpoint: server.URL, HTTPClient: server.Client()}
+	if err := client.AdjustFocus(context.Background(), server.URL, "video_1", -1, 0.5, 0.8); err != nil {
+		t.Fatalf("expected adaptive focus to pass, got %v", err)
+	}
+
+	joined := strings.Join(gotBodies, "\n")
+	for _, want := range []string{"GetMoveOptions", "onvif:Relative", "onvif:Distance>-0.3<", "onvif:Speed>0.4<"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("expected relative focus flow to contain %q, got %s", want, joined)
+		}
+	}
+}
+
+func TestAdjustFocusFallsBackToContinuousMoveOptions(t *testing.T) {
+	var gotBodies []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		bodyText := string(body)
+		gotBodies = append(gotBodies, bodyText)
+		w.Header().Set("Content-Type", "application/soap+xml")
+		switch {
+		case strings.Contains(bodyText, "GetMoveOptions"):
+			_, _ = w.Write([]byte(focusContinuousMoveOptionsSOAPResponse()))
+		case strings.Contains(bodyText, "Move"):
+			_, _ = w.Write([]byte(`<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"><s:Body><timg:MoveResponse xmlns:timg="http://www.onvif.org/ver20/imaging/wsdl"/></s:Body></s:Envelope>`))
+		case strings.Contains(bodyText, "Stop"):
+			_, _ = w.Write([]byte(`<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"><s:Body><timg:StopResponse xmlns:timg="http://www.onvif.org/ver20/imaging/wsdl"/></s:Body></s:Envelope>`))
+		default:
+			t.Fatalf("unexpected ONVIF request: %s", bodyText)
+		}
+	}))
+	defer server.Close()
+
+	client := &Client{Endpoint: server.URL, HTTPClient: server.Client()}
+	if err := client.AdjustFocus(context.Background(), server.URL, "video_1", 1, 0.08, 0.6); err != nil {
+		t.Fatalf("expected adaptive continuous focus to pass, got %v", err)
+	}
+
+	joined := strings.Join(gotBodies, "\n")
+	for _, want := range []string{"GetMoveOptions", "onvif:Continuous", "onvif:Speed>0.2<", "Stop"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("expected continuous focus flow to contain %q, got %s", want, joined)
+		}
+	}
+}
+
+func TestAdjustFocusFallsBackToContinuousWhenRelativeFails(t *testing.T) {
+	var gotBodies []string
+	var relativeFailed bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		bodyText := string(body)
+		gotBodies = append(gotBodies, bodyText)
+		w.Header().Set("Content-Type", "application/soap+xml")
+		switch {
+		case strings.Contains(bodyText, "GetMoveOptions"):
+			_, _ = w.Write([]byte(focusRelativeAndContinuousMoveOptionsSOAPResponse()))
+		case strings.Contains(bodyText, "Move") && strings.Contains(bodyText, "Relative"):
+			relativeFailed = true
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`
+<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope">
+  <s:Body>
+    <s:Fault>
+      <s:Code><s:Value>s:Sender</s:Value></s:Code>
+      <s:Reason><s:Text>The requested settings are incorrect.</s:Text></s:Reason>
+    </s:Fault>
+  </s:Body>
+</s:Envelope>`))
+		case strings.Contains(bodyText, "Move") && strings.Contains(bodyText, "Continuous"):
+			_, _ = w.Write([]byte(`<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"><s:Body><timg:MoveResponse xmlns:timg="http://www.onvif.org/ver20/imaging/wsdl"/></s:Body></s:Envelope>`))
+		case strings.Contains(bodyText, "Stop"):
+			_, _ = w.Write([]byte(`<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"><s:Body><timg:StopResponse xmlns:timg="http://www.onvif.org/ver20/imaging/wsdl"/></s:Body></s:Envelope>`))
+		default:
+			t.Fatalf("unexpected ONVIF request: %s", bodyText)
+		}
+	}))
+	defer server.Close()
+
+	client := &Client{Endpoint: server.URL, HTTPClient: server.Client()}
+	if err := client.AdjustFocus(context.Background(), server.URL, "video_1", 1, 0.08, 0.6); err != nil {
+		t.Fatalf("expected continuous fallback to pass, got %v", err)
+	}
+	if !relativeFailed {
+		t.Fatal("expected relative focus attempt to fail before fallback")
+	}
+
+	joined := strings.Join(gotBodies, "\n")
+	for _, want := range []string{"onvif:Relative", "onvif:Continuous", "Stop"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("expected fallback focus flow to contain %q, got %s", want, joined)
+		}
+	}
+}
+
+func TestAdjustIrisUpdatesExposureValue(t *testing.T) {
+	var gotBodies []string
+	var requestCount int
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		bodyText := string(body)
+		gotBodies = append(gotBodies, bodyText)
+		w.Header().Set("Content-Type", "application/soap+xml")
+		switch {
+		case strings.Contains(bodyText, "GetCapabilities"):
+			_, _ = w.Write([]byte(capabilitiesSOAPResponseWithImaging(server.URL)))
+		case strings.Contains(bodyText, "GetImagingSettings"):
+			_, _ = w.Write([]byte(imagingSettingsSOAPResponse()))
+		case strings.Contains(bodyText, "SetImagingSettings"):
+			_, _ = w.Write([]byte(`<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"><s:Body><timg:SetImagingSettingsResponse xmlns:timg="http://www.onvif.org/ver20/imaging/wsdl"/></s:Body></s:Envelope>`))
+		default:
+			t.Fatalf("unexpected ONVIF request: %s", bodyText)
+		}
+	}))
+	defer server.Close()
+
+	client := &Client{Endpoint: server.URL, HTTPClient: server.Client()}
+	if err := client.AdjustIris(context.Background(), server.URL, "video_1", 0.1); err != nil {
+		t.Fatalf("expected iris adjustment to pass, got %v", err)
+	}
+	if requestCount != 3 {
+		t.Fatalf("expected 3 imaging requests, got %d", requestCount)
+	}
+	joined := strings.Join(gotBodies, "\n")
+	for _, want := range []string{"GetCapabilities", "GetImagingSettings", "SetImagingSettings", ">0.4<", "MANUAL"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("expected imaging request chain to contain %q, got %s", want, joined)
+		}
+	}
+}
+
 func capabilitiesSOAPResponseForURL(serviceURL string) string {
 	return fmt.Sprintf(`
 <s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:tds="http://www.onvif.org/ver10/device/wsdl" xmlns:tt="http://www.onvif.org/ver10/schema">
@@ -252,6 +461,9 @@ func capabilitiesSOAPResponseForURL(serviceURL string) string {
         <tt:PTZ>
           <tt:XAddr>%[1]s</tt:XAddr>
         </tt:PTZ>
+        <tt:Imaging>
+          <tt:XAddr>%[1]s</tt:XAddr>
+        </tt:Imaging>
       </tds:Capabilities>
     </tds:GetCapabilitiesResponse>
   </s:Body>
@@ -276,7 +488,114 @@ const capabilitiesSOAPResponse = `
         <tt:PTZ>
           <tt:XAddr>http://camera/onvif/ptz</tt:XAddr>
         </tt:PTZ>
+        <tt:Imaging>
+          <tt:XAddr>http://camera/onvif/imaging</tt:XAddr>
+        </tt:Imaging>
       </tds:Capabilities>
     </tds:GetCapabilitiesResponse>
   </s:Body>
 </s:Envelope>`
+
+func capabilitiesSOAPResponseWithImaging(serviceURL string) string {
+	return fmt.Sprintf(`
+<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:tds="http://www.onvif.org/ver10/device/wsdl" xmlns:tt="http://www.onvif.org/ver10/schema">
+  <s:Body>
+    <tds:GetCapabilitiesResponse>
+      <tds:Capabilities>
+        <tt:Media>
+          <tt:XAddr>%[1]s</tt:XAddr>
+        </tt:Media>
+        <tt:Imaging>
+          <tt:XAddr>%[1]s</tt:XAddr>
+        </tt:Imaging>
+      </tds:Capabilities>
+    </tds:GetCapabilitiesResponse>
+  </s:Body>
+</s:Envelope>`, serviceURL)
+}
+
+func focusRelativeMoveOptionsSOAPResponse() string {
+	return `
+<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:timg="http://www.onvif.org/ver20/imaging/wsdl" xmlns:tt="http://www.onvif.org/ver10/schema">
+  <s:Body>
+    <timg:GetMoveOptionsResponse>
+      <timg:MoveOptions>
+        <tt:Relative>
+          <tt:Distance>
+            <tt:Min>0.1</tt:Min>
+            <tt:Max>0.3</tt:Max>
+          </tt:Distance>
+          <tt:Speed>
+            <tt:Min>0.2</tt:Min>
+            <tt:Max>0.4</tt:Max>
+          </tt:Speed>
+        </tt:Relative>
+      </timg:MoveOptions>
+    </timg:GetMoveOptionsResponse>
+  </s:Body>
+</s:Envelope>`
+}
+
+func focusContinuousMoveOptionsSOAPResponse() string {
+	return `
+<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:timg="http://www.onvif.org/ver20/imaging/wsdl" xmlns:tt="http://www.onvif.org/ver10/schema">
+  <s:Body>
+    <timg:GetMoveOptionsResponse>
+      <timg:MoveOptions>
+        <tt:Continuous>
+          <tt:Speed>
+            <tt:Min>0.1</tt:Min>
+            <tt:Max>0.2</tt:Max>
+          </tt:Speed>
+        </tt:Continuous>
+      </timg:MoveOptions>
+    </timg:GetMoveOptionsResponse>
+  </s:Body>
+</s:Envelope>`
+}
+
+func focusRelativeAndContinuousMoveOptionsSOAPResponse() string {
+	return `
+<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:timg="http://www.onvif.org/ver20/imaging/wsdl" xmlns:tt="http://www.onvif.org/ver10/schema">
+  <s:Body>
+    <timg:GetMoveOptionsResponse>
+      <timg:MoveOptions>
+        <tt:Relative>
+          <tt:Distance>
+            <tt:Min>-1</tt:Min>
+            <tt:Max>1</tt:Max>
+          </tt:Distance>
+          <tt:Speed>
+            <tt:Min>0.1</tt:Min>
+            <tt:Max>1</tt:Max>
+          </tt:Speed>
+        </tt:Relative>
+        <tt:Continuous>
+          <tt:Speed>
+            <tt:Min>-1</tt:Min>
+            <tt:Max>1</tt:Max>
+          </tt:Speed>
+        </tt:Continuous>
+      </timg:MoveOptions>
+    </timg:GetMoveOptionsResponse>
+  </s:Body>
+</s:Envelope>`
+}
+
+func imagingSettingsSOAPResponse() string {
+	return `
+<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:timg="http://www.onvif.org/ver20/imaging/wsdl" xmlns:tt="http://www.onvif.org/ver10/schema">
+  <s:Body>
+    <timg:GetImagingSettingsResponse>
+      <timg:ImagingSettings>
+        <tt:Exposure>
+          <tt:Mode>AUTO</tt:Mode>
+          <tt:MinIris>0</tt:MinIris>
+          <tt:MaxIris>1</tt:MaxIris>
+          <tt:Iris>0.3</tt:Iris>
+        </tt:Exposure>
+      </timg:ImagingSettings>
+    </timg:GetImagingSettingsResponse>
+  </s:Body>
+</s:Envelope>`
+}
