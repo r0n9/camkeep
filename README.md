@@ -83,7 +83,7 @@ docker run -d \
   -e CAMKEEP_SESSION_SECRET=B1JM12wvPLHL9bturc2DfiFFvHjtntl2+OG+V/2yXjg= \
   -v ${PWD}/config:/app/config \
   -v ${PWD}/records:/app/records \
-  r0n9/camkeep:latest  # 若网络不佳，可替换为 ghcr.io/r0n9/camkeep:latest
+  ghcr.io/r0n9/camkeep:latest
 ```
 
 #### 方式二：Docker-Compose
@@ -93,7 +93,7 @@ docker run -d \
 ```yaml
 services:
   camkeep:
-    image: r0n9/camkeep:latest
+    image: ghcr.io/r0n9/camkeep:latest
     container_name: camkeep
     restart: unless-stopped
     network_mode: "host" # 建议使用 host 网络，否则WebRTC可能握手失败

@@ -84,7 +84,7 @@ docker run -d \
   -e CAMKEEP_SESSION_SECRET=B1JM12wvPLHL9bturc2DfiFFvHjtntl2+OG+V/2yXjg= \
   -v ${PWD}/config:/app/config \
   -v ${PWD}/records:/app/records \
-  r0n9/camkeep:latest  # Use ghcr.io/r0n9/camkeep:latest if network is slow
+  ghcr.io/r0n9/camkeep:latest
 ```
 
 #### Method 2: Docker-Compose
@@ -94,7 +94,7 @@ Create `docker-compose.yaml` in the same directory:
 ```yaml
 services:
   camkeep:
-    image: r0n9/camkeep:latest
+    image: ghcr.io/r0n9/camkeep:latest
     container_name: camkeep
     restart: unless-stopped
     network_mode: "host" # Host mode is recommended for WebRTC
