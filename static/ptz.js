@@ -21,6 +21,26 @@
         return String(window.getActiveLiveCamId() || '').trim();
     }
 
+    function getCachedCapability(camId) {
+        if (!window.cameraCapabilityCache || typeof window.cameraCapabilityCache.get !== 'function') return null;
+        return window.cameraCapabilityCache.get(camId) || null;
+    }
+
+    function canProbePTZ(camId) {
+        const capability = getCachedCapability(camId);
+        return !capability || capability.onvif_enabled !== false;
+    }
+
+    function statusFromCachedCapability(camId) {
+        const capability = getCachedCapability(camId);
+        if (!capability || capability.onvif_enabled !== true) return null;
+        return {
+            capability_state: capability.capability_state || 'not_probed',
+            ptz_state: capability.ptz_state || 'not_probed',
+            imaging_state: capability.imaging_state || 'not_probed'
+        };
+    }
+
     function escapeHtmlValue(value) {
         if (typeof window.escapeHtml === 'function') return window.escapeHtml(value);
         return String(value).replace(/[&<>"']/g, char => ({
@@ -237,15 +257,29 @@
         updateSpeedLabel();
     }
 
-    async function refreshPanel() {
+    async function refreshPanel(options = {}) {
         const camId = getActiveCamId();
         if (!camId) {
+            hidePanel();
+            return;
+        }
+        if (!canProbePTZ(camId)) {
+            state.onvifStatusCache.delete(camId);
             hidePanel();
             return;
         }
 
         const cached = state.onvifStatusCache.get(camId);
         if (cached) renderPanel(camId, cached);
+        const statusFromList = statusFromCachedCapability(camId);
+        if (statusFromList) {
+            state.onvifStatusCache.set(camId, {...cached, ...statusFromList});
+            renderPanel(camId, state.onvifStatusCache.get(camId));
+        }
+        if (!options.force) {
+            if (!cached && !statusFromList) hidePanel();
+            return;
+        }
 
         try {
             const resp = await fetch(`/api/camera/${encodeURIComponent(camId)}/ptz/status`);

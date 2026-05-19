@@ -22,6 +22,7 @@ func TestHandleStatusIncludesRecordOverride(t *testing.T) {
 
 	camID := "status-override-auto"
 	deleteStatusForAppTest(t, camID)
+	service.ReplaceOnvifCandidates(nil)
 	service.UpdateStatus(camID, false, "normal", "09:00-18:00")
 
 	w := httptest.NewRecorder()
@@ -38,6 +39,12 @@ func TestHandleStatusIncludesRecordOverride(t *testing.T) {
 	}
 	if got := payload[camID]["record_override"]; got != "auto" {
 		t.Fatalf("expected record_override auto, got %v", got)
+	}
+	if got := payload[camID]["onvif_enabled"]; got != false {
+		t.Fatalf("expected non-ONVIF status to be marked disabled, got %v", got)
+	}
+	if got := payload[camID]["ptz_state"]; got != service.OnvifStateUnavailable {
+		t.Fatalf("expected non-ONVIF PTZ state unavailable, got %v", got)
 	}
 }
 

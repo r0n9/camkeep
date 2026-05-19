@@ -113,6 +113,17 @@ func handleStatus(c *gin.Context) {
 
 	for id, status := range snapshot {
 		status["record_override"] = task.GetOverride(id)
+		if onvifStatus, ok := service.GetOnvifStatus(id); ok {
+			status["onvif_enabled"] = onvifStatus.Enabled
+			status["onvif_capability_state"] = onvifStatus.CapabilityState
+			status["ptz_state"] = onvifStatus.PTZState
+			status["imaging_state"] = onvifStatus.ImagingState
+		} else {
+			status["onvif_enabled"] = false
+			status["onvif_capability_state"] = service.OnvifStateUnavailable
+			status["ptz_state"] = service.OnvifStateUnavailable
+			status["imaging_state"] = service.OnvifStateUnavailable
+		}
 	}
 	c.JSON(200, snapshot)
 }

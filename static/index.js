@@ -13,6 +13,8 @@ const recordArchiveOpenDates = new Set();
 const recordArchiveViewModes = new Map();
 let matrixToolbarTimer = null;
 
+window.cameraCapabilityCache = window.cameraCapabilityCache || new Map();
+
 window.onload = function () {
     initThemeControls();
     if (typeof DPlayer === 'undefined') {
@@ -732,6 +734,13 @@ async function loadStatus() {
         }
 
         cameras.forEach(([id, cam]) => {
+            window.cameraCapabilityCache.set(id, {
+                onvif_enabled: cam.onvif_enabled === true,
+                capability_state: cam.onvif_capability_state || cam.capability_state || '',
+                ptz_state: cam.ptz_state || '',
+                imaging_state: cam.imaging_state || ''
+            });
+
             const recordState = cam.record_state || (cam.is_running ? 'recording' : 'idle');
             const isRunning = recordState === 'recording' || recordState === 'motion_detecting' || recordState === 'motion_recording';
             const isSelected = currentSelectedCam === id;
@@ -1249,7 +1258,7 @@ function playVideo(source, isLive, title) {
     } else {
         updateFocusUI();
     }
-    refreshPTZPanel();
+    refreshPTZPanel(isLive);
 }
 
 function getActiveLiveCamId() {
@@ -1259,9 +1268,9 @@ function getActiveLiveCamId() {
     return String(data.camId || data.source || '').trim();
 }
 
-async function refreshPTZPanel() {
+async function refreshPTZPanel(force = false) {
     if (window.PTZ && typeof window.PTZ.refreshPanel === 'function') {
-        await window.PTZ.refreshPanel();
+        await window.PTZ.refreshPanel({force});
     }
 }
 
