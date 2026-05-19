@@ -1,11 +1,13 @@
 (function () {
     const PANEL_HIDDEN_CLASS = 'hidden shrink-0 border-l border-gray-800 bg-slate-950 text-slate-100 transition-all duration-300';
+    const MOVE_DURATION_MS = 700;
+    const MOVE_RENEW_MS = 480;
 
     const state = {
         onvifStatusCache: new Map(),
         panelCollapsed: false,
         stopTimer: null,
-        moveInFlight: false,
+        activeMove: null,
         actionInFlight: false,
         speedValue: 0.55
     };
@@ -41,6 +43,13 @@
         if (state.stopTimer) {
             clearTimeout(state.stopTimer);
             state.stopTimer = null;
+        }
+    }
+
+    function clearMoveRenewTimer(move) {
+        if (move && move.renewTimer) {
+            clearTimeout(move.renewTimer);
+            move.renewTimer = null;
         }
     }
 
@@ -114,6 +123,8 @@
                 onpointerdown="window.PTZ.startMove(event, ${x}, ${y}, ${zoom})"
                 onpointerup="window.PTZ.stopMove(event)"
                 onpointercancel="window.PTZ.stopMove(event)"
+                onlostpointercapture="window.PTZ.stopMove(event)"
+                oncontextmenu="window.PTZ.suppressGesture(event)"
                 ${disabled}>
             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">${path}</svg>
         </button>
@@ -124,13 +135,15 @@
         const pointerAttrs = pointerDownAction ? `
                 onpointerdown="${pointerDownAction}"
                 onpointerup="${pointerUpAction || ''}"
-                onpointercancel="${pointerUpAction || ''}"` : '';
+                onpointercancel="${pointerUpAction || ''}"
+                onlostpointercapture="${pointerUpAction || ''}"` : '';
         const clickAttr = clickAction ? ` onclick="${clickAction}"` : '';
         return `
         <button class="ptz-action-btn px-2 ${variantClass}"
                 title="${title}"
                 aria-label="${title}"
                 ${clickAttr}${pointerAttrs}
+                oncontextmenu="window.PTZ.suppressGesture(event)"
                 ${disabled}>
             <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">${path}</svg>
             <span class="truncate">${title}</span>
@@ -150,7 +163,7 @@
 
         const text = panelStateText(status);
         const collapsedClass = state.panelCollapsed ? 'w-[34px]' : 'w-[236px]';
-        panel.className = `shrink-0 border-l border-gray-800 bg-slate-950 text-slate-100 transition-all duration-300 ${collapsedClass}`;
+        panel.className = `ptz-panel-root shrink-0 border-l border-gray-800 bg-slate-950 text-slate-100 transition-all duration-300 ${collapsedClass}`;
 
         if (state.panelCollapsed) {
             panel.innerHTML = `
@@ -185,7 +198,7 @@
                 ${moveButton('上', 0, 1, 0, '<path d="M12 19V5m0 0l-6 6m6-6l6 6" />', disabled)}
                 ${moveButton('右上', 1, 1, 0, '<path d="M17 17V7H7m10 0L7 17" />', disabled)}
                 ${moveButton('左', -1, 0, 0, '<path d="M19 12H5m0 0l6-6m-6 6l6 6" />', disabled)}
-                <button onclick="window.PTZ.stopMove(event, true)" class="ptz-btn ptz-stop" title="停止" aria-label="停止" ${disabled}>
+                <button onclick="window.PTZ.stopMove(event, true)" oncontextmenu="window.PTZ.suppressGesture(event)" class="ptz-btn ptz-stop" title="停止" aria-label="停止" ${disabled}>
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="8" y="8" width="8" height="8" rx="1.5" stroke-width="2.2"></rect></svg>
                 </button>
                 ${moveButton('右', 1, 0, 0, '<path d="M5 12h14m0 0l-6-6m6 6l-6 6" />', disabled)}
@@ -258,52 +271,141 @@
         renderPanel(camId, state.onvifStatusCache.get(camId));
     }
 
-    async function startMove(event, x, y, zoom) {
+    function suppressGesture(event) {
+        if (!event) return;
         event.preventDefault();
         event.stopPropagation();
+        clearPTZSelection();
+    }
+
+    function isInsidePTZ(target) {
+        return Boolean(target && target.closest && target.closest('#ptz-panel'));
+    }
+
+    function clearPTZSelection() {
+        const selection = window.getSelection && window.getSelection();
+        if (selection && !selection.isCollapsed) selection.removeAllRanges();
+    }
+
+    function shouldHandlePointer(event) {
+        return !event || event.isPrimary !== false;
+    }
+
+    function capturePointer(event) {
         if (event.currentTarget && event.pointerId !== undefined) {
             try {
                 event.currentTarget.setPointerCapture(event.pointerId);
             } catch (_) {
             }
         }
+    }
+
+    function releasePointer(move) {
+        if (!move || !move.target || move.pointerId === undefined) return;
+        try {
+            if (move.target.hasPointerCapture && move.target.hasPointerCapture(move.pointerId)) {
+                move.target.releasePointerCapture(move.pointerId);
+            }
+        } catch (_) {
+        }
+    }
+
+    async function startMove(event, x, y, zoom) {
+        suppressGesture(event);
+        if (!shouldHandlePointer(event)) return;
 
         const camId = getActiveCamId();
-        if (!camId || state.moveInFlight) return;
+        if (!camId) return;
+
+        if (state.activeMove) {
+            await stopMove(null, true);
+        }
+
+        capturePointer(event);
         clearStopTimer();
+        const target = event?.currentTarget || null;
+        if (target) target.classList.add('is-pressing');
+
+        const move = {
+            camId,
+            pointerId: event?.pointerId,
+            target,
+            x,
+            y,
+            zoom,
+            stopped: false,
+            requestInFlight: false,
+            renewTimer: null,
+            needsStopAfterRequest: false
+        };
+        state.activeMove = move;
+        setFeedback('移动中');
+        void sendMovePulse(move);
+    }
+
+    async function sendMovePulse(move) {
+        const camId = getActiveCamId();
+        if (!move || move.stopped || state.activeMove !== move || camId !== move.camId || move.requestInFlight) return;
 
         const speed = currentSpeed();
-        state.moveInFlight = true;
-        setFeedback('移动中');
+        move.requestInFlight = true;
         try {
             const resp = await fetch(`/api/camera/${encodeURIComponent(camId)}/ptz/move`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
-                    x: x * speed,
-                    y: y * speed,
-                    zoom: zoom * speed,
-                    duration_ms: 900
+                    x: move.x * speed,
+                    y: move.y * speed,
+                    zoom: move.zoom * speed,
+                    duration_ms: MOVE_DURATION_MS
                 })
             });
             if (!resp.ok) throw new Error(await readError(resp));
-            state.stopTimer = setTimeout(() => stopMove(null, true), 900);
+            if (move.stopped || state.activeMove !== move) {
+                move.needsStopAfterRequest = true;
+                return;
+            }
+            move.renewTimer = setTimeout(() => sendMovePulse(move), MOVE_RENEW_MS);
         } catch (e) {
-            setFeedback(e.message || '云台指令失败', true);
+            if (state.activeMove === move) {
+                setFeedback(e.message || '云台指令失败', true);
+                void stopMove(null, true);
+            }
         } finally {
-            state.moveInFlight = false;
+            move.requestInFlight = false;
+            if (move.needsStopAfterRequest) {
+                move.needsStopAfterRequest = false;
+                void sendStop(move.camId, true);
+            }
         }
     }
 
     async function stopMove(event, force = false) {
-        if (event) {
-            event.preventDefault();
-            event.stopPropagation();
+        suppressGesture(event);
+        if (!shouldHandlePointer(event)) return;
+
+        const move = state.activeMove;
+        if (!move && !force) return;
+        if (event && move && move.pointerId !== undefined && event.pointerId !== move.pointerId && !force) {
+            return;
         }
         clearStopTimer();
+        clearMoveRenewTimer(move);
+        if (move) {
+            move.stopped = true;
+            if (move.target) move.target.classList.remove('is-pressing');
+            releasePointer(move);
+            if (move.requestInFlight) move.needsStopAfterRequest = true;
+        }
+        state.activeMove = null;
 
         const camId = getActiveCamId();
-        if (!camId) return;
+        const stopCamId = move?.camId || camId;
+        if (!stopCamId) return;
+        await sendStop(stopCamId, force);
+    }
+
+    async function sendStop(camId, force = false) {
         try {
             const resp = await fetch(`/api/camera/${encodeURIComponent(camId)}/ptz/stop`, {
                 method: 'POST',
@@ -362,7 +464,29 @@
         refreshPanel,
         startMove,
         stopMove,
+        suppressGesture,
         togglePanel,
         updateSpeedLabel
     };
+
+    window.addEventListener('blur', () => stopMove(null, true));
+    window.addEventListener('pagehide', () => stopMove(null, true));
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) void stopMove(null, true);
+    });
+    document.addEventListener('selectstart', event => {
+        if (!isInsidePTZ(event.target)) return;
+        suppressGesture(event);
+    });
+    document.addEventListener('selectionchange', () => {
+        const selection = window.getSelection && window.getSelection();
+        if (!selection || selection.isCollapsed) return;
+        const anchor = selection.anchorNode && (selection.anchorNode.nodeType === Node.ELEMENT_NODE
+            ? selection.anchorNode
+            : selection.anchorNode.parentElement);
+        const focus = selection.focusNode && (selection.focusNode.nodeType === Node.ELEMENT_NODE
+            ? selection.focusNode
+            : selection.focusNode.parentElement);
+        if (isInsidePTZ(anchor) || isInsidePTZ(focus)) selection.removeAllRanges();
+    });
 })();

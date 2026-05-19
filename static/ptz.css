@@ -1,3 +1,11 @@
+.ptz-panel-root,
+.ptz-panel-root * {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
 .ptz-btn {
     position: relative;
     overflow: hidden;
@@ -18,6 +26,10 @@
     color: #cbd5e1;
     transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease, color 140ms ease, transform 90ms ease;
     touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .ptz-btn::before {
@@ -60,7 +72,8 @@
         0 10px 24px -14px rgba(14, 165, 233, 0.85);
 }
 
-.ptz-btn:active {
+.ptz-btn:active,
+.ptz-btn.is-pressing {
     transform: translateY(1px) scale(0.97);
 }
 
@@ -127,6 +140,10 @@
     line-height: 1;
     transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease, color 140ms ease, transform 90ms ease;
     touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .ptz-action-btn svg {
@@ -157,7 +174,8 @@
         0 10px 22px -14px rgba(20, 184, 166, 0.82);
 }
 
-.ptz-action-btn:active {
+.ptz-action-btn:active,
+.ptz-action-btn.is-pressing {
     transform: translateY(1px) scale(0.98);
 }
 
