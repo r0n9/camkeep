@@ -246,31 +246,31 @@
                 <aside id="ptz-panel" class="hidden shrink-0 border-l border-gray-800 bg-slate-950 text-slate-100 transition-all duration-300"></aside>
             </div>
 
-            <div class="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center px-3 sm:px-4 py-3 bg-[#0f172a] border-t border-gray-800 shrink-0 z-20">
-                <div class="bg-gray-800/80 text-gray-300 px-3 py-1.5 text-xs font-bold rounded-lg border border-gray-700/50 truncate" id="focusIndicator">
-                    当前焦点: <span id="currentCam" class="text-blue-400 ml-1 tracking-wide">窗口 1</span>
+            <div id="video-toolbar" class="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#0f172a] border-t border-gray-800 shrink-0 z-20">
+                <div class="min-w-0 bg-gray-800/70 text-gray-300 px-2 py-1 text-[11px] font-bold rounded-md border border-gray-700/50 truncate leading-none" id="focusIndicator">
+                    焦点: <span id="currentCam" class="text-blue-400 ml-1 tracking-wide">窗口 1</span>
                 </div>
 
-                <div class="flex bg-gray-800/80 p-1 rounded-lg border border-gray-700/50 items-center self-start sm:self-auto">
-                    <button onclick="setLayout(1)" id="btn-layout-1" class="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 transition-all" title="单画面">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" stroke-width="2"></rect></svg>
+                <div class="ml-auto flex shrink-0 bg-gray-800/80 p-0.5 rounded-md border border-gray-700/50 items-center">
+                    <button onclick="setLayout(1)" id="btn-layout-1" class="flex h-7 w-7 items-center justify-center rounded text-gray-400 hover:text-white hover:bg-gray-700 transition-all" title="单画面">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" stroke-width="2"></rect></svg>
                     </button>
-                    <button onclick="setLayout(4)" id="btn-layout-4" class="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 transition-all" title="四画面">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"></path></svg>
+                    <button onclick="setLayout(4)" id="btn-layout-4" class="flex h-7 w-7 items-center justify-center rounded text-gray-400 hover:text-white hover:bg-gray-700 transition-all" title="四画面">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"></path></svg>
                     </button>
-                    <button onclick="setLayout(6)" id="btn-layout-6" class="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 transition-all" title="六画面">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4h4v7H4zM10 4h4v7h-4zM16 4h4v7h-4zM4 13h4v7H4zM10 13h4v7h-4zM16 13h4v7h-4z"></path></svg>
-                    </button>
-
-                    <div class="w-px h-5 bg-gray-600/50 mx-1.5"></div>
-
-                    <button onclick="closeActiveCell()" class="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-red-500/80 transition-all" title="关闭当前播放">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    <button onclick="setLayout(6)" id="btn-layout-6" class="flex h-7 w-7 items-center justify-center rounded text-gray-400 hover:text-white hover:bg-gray-700 transition-all" title="六画面">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4h4v7H4zM10 4h4v7h-4zM16 4h4v7h-4zM4 13h4v7H4zM10 13h4v7h-4zM16 13h4v7h-4z"></path></svg>
                     </button>
 
-                    <button onclick="toggleMatrixFullscreen()" class="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 transition-all" title="多宫格全屏 (Esc退出)">
-                        <svg id="icon-fullscreen-enter" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
-                        <svg id="icon-fullscreen-exit" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 14h4v4M4 14l5 5M20 14h-4v4m0-4l5 5M4 10h4V6M4 10l5-5M20 10h-4V6m0 4l5-5"></path></svg>
+                    <div class="w-px h-4 bg-gray-600/50 mx-1"></div>
+
+                    <button onclick="closeActiveCell()" class="flex h-7 w-7 items-center justify-center rounded text-gray-400 hover:text-white hover:bg-red-500/80 transition-all" title="关闭当前播放">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+
+                    <button onclick="toggleMatrixFullscreen()" class="flex h-7 w-7 items-center justify-center rounded text-gray-400 hover:text-white hover:bg-gray-700 transition-all" title="多宫格全屏 (Esc退出)">
+                        <svg id="icon-fullscreen-enter" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+                        <svg id="icon-fullscreen-exit" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9H5m0 0V5m0 4L3 7m12 2h4m0 0V5m0 4l2-2M9 15H5m0 0v4m0-4l-2 2m12-2h4m0 0v4m0-4l2 2"></path></svg>
                     </button>
                 </div>
             </div>

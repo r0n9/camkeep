@@ -17,6 +17,7 @@ let ptzStopTimer = null;
 let ptzMoveInFlight = false;
 let ptzActionInFlight = false;
 let ptzSpeedValue = 0.55;
+let matrixToolbarTimer = null;
 
 window.onload = function () {
     initThemeControls();
@@ -1107,7 +1108,7 @@ function renderGrid() {
                     <svg class="w-8 h-8 mb-2 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                     <span class="text-xs font-bold tracking-wider uppercase opacity-50">窗口 ${i + 1}</span>
                 </div>
-                <div class="absolute top-2 left-2 z-10 bg-black/35 text-white/80 px-2 py-1 text-[10px] rounded backdrop-blur-sm border border-white/5 hidden pointer-events-none truncate opacity-55 transition-all duration-200 group-hover:bg-black/70 group-hover:text-white group-hover:border-white/10 group-hover:opacity-100" id="label-${i}"></div>
+                <div class="absolute top-2 left-1/2 z-10 max-w-[80%] -translate-x-1/2 bg-black/35 text-white/80 px-2.5 py-1 text-[10px] rounded backdrop-blur-sm border border-white/5 hidden pointer-events-none truncate opacity-55 transition-all duration-200 group-hover:bg-black/70 group-hover:text-white group-hover:border-white/10 group-hover:opacity-100" id="label-${i}"></div>
                 <button onclick="event.stopPropagation(); clearCell(${i})" class="absolute top-2 right-2 z-20 hidden h-7 w-7 items-center justify-center rounded bg-black/65 text-white/80 border border-white/10 backdrop-blur-md opacity-0 pointer-events-none transition-all duration-200 group-hover:opacity-100 group-hover:pointer-events-auto hover:bg-red-500 hover:text-white" id="close-cell-${i}" title="关闭该窗口">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
@@ -2619,28 +2620,69 @@ function toggleCellFullscreen(index) {
     }
 }
 
+function scheduleMatrixToolbarAutoHide(wrapper) {
+    clearTimeout(matrixToolbarTimer);
+    matrixToolbarTimer = setTimeout(() => {
+        const toolbar = document.getElementById('video-toolbar');
+        if (toolbar && (toolbar.matches(':hover') || toolbar.matches(':focus-within'))) {
+            scheduleMatrixToolbarAutoHide(wrapper);
+            return;
+        }
+        wrapper.classList.remove('matrix-toolbar-visible');
+    }, 1600);
+}
+
+function revealMatrixToolbar() {
+    const wrapper = document.getElementById('video-wrapper');
+    if ((document.fullscreenElement || document.webkitFullscreenElement) !== wrapper) return;
+    wrapper.classList.add('matrix-toolbar-visible');
+    scheduleMatrixToolbarAutoHide(wrapper);
+}
+
 // 3. 监听全局全屏状态变化，自动去圆角、去边框、切图标，达到完美沉浸感
 ['fullscreenchange', 'webkitfullscreenchange'].forEach(eventType => {
     document.addEventListener(eventType, () => {
         const enterIcon = document.getElementById('icon-fullscreen-enter');
         const exitIcon = document.getElementById('icon-fullscreen-exit');
         const wrapper = document.getElementById('video-wrapper');
+        const stage = document.getElementById('video-stage');
+        const grid = document.getElementById('video-grid');
+        const toolbar = document.getElementById('video-toolbar');
 
-        // 只要是在全屏状态下 (无论是多宫格全屏，还是单格子全屏)
-        if (document.fullscreenElement || document.webkitFullscreenElement) {
+        const fullscreenElement = document.fullscreenElement || document.webkitFullscreenElement;
+        const matrixFullscreen = fullscreenElement === wrapper;
+        // 顶部按钮只代表多宫格全屏；单个播放窗口全屏时不切换这个图标。
+        if (matrixFullscreen) {
             enterIcon.classList.add('hidden');
             exitIcon.classList.remove('hidden');
 
             // 去除父容器圆角和边框，贴合显示器物理边缘
             wrapper.classList.remove('rounded-xl', 'border');
-            wrapper.classList.add('rounded-none', 'border-0');
+            wrapper.classList.add('rounded-none', 'border-0', 'h-screen', 'max-h-none');
+            stage.classList.add('h-full');
+            grid.classList.remove('p-1', 'gap-1');
+            grid.classList.add('p-0', 'gap-0');
+            wrapper.classList.add('matrix-toolbar-visible');
+            wrapper.addEventListener('mousemove', revealMatrixToolbar);
+            toolbar.addEventListener('mouseenter', revealMatrixToolbar);
+            toolbar.addEventListener('mouseleave', revealMatrixToolbar);
+            toolbar.addEventListener('focusin', revealMatrixToolbar);
+            scheduleMatrixToolbarAutoHide(wrapper);
         } else {
+            clearTimeout(matrixToolbarTimer);
             enterIcon.classList.remove('hidden');
             exitIcon.classList.add('hidden');
 
-            // 退出全屏，恢复 UI 质感
             wrapper.classList.add('rounded-xl', 'border');
-            wrapper.classList.remove('rounded-none', 'border-0');
+            wrapper.classList.remove('rounded-none', 'border-0', 'h-screen', 'max-h-none');
+            wrapper.classList.remove('matrix-toolbar-visible');
+            wrapper.removeEventListener('mousemove', revealMatrixToolbar);
+            toolbar.removeEventListener('mouseenter', revealMatrixToolbar);
+            toolbar.removeEventListener('mouseleave', revealMatrixToolbar);
+            toolbar.removeEventListener('focusin', revealMatrixToolbar);
+            stage.classList.remove('h-full');
+            grid.classList.add('p-1', 'gap-1');
+            grid.classList.remove('p-0', 'gap-0');
         }
     });
 });
