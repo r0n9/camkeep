@@ -48,6 +48,34 @@ func TestHandleStatusIncludesRecordOverride(t *testing.T) {
 	}
 }
 
+func TestHandleStatusReturnsExplicitMode(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	camID := "status-mode-motion"
+	deleteStatusForAppTest(t, camID)
+	service.ReplaceOnvifCandidates(nil)
+	service.UpdateRecordState(camID, service.RecordStateMotionDetecting, service.ModeMotion, "09:00-18:00")
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	handleStatus(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var payload map[string]map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if got := payload[camID]["mode"]; got != service.ModeMotion {
+		t.Fatalf("expected mode %q, got %v", service.ModeMotion, got)
+	}
+	if got := payload[camID]["record_state"]; got != service.RecordStateMotionDetecting {
+		t.Fatalf("expected record_state %q, got %v", service.RecordStateMotionDetecting, got)
+	}
+}
+
 func TestFilterRecordEntriesDefaultKeepsLatestSevenAvailableDates(t *testing.T) {
 	entries := []recordEntry{
 		testRecordEntry(t, "2026-05-03"),

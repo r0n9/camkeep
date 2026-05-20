@@ -1,6 +1,7 @@
 package service
 
 import (
+	"strings"
 	"sync"
 	"time"
 )
@@ -10,12 +11,16 @@ type CameraStatus struct {
 	IsRunning   bool      `json:"is_running"`
 	RecordState string    `json:"record_state"` // 录像状态: idle, recording, motion_detecting, motion_recording
 	StartTime   time.Time `json:"start_time"`
-	Mode        string    `json:"mode"`
+	Mode        string    `json:"mode"` // 录制模式: normal, motion, timelapse
 	RecordTime  string    `json:"record_time"`
 	StreamState string    `json:"stream_state"` // 流状态: online(在线), offline(断线), idle(按需休眠)
 }
 
 const (
+	ModeNormal    = "normal"
+	ModeMotion    = "motion"
+	ModeTimelapse = "timelapse"
+
 	RecordStateIdle            = "idle"
 	RecordStateRecording       = "recording"
 	RecordStateMotionDetecting = "motion_detecting"
@@ -34,7 +39,7 @@ func UpdateStatus(id string, isRunning bool, mode string, recordTime string) {
 	status := ensureCameraStatus(id)
 	status.IsRunning = isRunning
 	status.RecordState = recordStateFromRunning(isRunning)
-	status.Mode = mode
+	status.Mode = normalizeStatusMode(mode)
 	status.RecordTime = recordTime
 }
 
@@ -52,7 +57,7 @@ func UpdateRecordState(id string, recordState string, mode string, recordTime st
 	status := ensureCameraStatus(id)
 	status.RecordState = normalizeRecordState(recordState)
 	status.IsRunning = status.RecordState != RecordStateIdle
-	status.Mode = mode
+	status.Mode = normalizeStatusMode(mode)
 	status.RecordTime = recordTime
 }
 
@@ -69,10 +74,14 @@ func ensureCameraStatus(id string) *CameraStatus {
 		StatusMap[id] = &CameraStatus{
 			StreamState: "offline",
 			RecordState: RecordStateIdle,
+			Mode:        ModeNormal,
 		}
 	}
 	if StatusMap[id].RecordState == "" {
 		StatusMap[id].RecordState = recordStateFromRunning(StatusMap[id].IsRunning)
+	}
+	if StatusMap[id].Mode == "" {
+		StatusMap[id].Mode = ModeNormal
 	}
 	return StatusMap[id]
 }
@@ -90,5 +99,16 @@ func normalizeRecordState(recordState string) string {
 		return recordState
 	default:
 		return RecordStateIdle
+	}
+}
+
+func normalizeStatusMode(mode string) string {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case ModeMotion:
+		return ModeMotion
+	case ModeTimelapse:
+		return ModeTimelapse
+	default:
+		return ModeNormal
 	}
 }

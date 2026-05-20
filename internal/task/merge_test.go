@@ -28,12 +28,12 @@ func TestSkipDailyMergeOnlyForTimelapse(t *testing.T) {
 
 func TestMergeFragmentsIncludesNormalAndMotionFiles(t *testing.T) {
 	dir := t.TempDir()
-	createMergeTestFile(t, dir, "cam1_2026-05-12_09-00-00.ts")
-	createMergeTestFile(t, dir, "2026-05-12_090500_motion.mp4")
-	createMergeTestFile(t, dir, "cam1_2026-05-12_09-10-00.mp4")
+	createMergeTestFile(t, dir, "cam1_20260512_090000_090500.ts")
+	createMergeTestFile(t, dir, "cam1_20260512_090500_090800_motion.mp4")
+	createMergeTestFile(t, dir, "cam1_20260512_091000_091500.mp4")
 	createMergeTestFile(t, dir, "manual.mp4")
-	createMergeTestFile(t, dir, "cam1_2026-05-12_merged.mp4")
-	createMergeTestFile(t, dir, "cam1_2026-05-12_09-15-00.tmp.mp4")
+	createMergeTestFile(t, dir, "cam1_20260512_090000_normal_merged.mp4")
+	createMergeTestFile(t, dir, "cam1_20260512_091500_unknown.tmp.mp4")
 	createMergeTestFile(t, dir, "note.txt")
 	if err := os.Mkdir(filepath.Join(dir, "nested"), 0755); err != nil {
 		t.Fatal(err)
@@ -46,9 +46,9 @@ func TestMergeFragmentsIncludesNormalAndMotionFiles(t *testing.T) {
 
 	got := mergeTestBaseNames(fragments)
 	want := []string{
-		"cam1_2026-05-12_09-00-00.ts",
-		"2026-05-12_090500_motion.mp4",
-		"cam1_2026-05-12_09-10-00.mp4",
+		"cam1_20260512_090000_090500.ts",
+		"cam1_20260512_090500_090800_motion.mp4",
+		"cam1_20260512_091000_091500.mp4",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("expected %v, got %v", want, got)
@@ -57,18 +57,18 @@ func TestMergeFragmentsIncludesNormalAndMotionFiles(t *testing.T) {
 
 func TestSortMergeFragmentsUsesEmbeddedStartTime(t *testing.T) {
 	fragments := []string{
-		"/records/cam1/2026-05-12/cam1_2026-05-12_09-10-00.ts",
-		"/records/cam1/2026-05-12/2026-05-12_090500_motion.mp4",
-		"/records/cam1/2026-05-12/cam1_2026-05-12_09-00-00.ts",
+		"/records/cam1/2026-05-12/cam1_20260512_091000_091500.ts",
+		"/records/cam1/2026-05-12/cam1_20260512_090500_090800_motion.mp4",
+		"/records/cam1/2026-05-12/cam1_20260512_090000_090500.ts",
 	}
 
 	sortMergeFragments(fragments)
 
 	got := mergeTestBaseNames(fragments)
 	want := []string{
-		"cam1_2026-05-12_09-00-00.ts",
-		"2026-05-12_090500_motion.mp4",
-		"cam1_2026-05-12_09-10-00.ts",
+		"cam1_20260512_090000_090500.ts",
+		"cam1_20260512_090500_090800_motion.mp4",
+		"cam1_20260512_091000_091500.ts",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("expected %v, got %v", want, got)
@@ -77,10 +77,10 @@ func TestSortMergeFragmentsUsesEmbeddedStartTime(t *testing.T) {
 
 func TestGroupMergeFragmentsByHour(t *testing.T) {
 	fragments := []string{
-		"/records/cam1/2026-05-12/cam1_2026-05-12_10-00-00.ts",
-		"/records/cam1/2026-05-12/cam1_2026-05-12_09-10-00.ts",
-		"/records/cam1/2026-05-12/2026-05-12_095500_motion.mp4",
-		"/records/cam1/2026-05-12/cam1_2026-05-12_10-05-00.ts",
+		"/records/cam1/2026-05-12/cam1_20260512_100000_100500.ts",
+		"/records/cam1/2026-05-12/cam1_20260512_091000_091500.ts",
+		"/records/cam1/2026-05-12/cam1_20260512_095500_095800_motion.mp4",
+		"/records/cam1/2026-05-12/cam1_20260512_100500_101000.ts",
 	}
 
 	groups := groupMergeFragmentsByHour(fragments)
@@ -88,30 +88,30 @@ func TestGroupMergeFragmentsByHour(t *testing.T) {
 		t.Fatalf("expected 3 hourly groups, got %d", len(groups))
 	}
 
-	if groups[0].hourKey != "2026-05-12_09" || groups[0].kind != "motion" {
-		t.Fatalf("expected first group 2026-05-12_09 motion, got %s %s", groups[0].hourKey, groups[0].kind)
+	if groups[0].hourKey != "20260512_090000" || groups[0].kind != "motion" {
+		t.Fatalf("expected first group 20260512_090000 motion, got %s %s", groups[0].hourKey, groups[0].kind)
 	}
 	if got := mergeTestBaseNames(groups[0].fragments); !reflect.DeepEqual(got, []string{
-		"2026-05-12_095500_motion.mp4",
+		"cam1_20260512_095500_095800_motion.mp4",
 	}) {
 		t.Fatalf("unexpected first group fragments: %v", got)
 	}
 
-	if groups[1].hourKey != "2026-05-12_09" || groups[1].kind != "normal" {
-		t.Fatalf("expected second group 2026-05-12_09 normal, got %s %s", groups[1].hourKey, groups[1].kind)
+	if groups[1].hourKey != "20260512_090000" || groups[1].kind != "normal" {
+		t.Fatalf("expected second group 20260512_090000 normal, got %s %s", groups[1].hourKey, groups[1].kind)
 	}
 	if got := mergeTestBaseNames(groups[1].fragments); !reflect.DeepEqual(got, []string{
-		"cam1_2026-05-12_09-10-00.ts",
+		"cam1_20260512_091000_091500.ts",
 	}) {
 		t.Fatalf("unexpected second group fragments: %v", got)
 	}
 
-	if groups[2].hourKey != "2026-05-12_10" || groups[2].kind != "normal" {
-		t.Fatalf("expected third group 2026-05-12_10 normal, got %s %s", groups[2].hourKey, groups[2].kind)
+	if groups[2].hourKey != "20260512_100000" || groups[2].kind != "normal" {
+		t.Fatalf("expected third group 20260512_100000 normal, got %s %s", groups[2].hourKey, groups[2].kind)
 	}
 	if got := mergeTestBaseNames(groups[2].fragments); !reflect.DeepEqual(got, []string{
-		"cam1_2026-05-12_10-00-00.ts",
-		"cam1_2026-05-12_10-05-00.ts",
+		"cam1_20260512_100000_100500.ts",
+		"cam1_20260512_100500_101000.ts",
 	}) {
 		t.Fatalf("unexpected third group fragments: %v", got)
 	}
@@ -119,34 +119,34 @@ func TestGroupMergeFragmentsByHour(t *testing.T) {
 
 func TestGroupMergeFragmentsByHourSeparatesNormalAndMotion(t *testing.T) {
 	fragments := []string{
-		"/records/cam1/2026-05-12/cam1_2026-05-12_09-20-00.ts",
-		"/records/cam1/2026-05-12/2026-05-12_092500_motion.mp4",
-		"/records/cam1/2026-05-12/cam1_2026-05-12_09-30-00.ts",
+		"/records/cam1/2026-05-12/cam1_20260512_092000_092500.ts",
+		"/records/cam1/2026-05-12/cam1_20260512_092500_092800_motion.mp4",
+		"/records/cam1/2026-05-12/cam1_20260512_093000_093500.ts",
 	}
 
 	groups := groupMergeFragmentsByHour(fragments)
 	if len(groups) != 2 {
 		t.Fatalf("expected 2 hourly groups, got %d", len(groups))
 	}
-	if groups[0].kind != "motion" || groups[0].outputNameSuffix() != "_motion" {
-		t.Fatalf("expected first group to be motion, got kind=%q suffix=%q", groups[0].kind, groups[0].outputNameSuffix())
+	if groups[0].kind != "motion" {
+		t.Fatalf("expected first group to be motion, got kind=%q", groups[0].kind)
 	}
-	if got := mergeTestBaseNames(groups[0].fragments); !reflect.DeepEqual(got, []string{"2026-05-12_092500_motion.mp4"}) {
+	if got := mergeTestBaseNames(groups[0].fragments); !reflect.DeepEqual(got, []string{"cam1_20260512_092500_092800_motion.mp4"}) {
 		t.Fatalf("unexpected motion fragments: %v", got)
 	}
-	if groups[1].kind != "normal" || groups[1].outputNameSuffix() != "" {
-		t.Fatalf("expected second group to be normal, got kind=%q suffix=%q", groups[1].kind, groups[1].outputNameSuffix())
+	if groups[1].kind != "normal" {
+		t.Fatalf("expected second group to be normal, got kind=%q", groups[1].kind)
 	}
 	if got := mergeTestBaseNames(groups[1].fragments); !reflect.DeepEqual(got, []string{
-		"cam1_2026-05-12_09-20-00.ts",
-		"cam1_2026-05-12_09-30-00.ts",
+		"cam1_20260512_092000_092500.ts",
+		"cam1_20260512_093000_093500.ts",
 	}) {
 		t.Fatalf("unexpected normal fragments: %v", got)
 	}
 }
 
 func TestMergeFragmentStartTimeParsesNormalAndMotionNames(t *testing.T) {
-	normal, ok := mergeFragmentStartTime("cam1_2026-05-12_09-10-00.ts")
+	normal, ok := mergeFragmentStartTime("cam1_20260512_091000_091500.ts")
 	if !ok {
 		t.Fatal("expected normal segment start time to parse")
 	}
@@ -155,7 +155,7 @@ func TestMergeFragmentStartTimeParsesNormalAndMotionNames(t *testing.T) {
 		t.Fatalf("expected %s, got %s", wantNormal, normal)
 	}
 
-	motion, ok := mergeFragmentStartTime("2026-05-12_091025_motion.mp4")
+	motion, ok := mergeFragmentStartTime("cam1_20260512_091025_091500_motion.mp4")
 	if !ok {
 		t.Fatal("expected motion recording start time to parse")
 	}

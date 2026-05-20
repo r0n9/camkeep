@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/r0n9/camkeep/constant"
+	"github.com/r0n9/camkeep/internal/service"
 )
 
 const (
@@ -59,6 +60,17 @@ func isNormalMode(cam constant.Camera) bool {
 
 func motionRecordingEnabled(cam constant.Camera) bool {
 	return isNormalMode(cam) && cam.MotionDetect
+}
+
+func statusModeForCamera(cam constant.Camera) string {
+	switch {
+	case cam.Mode == "timelapse":
+		return service.ModeTimelapse
+	case motionRecordingEnabled(cam):
+		return service.ModeMotion
+	default:
+		return service.ModeNormal
+	}
 }
 
 func motionRatioThreshold(cam constant.Camera) float64 {
@@ -178,8 +190,10 @@ func exportMotionTimeShiftEvent(ctx context.Context, cam constant.Camera, camDir
 		return
 	}
 
-	outputPath := filepath.Join(dateDir, fmt.Sprintf("%s_motion.mp4",
-		session.StartTime.Format("2006-01-02_150405")))
+	outputPath := filepath.Join(dateDir, fmt.Sprintf("%s_%s_%s_motion.mp4",
+		cam.ID,
+		session.StartTime.Format("20060102_150405"),
+		session.EndTime.Format("150405")))
 	tempOutput := outputPath + ".tmp.mp4"
 	defer os.Remove(tempOutput)
 

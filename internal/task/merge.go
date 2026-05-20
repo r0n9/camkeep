@@ -22,7 +22,7 @@ const (
 	minMergedDurationRatio = 0.75
 )
 
-var mergeFragmentTimePattern = regexp.MustCompile(`\d{4}-\d{2}-\d{2}_(?:\d{2}-\d{2}-\d{2}|\d{6})`)
+var mergeFragmentTimePattern = regexp.MustCompile(`\d{8}_\d{6}|\d{4}-\d{2}-\d{2}_(?:\d{2}-\d{2}-\d{2}|\d{6})`)
 
 type mergeFragmentScanResult struct {
 	dateDir               string
@@ -147,16 +147,9 @@ func mergeCameraDate(ctx context.Context, cam constant.Camera, date string) erro
 	return nil
 }
 
-func (g mergeHourGroup) outputNameSuffix() string {
-	if g.kind == "motion" {
-		return "_motion"
-	}
-	return ""
-}
-
 func mergeOneHourGroup(ctx context.Context, cam constant.Camera, date, dateDir string, group mergeHourGroup) error {
 	mergedExt := ".mp4"
-	mergedName := fmt.Sprintf("%s_%s%s%s%s", cam.ID, group.hourKey, group.outputNameSuffix(), mergedSuffix, mergedExt)
+	mergedName := fmt.Sprintf("%s_%s_%s%s%s", cam.ID, group.hourKey, group.kind, mergedSuffix, mergedExt)
 	mergedPath := filepath.Join(dateDir, mergedName)
 	if _, err := os.Stat(mergedPath); err == nil {
 		log.Printf("[%s] 跳过每日合并小时分组: 合并文件已存在, date=%s, hour=%s, path=%s",
@@ -384,15 +377,14 @@ func (r mergeFragmentScanResult) summary() string {
 		r.dateDir, r.totalEntries, len(r.fragments), r.skippedDirs, r.skippedUnsupportedExt, r.skippedMerged, r.skippedTemp, r.skippedNoTime)
 }
 
-func isMergeFragmentName(name string) bool {
-	return mergeFragmentSkipReason(name) == ""
-}
-
 func mergeFragmentSkipReason(name string) string {
 	if strings.Contains(name, mergedSuffix) {
 		return "merged"
 	}
 	if strings.Contains(name, ".tmp") {
+		return "temp"
+	}
+	if strings.Contains(name, "_unknown") {
 		return "temp"
 	}
 	ext := strings.ToLower(filepath.Ext(name))
@@ -426,7 +418,7 @@ func groupMergeFragmentsByHour(fragments []string) []mergeHourGroup {
 			continue
 		}
 		hourStart := time.Date(start.Year(), start.Month(), start.Day(), start.Hour(), 0, 0, 0, start.Location())
-		hourKey := hourStart.Format("2006-01-02_15")
+		hourKey := hourStart.Format("20060102_150000")
 		kind := mergeFragmentKind(fragment)
 		groupKey := hourKey + "|" + kind
 		groupsByKey[groupKey] = append(groupsByKey[groupKey], fragment)
@@ -455,7 +447,8 @@ func groupMergeFragmentsByHour(fragments []string) []mergeHourGroup {
 }
 
 func mergeFragmentKind(path string) string {
-	if strings.Contains(filepath.Base(path), "_motion") {
+	base := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+	if strings.HasSuffix(base, "_motion") {
 		return "motion"
 	}
 	return "normal"
@@ -463,9 +456,14 @@ func mergeFragmentKind(path string) string {
 
 func mergeFragmentStartTime(path string) (time.Time, bool) {
 	for _, raw := range mergeFragmentTimePattern.FindAllString(filepath.Base(path), -1) {
-		layout := "2006-01-02_150405"
-		if strings.Contains(raw, "-") && len(raw) == len("2006-01-02_15-04-05") {
+		var layout string
+		switch {
+		case len(raw) == len("20060102_150405") && !strings.Contains(raw, "-"):
+			layout = "20060102_150405"
+		case strings.Contains(raw, "-") && len(raw) == len("2006-01-02_15-04-05"):
 			layout = "2006-01-02_15-04-05"
+		default:
+			layout = "2006-01-02_150405"
 		}
 		start, err := time.ParseInLocation(layout, raw, time.Local)
 		if err == nil {

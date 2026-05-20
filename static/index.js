@@ -778,6 +778,18 @@ async function loadStatus() {
                 recordTextClass = 'text-gray-400';
             }
 
+            const modeValue = (cam.mode || 'normal').toLowerCase();
+            const modeDisplay = modeValue === 'motion'
+                ? 'MOTION'
+                : modeValue === 'timelapse'
+                    ? 'TIMELAPSE'
+                    : 'NORMAL';
+            const modeBadgeClass = modeValue === 'motion'
+                ? 'bg-amber-100 text-amber-700'
+                : modeValue === 'timelapse'
+                    ? 'bg-sky-100 text-sky-700'
+                    : 'bg-slate-100 text-slate-500';
+
             const item = document.createElement('div');
             item.className = `px-2 py-1.5 rounded-lg border cursor-pointer transition-all flex flex-col group ${isSelected ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-100' : 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-sm'} ${isRunning ? '' : 'opacity-80'}`;
             item.onclick = () => selectCamera(id);
@@ -787,7 +799,7 @@ async function loadStatus() {
                     <div class="min-w-0 flex-1">
                         <div class="flex min-w-0 items-center gap-1.5">
                             <span class="truncate font-bold text-gray-800 text-xs leading-4 tracking-tight">${id}</span>
-                            <span class="shrink-0 rounded bg-slate-100 px-1 py-0.5 text-[8px] font-bold uppercase leading-none text-slate-400">${cam.mode || 'Normal'}</span>
+                            <span class="shrink-0 rounded ${modeBadgeClass} px-1 py-0.5 text-[8px] font-bold uppercase leading-none">${modeDisplay}</span>
                         </div>
                         <div class="mt-0.5 flex flex-wrap items-center gap-0.5">
                             <span class="inline-flex items-center rounded bg-slate-50 px-1 py-0.5 ring-1 ring-slate-100" title="摄像机实时流状态">
@@ -2033,21 +2045,26 @@ function parseRecordMeta(file) {
     const date = dateMatch ? dateMatch[0] : '其他归档';
     const startParts = parseRecordStartParts(name, path);
     const ext = (name.split('.').pop() || '').toUpperCase();
-    const isMotion = /_motion\./i.test(name);
+    const isMotion = /_motion(?:\.|_merged)/i.test(name);
     const isMerged = /_merged\./i.test(name);
+    const isTimelapse = /_timelapse\./i.test(name);
     const timeDisplay = startParts ? `${startParts.hourText}:${startParts.minuteText}:${startParts.secondText}` : (isMerged ? name : '整段录像');
     const sortKey = startParts ? `${startParts.hourText}${startParts.minuteText}${startParts.secondText}_${name}` : name;
-    const kind = isMotion ? '动检' : isMerged ? '合并' : '切片';
+    const kind = isMotion ? '动检' : isTimelapse ? '延时' : isMerged ? '合并' : '切片';
     const kindClass = isMotion
         ? 'bg-amber-50 text-amber-700 ring-amber-100'
-        : isMerged
-            ? 'bg-emerald-50 text-emerald-700 ring-emerald-100'
-            : 'bg-slate-100 text-slate-500 ring-slate-200';
+        : isTimelapse
+            ? 'bg-purple-50 text-purple-700 ring-purple-100'
+            : isMerged
+                ? 'bg-emerald-50 text-emerald-700 ring-emerald-100'
+                : 'bg-slate-100 text-slate-500 ring-slate-200';
     const iconClass = isMotion
         ? 'bg-amber-50 text-amber-600 ring-amber-100'
-        : isMerged
-            ? 'bg-emerald-50 text-emerald-600 ring-emerald-100'
-            : 'bg-blue-50 text-blue-600 ring-blue-100';
+        : isTimelapse
+            ? 'bg-purple-50 text-purple-600 ring-purple-100'
+            : isMerged
+                ? 'bg-emerald-50 text-emerald-600 ring-emerald-100'
+                : 'bg-blue-50 text-blue-600 ring-blue-100';
 
     return {
         date,
@@ -2064,12 +2081,20 @@ function parseRecordMeta(file) {
 
 function parseRecordStartParts(name, path) {
     const text = `${path || ''}/${name || ''}`;
+
+    // 新格式: CamID_YYYYMMDD_HHMMSS_HHMMSS.ext 或 CamID_YYYYMMDD_HHMMSS_motion.ext
+    const newFormat = text.match(/_(\d{8})_(\d{2})(\d{2})(\d{2})_/);
+    if (newFormat) return normalizeRecordStartParts(newFormat[2], newFormat[3], newFormat[4]);
+
+    // 旧格式: YYYY-MM-DD_HH-MM-SS
     const dashed = text.match(/\d{4}-\d{2}-\d{2}_(\d{2})-(\d{2})-(\d{2})/);
     if (dashed) return normalizeRecordStartParts(dashed[1], dashed[2], dashed[3]);
 
+    // 旧格式: YYYY-MM-DD_HHMMSS
     const compact = text.match(/\d{4}-\d{2}-\d{2}_(\d{2})(\d{2})(\d{2})/);
     if (compact) return normalizeRecordStartParts(compact[1], compact[2], compact[3]);
 
+    // 旧格式: YYYY-MM-DD_HH (小时合并)
     const hourOnly = text.match(/\d{4}-\d{2}-\d{2}_(\d{2})(?:_|\.|$)/);
     if (hourOnly) return normalizeRecordStartParts(hourOnly[1], '00', '00');
 

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -81,7 +82,7 @@ func CameraTask(ctx context.Context, wg *sync.WaitGroup, cam constant.Camera) {
 	camDir := filepath.Join(constant.DefaultRecordBaseDir, cam.ID)
 	os.MkdirAll(camDir, 0755)
 
-	service.UpdateStatus(cam.ID, false, cam.Mode, cam.RecordTime)
+	service.UpdateStatus(cam.ID, false, statusModeForCamera(cam), cam.RecordTime)
 
 	if motionRecordingEnabled(cam) {
 		runMotionCameraTask(ctx, cam, camDir)
@@ -108,11 +109,12 @@ func runScheduledCameraTask(ctx context.Context, cam constant.Camera, camDir str
 					<-ffmpegDone
 				}
 			}
-			service.UpdateStatus(cam.ID, false, cam.Mode, cam.RecordTime)
+			service.UpdateStatus(cam.ID, false, statusModeForCamera(cam), cam.RecordTime)
 			return
 		case <-ticker.C:
 			now := time.Now()
 			ensureCameraDateDirs(camDir, now)
+			renameCompletedSegments(ctx, cam, camDir, now)
 
 			// 判断逻辑接入覆写
 			control := getOverride(cam.ID)
@@ -174,7 +176,7 @@ func runScheduledCameraTask(ctx context.Context, cam constant.Camera, camDir str
 				isRunning = false
 			}
 
-			service.UpdateStatus(cam.ID, isRunning, cam.Mode, cam.RecordTime)
+			service.UpdateStatus(cam.ID, isRunning, statusModeForCamera(cam), cam.RecordTime)
 		}
 	}
 }
@@ -197,7 +199,7 @@ func runMotionCameraTask(ctx context.Context, cam constant.Camera, camDir string
 					<-harvestDone
 				}
 			}
-			service.UpdateStatus(cam.ID, false, cam.Mode, cam.RecordTime)
+			service.UpdateStatus(cam.ID, false, statusModeForCamera(cam), cam.RecordTime)
 			return
 		case <-ticker.C:
 			now := time.Now()
@@ -299,8 +301,59 @@ func runMotionCameraTask(ctx context.Context, cam constant.Camera, camDir string
 			} else if harvestCmd != nil {
 				recordState = service.RecordStateMotionDetecting
 			}
-			service.UpdateRecordState(cam.ID, recordState, cam.Mode, cam.RecordTime)
+			service.UpdateRecordState(cam.ID, recordState, statusModeForCamera(cam), cam.RecordTime)
 		}
+	}
+}
+
+// segmentStartLayout 是 ffmpeg -strftime 生成的文件名中开始时间部分格式
+const segmentStartLayout = "20060102_150405"
+
+// renameCompletedSegments 将已完成的 normal 模式 segment 从 CamID_YYYYMMDD_HHMMSS_unknown.ext
+// 重命名为 CamID_YYYYMMDD_HHMMSS_HHMMSS.ext
+// 同时扫描今天和昨天目录，解决跨天时最后一个 segment 漏处理的问题
+func renameCompletedSegments(ctx context.Context, cam constant.Camera, camDir string, now time.Time) {
+	if cam.Mode == "timelapse" {
+		return
+	}
+	segDur := time.Duration(cam.SegmentDuration) * time.Second
+	renameSegmentsInDir(ctx, cam.ID, filepath.Join(camDir, now.Format("2006-01-02")), segDur, now)
+	renameSegmentsInDir(ctx, cam.ID, filepath.Join(camDir, now.AddDate(0, 0, -1).Format("2006-01-02")), segDur, now)
+}
+
+func renameSegmentsInDir(ctx context.Context, camID, dateDir string, segDur time.Duration, now time.Time) {
+	entries, err := os.ReadDir(dateDir)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		ext := filepath.Ext(name)
+		base := strings.TrimSuffix(name, ext)
+		parts := strings.Split(base, "_")
+
+		// 格式: CamID_YYYYMMDD_HHMMSS_unknown 有4段，第4段必须是 "unknown" 才处理
+		if len(parts) != 4 || parts[3] != "unknown" {
+			continue
+		}
+		startTime, err := time.ParseInLocation(segmentStartLayout, parts[1]+"_"+parts[2], time.Local)
+		if err != nil {
+			continue
+		}
+		if now.Before(startTime.Add(segDur).Add(10 * time.Second)) {
+			continue
+		}
+		path := filepath.Join(dateDir, name)
+		dur, err := probeVideoDuration(ctx, path)
+		if err != nil {
+			continue
+		}
+		endTime := startTime.Add(dur)
+		newName := fmt.Sprintf("%s_%s_%s%s", camID, startTime.Format(segmentStartLayout), endTime.Format("150405"), ext)
+		os.Rename(path, filepath.Join(dateDir, newName))
 	}
 }
 
@@ -324,7 +377,7 @@ func currentStreamState(camID string) string {
 
 // startFFmpeg 构建并启动 FFmpeg 进程
 func startFFmpeg(ctx context.Context, cam constant.Camera, camDir string) *exec.Cmd {
-	fileNamePattern := fmt.Sprintf("%s/%%Y-%%m-%%d/%s_%%Y-%%m-%%d_%%H-%%M-%%S.%s", filepath.ToSlash(camDir), cam.ID, cam.Format)
+	fileNamePattern := fmt.Sprintf("%s/%%Y-%%m-%%d/%s_%%Y%%m%%d_%%H%%M%%S_unknown.%s", filepath.ToSlash(camDir), cam.ID, cam.Format)
 
 	var args []string
 
@@ -414,7 +467,7 @@ func startFFmpeg(ctx context.Context, cam constant.Camera, camDir string) *exec.
 			args = append(args, "-segment_format_options", "movflags=frag_keyframe+empty_moov")
 		}
 
-		args = append(args, fileNamePattern)
+		args = append(args, fmt.Sprintf("%s/%%Y-%%m-%%d/%s_%%Y%%m%%d_%%H%%M%%S_timelapse.%s", filepath.ToSlash(camDir), cam.ID, cam.Format))
 	}
 
 	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
