@@ -32,6 +32,69 @@
     max-width: min(52vw, 420px);
 }
 
+.record24h-dock {
+    position: relative;
+    z-index: 6;
+}
+
+.record24h-dock .record24h {
+    border-color: rgba(16, 185, 129, 0.34);
+    box-shadow: 0 18px 42px -28px rgba(5, 150, 105, 0.55);
+}
+
+.record24h-dock-notice {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px dashed rgba(16, 185, 129, 0.34);
+    border-radius: 10px;
+    background: rgba(236, 253, 245, 0.72);
+}
+
+.record24h-dock-notice strong {
+    display: block;
+    color: #047857;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.record24h-dock-notice span {
+    display: block;
+    margin-top: 2px;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.record24h-dock-notice button {
+    flex: 0 0 auto;
+    height: 28px;
+    padding: 0 10px;
+    border: 1px solid rgba(16, 185, 129, 0.24);
+    border-radius: 9999px;
+    color: #047857;
+    background: #ffffff;
+    font-size: 11px;
+    font-weight: 900;
+    transition: color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.record24h-dock-notice button:hover:not(:disabled) {
+    color: #ffffff;
+    background: #059669;
+}
+
+.record24h-dock-notice button:active:not(:disabled) {
+    transform: scale(0.96);
+}
+
+.record24h-dock-notice button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
 .camera-node-cover {
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
@@ -48,6 +111,35 @@ html.dark .camera-node-live-btn {
     border-color: rgba(226, 232, 240, 0.18) !important;
     background: rgba(15, 23, 42, 0.34) !important;
     box-shadow: 0 12px 30px -18px rgba(0, 0, 0, 0.96) !important;
+}
+
+html.dark .record24h-dock .record24h {
+    border-color: rgba(52, 211, 153, 0.32);
+    box-shadow: 0 20px 46px -30px rgba(0, 0, 0, 0.95);
+}
+
+html.dark .record24h-dock-notice {
+    border-color: rgba(52, 211, 153, 0.28);
+    background: rgba(6, 78, 59, 0.28);
+}
+
+html.dark .record24h-dock-notice strong {
+    color: #6ee7b7;
+}
+
+html.dark .record24h-dock-notice span {
+    color: #94a3b8;
+}
+
+html.dark .record24h-dock-notice button {
+    color: #6ee7b7;
+    border-color: rgba(52, 211, 153, 0.28);
+    background: rgba(15, 23, 42, 0.88);
+}
+
+html.dark .record24h-dock-notice button:hover:not(:disabled) {
+    color: #052e2b;
+    background: #6ee7b7;
 }
 
 .camera-node-action-btn {

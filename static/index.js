@@ -9,8 +9,10 @@ let compactGrid = window.innerWidth < 640;
 let selectedRecordRange = {start: '', end: ''};
 let selectedRecordPath = '';
 const maxRecordRangeDays = 7;
+const recordTimelineFallbackDurationSeconds = 5 * 60;
 const recordArchiveOpenDates = new Set();
 const recordArchiveViewModes = new Map();
+let activeRecordTimeline24hDockKey = '';
 let matrixToolbarTimer = null;
 const cameraCoverObjectURLs = new Map();
 const cameraCoverRequested = new Set();
@@ -1257,7 +1259,15 @@ function renderGrid() {
             if (cellData[i].codecNotice) {
                 showCodecNoticeInCell(i, cellData[i]);
             } else {
-                executePlayInCell(i, cellData[i].source, cellData[i].isLive, cellData[i].title);
+                executePlayInCell(
+                    i,
+                    cellData[i].source,
+                    cellData[i].isLive,
+                    cellData[i].title,
+                    Boolean(cellData[i].forceNative),
+                    cellData[i].warningMsg || null,
+                    {seekSeconds: cellData[i].seekSeconds}
+                );
             }
         }
     }
@@ -1449,18 +1459,19 @@ function setRecordItemSelected(item, isSelected) {
     if (indicator) indicator.classList.toggle('hidden', !isSelected);
 }
 
-async function playRecord(file, title) {
+async function playRecord(file, title, options = {}) {
     const targetCell = activeCell;
     const recordPath = getRecordPath(file);
+    const seekSeconds = normalizeSeekSeconds(options.seekSeconds);
     setSelectedRecordPath(recordPath);
     showProbeLoadingInCell(targetCell, title, recordPath);
 
     try {
         // 1. 合并后的完美大 MP4：所有设备直接走原生秒开播放
         if (file.name.toLowerCase().endsWith('.mp4') && file.name.includes('_merged')) {
-            cellData[targetCell] = {source: file.url, isLive: false, title, recordPath};
+            cellData[targetCell] = {source: file.url, isLive: false, title, recordPath, seekSeconds, forceNative: true};
             // 传入 true，强制使用原生的 <video> 标签播放 mp4
-            executePlayInCell(targetCell, file.url, false, title, true);
+            executePlayInCell(targetCell, file.url, false, title, true, null, {seekSeconds});
             updateFocusUI();
             return;
         }
@@ -1509,11 +1520,11 @@ async function playRecord(file, title) {
 
             // 设备支持 H.265 时，强制走 fMP4 重封装！
             const remuxUrl = `/play_remux/${encodeURI(file.path)}`;
-            cellData[targetCell] = {source: remuxUrl, isLive: false, title, recordPath};
 
             // 传 true 强制使用原生的 <video> 标签播放 mp4 流
-            const warningMsg = "当前为H.265片段的实时重封装播放，浏览器内暂不支持拖拽定位；需要快进回看时，优先选择自动合并后的MP4，或下载后用VLC、PotPlayer、IINA等播放器打开。";
-            executePlayInCell(targetCell, remuxUrl, false, title, true, warningMsg);
+            const warningMsg = "当前为H.265片段的实时重封装播放，浏览器内不支持拖拽定位。";
+            cellData[targetCell] = {source: remuxUrl, isLive: false, title, recordPath, seekSeconds, forceNative: true, warningMsg};
+            executePlayInCell(targetCell, remuxUrl, false, title, true, warningMsg, {seekSeconds});
             updateFocusUI();
             return; // 直接返回，拦截默认的 TS 播放逻辑
         }
@@ -1522,10 +1533,20 @@ async function playRecord(file, title) {
     }
 
     // 非 H.265 的 .ts 碎片，走默认播放逻辑 (HLS 或 mpegts)
-    cellData[targetCell] = {source: file.url, isLive: false, title, recordPath};
+    cellData[targetCell] = {source: file.url, isLive: false, title, recordPath, seekSeconds};
     // 不强制使用原生播放器
-    executePlayInCell(targetCell, file.url, false, title, false);
+    executePlayInCell(targetCell, file.url, false, title, false, null, {seekSeconds});
     updateFocusUI();
+}
+
+function playRecordAtTime(file, title, offsetSeconds = 0) {
+    return playRecord(file, title, {seekSeconds: offsetSeconds});
+}
+
+function normalizeSeekSeconds(value) {
+    const seconds = Number(value);
+    if (!Number.isFinite(seconds) || seconds <= 0) return 0;
+    return Math.max(0, Math.floor(seconds));
 }
 
 function browserSupportsHEVC() {
@@ -1664,13 +1685,14 @@ function playTranscodedRecord(index) {
     updateFocusUI();
 }
 
-function executePlayInCell(index, source, isLive, title, forceNative = false, warningMsg = null) {
+function executePlayInCell(index, source, isLive, title, forceNative = false, warningMsg = null, options = {}) {
     const liveIframe = document.getElementById(`live-iframe-${index}`);
     const dplayerContainer = document.getElementById(`dplayer-${index}`);
     const nativePlayer = document.getElementById(`native-player-${index}`);
     const emptyState = document.getElementById(`empty-state-${index}`);
     const label = document.getElementById(`label-${index}`);
     const closeBtn = document.getElementById(`close-cell-${index}`);
+    const seekSeconds = normalizeSeekSeconds(options.seekSeconds);
 
     if (!liveIframe) return;
 
@@ -1736,6 +1758,19 @@ function executePlayInCell(index, source, isLive, title, forceNative = false, wa
                 playUrl = source.replace('/play/', '/play_hls/');
             }
             nativePlayer.src = playUrl;
+            if (seekSeconds > 0) {
+                nativePlayer.addEventListener('loadedmetadata', function handleSeek() {
+                    nativePlayer.removeEventListener('loadedmetadata', handleSeek);
+                    try {
+                        const duration = Number.isFinite(nativePlayer.duration) ? nativePlayer.duration : 0;
+                        nativePlayer.currentTime = duration > 0
+                            ? Math.min(seekSeconds, Math.max(0, duration - 0.5))
+                            : seekSeconds;
+                    } catch (e) {
+                        console.log('seek failed', e);
+                    }
+                });
+            }
             nativePlayer.play().catch(e => console.log("等待交互播放"));
         } else {
             nativePlayer.classList.add('hidden');
@@ -1757,6 +1792,28 @@ function executePlayInCell(index, source, isLive, title, forceNative = false, wa
                     }
                 }
             });
+            if (seekSeconds > 0) {
+                const trySeek = () => {
+                    const instance = dpInstances[index];
+                    const video = instance && instance.video;
+                    if (!video || !Number.isFinite(video.duration)) return false;
+                    const nextTime = Math.min(Math.max(0, seekSeconds), Math.max(0, video.duration - 0.5));
+                    try {
+                        video.currentTime = nextTime;
+                        return true;
+                    } catch (e) {
+                        return false;
+                    }
+                };
+                const timer = setInterval(() => {
+                    if (!dpInstances[index]) {
+                        clearInterval(timer);
+                        return;
+                    }
+                    if (trySeek()) clearInterval(timer);
+                }, 120);
+                setTimeout(() => clearInterval(timer), 4000);
+            }
         }
     }
     refreshPTZPanel();
@@ -1916,7 +1973,8 @@ function getRecordArchiveViewMode(camId, date) {
 }
 
 function setRecordArchiveViewMode(camId, date, mode) {
-    recordArchiveViewModes.set(getRecordArchiveGroupKey(camId, date), mode === 'timeline' ? 'timeline' : 'cards');
+    const nextMode = ['cards', 'timeline', 'timeline24h'].includes(mode) ? mode : 'cards';
+    recordArchiveViewModes.set(getRecordArchiveGroupKey(camId, date), nextMode);
 }
 
 function createRecordViewSwitch(camId, date, onChange) {
@@ -1925,8 +1983,9 @@ function createRecordViewSwitch(camId, date, onChange) {
     switcher.dataset.recordViewSwitch = 'true';
 
     [
-        {mode: 'cards', label: '卡片', title: '卡片列表'},
-        {mode: 'timeline', label: '时间轴', title: '时间轴'}
+        {mode: 'cards', label: '卡片列表', title: '卡片列表'},
+        {mode: 'timeline', label: '时间轴列表', title: '时间轴列表'},
+        {mode: 'timeline24h', label: '24H回放', title: '24小时时间轴回放'}
     ].forEach(option => {
         const btn = document.createElement('button');
         btn.type = 'button';
@@ -1958,9 +2017,82 @@ function updateRecordViewSwitchButtons(switcher, activeMode) {
     });
 }
 
+function getRecordTimeline24hDock() {
+    return document.getElementById('recordTimeline24hDock');
+}
+
+function clearRecordTimeline24hDock(groupKey = '') {
+    const dock = getRecordTimeline24hDock();
+    if (!dock) return;
+    if (groupKey && activeRecordTimeline24hDockKey !== groupKey) return;
+
+    dock.innerHTML = '';
+    dock.classList.add('hidden');
+    activeRecordTimeline24hDockKey = '';
+}
+
+function renderRecordTimeline24hDock(camId, date, entries, selectedRecordPath) {
+    const dock = getRecordTimeline24hDock();
+    if (!dock || !window.RecordTimeline24h) return false;
+
+    const groupKey = getRecordArchiveGroupKey(camId, date);
+    dock.innerHTML = '';
+    dock.classList.remove('hidden');
+    dock.appendChild(window.RecordTimeline24h.create({
+        camId,
+        date,
+        entries,
+        selectedRecordPath,
+        initialViewportWidth: dock.getBoundingClientRect().width || dock.clientWidth || 0,
+        onPlayAtTime: ({entry, offsetSeconds, timeLabel}) => {
+            if (!entry || !entry.file) return;
+            playRecordAtTime(entry.file, `回放: ${camId} (${timeLabel || entry.meta.timeDisplay})`, offsetSeconds);
+        }
+    }));
+    activeRecordTimeline24hDockKey = groupKey;
+    requestAnimationFrame(snapRecordTimeline24hDockBelowPlayer);
+    return true;
+}
+
+function snapRecordTimeline24hDockBelowPlayer() {
+    const dock = getRecordTimeline24hDock();
+    const wrapper = document.getElementById('video-wrapper');
+    if (!dock || !wrapper || dock.classList.contains('hidden')) return;
+
+    const dockRect = dock.getBoundingClientRect();
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    if (dockRect.top >= 0 && dockRect.bottom <= viewportHeight) return;
+
+    const targetTop = window.scrollY + wrapper.getBoundingClientRect().top - 8;
+    window.scrollTo({
+        top: Math.max(0, targetTop),
+        behavior: 'smooth'
+    });
+}
+
+function createRecordTimeline24hDockNotice(camId, date, mounted) {
+    const notice = document.createElement('div');
+    notice.className = 'record24h-dock-notice';
+    notice.innerHTML = `
+        <div>
+            <strong>24H 时间轴已吸附到播放器下方</strong>
+            <span>${escapeHtml(date)} · ${escapeHtml(camId)}</span>
+        </div>
+        <button type="button" data-record24h-scroll>查看时间轴</button>
+    `;
+    const btn = notice.querySelector('[data-record24h-scroll]');
+    btn.disabled = !mounted;
+    btn.onclick = (event) => {
+        event.stopPropagation();
+        snapRecordTimeline24hDockBelowPlayer();
+    };
+    return notice;
+}
+
 function renderRecordDateContent(content, camId, date, entries, viewMode, onUpdate = () => {}) {
     content.innerHTML = '';
     if (viewMode === 'timeline') {
+        clearRecordTimeline24hDock(getRecordArchiveGroupKey(camId, date));
         content.className = 'record-watermark-window bg-slate-50/70 p-2 custom-scrollbar';
         if (!window.RecordTimeline) {
             const error = document.createElement('div');
@@ -1982,7 +2114,21 @@ function renderRecordDateContent(content, camId, date, entries, viewMode, onUpda
         }));
         return;
     }
+    if (viewMode === 'timeline24h') {
+        content.className = 'record-watermark-window bg-slate-50/70 p-2 custom-scrollbar';
+        if (!window.RecordTimeline24h) {
+            const error = document.createElement('div');
+            error.className = 'rounded-lg border border-red-100 bg-red-50 px-4 py-8 text-center text-sm font-bold text-red-400';
+            error.textContent = '24H 时间轴组件加载失败';
+            content.appendChild(error);
+            return;
+        }
+        const mounted = renderRecordTimeline24hDock(camId, date, entries, selectedRecordPath);
+        content.appendChild(createRecordTimeline24hDockNotice(camId, date, mounted));
+        return;
+    }
 
+    clearRecordTimeline24hDock(getRecordArchiveGroupKey(camId, date));
     content.className = 'record-watermark-window max-h-[360px] overflow-y-auto bg-slate-50/60 p-2 custom-scrollbar sm:max-h-[460px]';
     const fileGrid = document.createElement('div');
     fileGrid.className = 'relative z-[1] grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5';
@@ -2017,6 +2163,7 @@ function dateKeyToUTC(dateKey) {
 async function loadRecords(camId) {
     const list = document.getElementById('recordList');
     const countBadge = document.getElementById('recordCount');
+    clearRecordTimeline24hDock();
     updateRecordRangeStatus();
     list.className = 'space-y-2';
     list.innerHTML = `
@@ -2120,8 +2267,10 @@ async function loadRecords(camId) {
                 collapseBtn.title = nextOpen ? '收起该日录像' : '展开该日录像';
                 if (nextOpen) {
                     recordArchiveOpenDates.add(groupKey);
+                    redrawDateContent();
                 } else {
                     recordArchiveOpenDates.delete(groupKey);
+                    clearRecordTimeline24hDock(groupKey);
                 }
             };
             summaryBtn.onclick = () => setOpen(content.classList.contains('hidden'));
@@ -2132,8 +2281,11 @@ async function loadRecords(camId) {
 
             header.appendChild(summaryBtn);
             header.appendChild(rightTools);
-            redrawDateContent();
-            if (!isOpen) content.classList.add('hidden');
+            if (isOpen) {
+                redrawDateContent();
+            } else {
+                content.classList.add('hidden');
+            }
 
             groupDiv.appendChild(header);
             groupDiv.appendChild(content);
@@ -2164,13 +2316,13 @@ function parseRecordMeta(file) {
     const path = file.path || name;
     const dateMatch = path.match(/\d{4}-\d{2}-\d{2}/);
     const date = dateMatch ? dateMatch[0] : '其他归档';
-    const startParts = parseRecordStartParts(name, path);
+    const timeParts = parseRecordTimeParts(name, path);
     const ext = (name.split('.').pop() || '').toUpperCase();
     const isMotion = /_motion(?:\.|_merged)/i.test(name);
     const isMerged = /_merged\./i.test(name);
     const isTimelapse = /_timelapse\./i.test(name);
-    const timeDisplay = startParts ? `${startParts.hourText}:${startParts.minuteText}:${startParts.secondText}` : (isMerged ? name : '整段录像');
-    const sortKey = startParts ? `${startParts.hourText}${startParts.minuteText}${startParts.secondText}_${name}` : name;
+    const timeDisplay = timeParts && timeParts.start ? `${timeParts.start.hourText}:${timeParts.start.minuteText}:${timeParts.start.secondText}` : (isMerged ? name : '整段录像');
+    const sortKey = timeParts && timeParts.start ? `${timeParts.start.hourText}${timeParts.start.minuteText}${timeParts.start.secondText}_${name}` : name;
     const kind = isMotion ? '动检' : isTimelapse ? '延时' : isMerged ? '合并' : '切片';
     const kindClass = isMotion
         ? 'bg-amber-50 text-amber-700 ring-amber-100'
@@ -2195,34 +2347,86 @@ function parseRecordMeta(file) {
         kind,
         kindClass,
         iconClass,
-        hasStartTime: Boolean(startParts),
-        startSeconds: startParts ? startParts.startSeconds : null
+        hasStartTime: Boolean(timeParts && timeParts.start),
+        startSeconds: timeParts && timeParts.start ? timeParts.start.startSeconds : null,
+        hasEndTime: Boolean(timeParts && timeParts.end),
+        endSeconds: timeParts && timeParts.end ? timeParts.end.startSeconds : null,
+        timelineEndSeconds: timeParts ? timeParts.timelineEndSeconds : null,
+        estimatedEndSeconds: timeParts ? timeParts.estimatedEndSeconds : null
     };
 }
 
-function parseRecordStartParts(name, path) {
+function parseRecordTimeParts(name, path) {
     const text = `${path || ''}/${name || ''}`;
 
-    // 新格式: CamID_YYYYMMDD_HHMMSS_HHMMSS.ext 或 CamID_YYYYMMDD_HHMMSS_motion.ext
-    const newFormat = text.match(/_(\d{8})_(\d{2})(\d{2})(\d{2})_/);
-    if (newFormat) return normalizeRecordStartParts(newFormat[2], newFormat[3], newFormat[4]);
+    // 新格式: CamID_YYYYMMDD_HHMMSS_HHMMSS.ext
+    const newFormat = text.match(/_(\d{8})_(\d{2})(\d{2})(\d{2})_(\d{6}|[a-z]+)(?:\.|_)/i);
+    if (newFormat) {
+        const start = normalizeRecordTimeParts(newFormat[2], newFormat[3], newFormat[4]);
+        const end = parseRecordTimeToken(newFormat[5]);
+        return start ? {
+            start,
+            end,
+            timelineEndSeconds: normalizeTimelineEndSeconds(start.startSeconds, end ? end.startSeconds : null),
+            estimatedEndSeconds: end ? end.startSeconds : start.startSeconds + recordTimelineFallbackDurationSeconds
+        } : null;
+    }
 
     // 旧格式: YYYY-MM-DD_HH-MM-SS
     const dashed = text.match(/\d{4}-\d{2}-\d{2}_(\d{2})-(\d{2})-(\d{2})/);
-    if (dashed) return normalizeRecordStartParts(dashed[1], dashed[2], dashed[3]);
+    if (dashed) {
+        const start = normalizeRecordTimeParts(dashed[1], dashed[2], dashed[3]);
+        return start ? {
+            start,
+            end: null,
+            timelineEndSeconds: normalizeTimelineEndSeconds(start.startSeconds, null),
+            estimatedEndSeconds: start.startSeconds + recordTimelineFallbackDurationSeconds
+        } : null;
+    }
 
     // 旧格式: YYYY-MM-DD_HHMMSS
     const compact = text.match(/\d{4}-\d{2}-\d{2}_(\d{2})(\d{2})(\d{2})/);
-    if (compact) return normalizeRecordStartParts(compact[1], compact[2], compact[3]);
+    if (compact) {
+        const start = normalizeRecordTimeParts(compact[1], compact[2], compact[3]);
+        return start ? {
+            start,
+            end: null,
+            timelineEndSeconds: normalizeTimelineEndSeconds(start.startSeconds, null),
+            estimatedEndSeconds: start.startSeconds + recordTimelineFallbackDurationSeconds
+        } : null;
+    }
 
     // 旧格式: YYYY-MM-DD_HH (小时合并)
     const hourOnly = text.match(/\d{4}-\d{2}-\d{2}_(\d{2})(?:_|\.|$)/);
-    if (hourOnly) return normalizeRecordStartParts(hourOnly[1], '00', '00');
+    if (hourOnly) {
+        const start = normalizeRecordTimeParts(hourOnly[1], '00', '00');
+        return start ? {
+            start,
+            end: null,
+            timelineEndSeconds: normalizeTimelineEndSeconds(start.startSeconds, null),
+            estimatedEndSeconds: start.startSeconds + recordTimelineFallbackDurationSeconds
+        } : null;
+    }
 
     return null;
 }
 
-function normalizeRecordStartParts(hourText, minuteText, secondText) {
+function parseRecordTimeToken(token) {
+    const text = String(token || '').trim();
+    if (/^\d{6}$/.test(text)) {
+        return normalizeRecordTimeParts(text.slice(0, 2), text.slice(2, 4), text.slice(4, 6));
+    }
+    return null;
+}
+
+function normalizeTimelineEndSeconds(startSeconds, endSeconds) {
+    const fallbackEnd = startSeconds + recordTimelineFallbackDurationSeconds;
+    const rawEnd = Number.isFinite(endSeconds) ? endSeconds : fallbackEnd;
+    if (rawEnd <= startSeconds) return 86400;
+    return Math.min(86400, rawEnd);
+}
+
+function normalizeRecordTimeParts(hourText, minuteText, secondText) {
     const hour = Number(hourText);
     const minute = Number(minuteText);
     const second = Number(secondText);

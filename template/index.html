@@ -23,6 +23,7 @@
     <script src="/static/DPlayer.min.js"></script>
     <link rel="icon" href="/static/camkeep_w200.png">
     <link rel="stylesheet" href="/static/index.css">
+    <link rel="stylesheet" href="/static/record-timeline-24h.css">
     <link rel="stylesheet" href="/static/ptz.css">
 </head>
 <body class="bg-gray-100 p-3 sm:p-4 md:p-5 min-h-screen transition-colors duration-200">
@@ -240,6 +241,7 @@
             </div>
         </div>
 
+        <div id="playback-column" class="min-w-0 flex flex-col gap-2">
         <div id="video-wrapper" class="bg-gray-900 rounded-xl shadow-xl overflow-hidden relative h-[58vh] min-h-[320px] max-h-[620px] lg:h-[560px] lg:max-h-none flex flex-col border border-gray-800 transition-all duration-300">
 
             <div id="video-stage" class="flex min-h-0 flex-1 bg-black">
@@ -282,6 +284,8 @@
                 </div>
             </div>
         </div>
+            <div id="recordTimeline24hDock" class="record24h-dock hidden"></div>
+        </div>
     </div>
 
     <div class="bg-white p-3 sm:p-4 rounded-xl shadow-sm border-t-4 border-emerald-500">
@@ -312,6 +316,7 @@
 </div>
 
 <script src="/static/record-timeline.js"></script>
+<script src="/static/record-timeline-24h.js"></script>
 <script src="/static/ptz.js"></script>
 <script src="/static/index.js"></script>
 </body>
