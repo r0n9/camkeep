@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/r0n9/camkeep/constant"
 	"github.com/r0n9/camkeep/internal/service"
 )
 
@@ -256,6 +257,48 @@ func TestCameraCoverTaskRefreshesStatusMapCovers(t *testing.T) {
 	}
 	if calls.Load() == 0 {
 		t.Fatal("expected cover task to trigger refresh")
+	}
+}
+
+func TestCameraCoverTaskRefreshesConfiguredCoversBeforeStatusMap(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	camID := "cover-task-config-fallback"
+	deleteStatusForAppTest(t, camID)
+	setCurrentConfigForAppTest(t, constant.Config{
+		Cameras: []constant.Camera{{ID: camID}},
+	})
+
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		w.Header().Set("Content-Type", "image/jpeg")
+		_, _ = w.Write([]byte("config-cover"))
+	}))
+	defer server.Close()
+
+	store := newCameraCoverStore()
+	store.baseURL = server.URL
+	store.recordDir = t.TempDir()
+	swapCameraCoverStoreForTest(t, store)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		CameraCoverTask(ctx)
+	}()
+	defer func() {
+		cancel()
+		<-done
+	}()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) && calls.Load() == 0 {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if calls.Load() == 0 {
+		t.Fatal("expected cover task to refresh configured camera before status map is populated")
 	}
 }
 

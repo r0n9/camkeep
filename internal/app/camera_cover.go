@@ -136,11 +136,28 @@ func CameraCoverTask(ctx context.Context) {
 }
 
 func snapshotCoverRefreshStatuses() map[string]coverRefreshStatus {
+	statuses := make(map[string]coverRefreshStatus)
+
+	constant.ConfigMux.RLock()
+	for _, cam := range currentConfig.Cameras {
+		camID := strings.TrimSpace(cam.ID)
+		if camID == "" {
+			continue
+		}
+		statuses[camID] = coverRefreshStatus{
+			StreamState: "idle",
+			IsRunning:   false,
+		}
+	}
+	constant.ConfigMux.RUnlock()
+
 	service.StatusMux.RLock()
 	defer service.StatusMux.RUnlock()
 
-	statuses := make(map[string]coverRefreshStatus, len(service.StatusMap))
 	for id, status := range service.StatusMap {
+		if status == nil {
+			continue
+		}
 		statuses[id] = coverRefreshStatus{
 			StreamState: status.StreamState,
 			IsRunning:   status.IsRunning,
@@ -222,6 +239,7 @@ func (s *cameraCoverStore) shouldRefreshLocked(entry *cameraCoverEntry, now time
 }
 
 func (s *cameraCoverStore) refresh(camID, streamState string, isRunning bool) {
+	log.Printf("获取封面 refresh camID=%s streamState=%s isRunning=%t ", camID, streamState, isRunning)
 	content, contentType, err := s.fetch(camID)
 	var saveErr error
 	if err == nil {
