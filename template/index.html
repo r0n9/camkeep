@@ -135,7 +135,7 @@
                 </div>
 
                 <div id="configFormPanel" class="space-y-4">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                    <div class="config-daily-merge-card flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
                         <div>
                             <h3 class="text-sm font-bold text-slate-800 tracking-tight">每日按小时合并</h3>
                             <p class="text-xs text-slate-500 mt-1">在低峰时段将前一天录像按自然小时合并为 MP4，成功后删除对应切片。</p>
@@ -156,9 +156,17 @@
                                 <h3 class="text-sm font-bold text-slate-800 tracking-tight">摄像头配置</h3>
                                 <p class="text-xs text-slate-500 mt-1">常用参数直接填写；动检流可单独配置低码率子码流。</p>
                             </div>
-                            <button onclick="addConfigCamera()" class="rounded-lg bg-slate-900 px-4 py-2 text-xs font-extrabold text-white shadow-sm transition-all hover:bg-slate-700 active:scale-95">
-                                添加摄像头
-                            </button>
+                            <div class="flex shrink-0 items-center gap-2">
+                                <button id="restoreConfigCamerasBtn" onclick="restoreConfigCameras()" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-extrabold text-slate-600 shadow-sm transition-all hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50">
+                                    还原
+                                </button>
+                                <button onclick="addConfigCamera()" class="config-add-camera-btn" type="button">
+                                    <svg aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M12 5v14M5 12h14"></path>
+                                    </svg>
+                                    <span>添加摄像头</span>
+                                </button>
+                            </div>
                         </div>
                         <div id="configCameraList" class="space-y-3 p-3"></div>
                         <div id="configCameraEmpty" class="hidden px-4 pb-5 text-center text-sm font-bold text-slate-400">暂无摄像头配置，点击“添加摄像头”创建。</div>

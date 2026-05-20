@@ -141,10 +141,14 @@ async function executeConfirmAction() {
 // --- 系统配置相关 ---
 let configEditMode = 'form';
 let configFormState = {daily_merge: {enabled: false, time: '03:30'}, cameras: []};
+let configFormInitialCameras = [];
+let configFormInitialCamerasLoaded = false;
 let go2rtcStreamInfoMap = new Map();
 
 async function openConfig() {
     go2rtcStreamInfoMap = new Map();
+    configFormInitialCameras = [];
+    configFormInitialCamerasLoaded = false;
     const yamlResp = await fetch('/api/config');
     const yamlText = await yamlResp.text();
     document.getElementById('configYaml').value = yamlText;
@@ -156,6 +160,8 @@ async function openConfig() {
             throw new Error(err.error || '无法读取表单配置');
         }
         configFormState = normalizeConfigForm(await formResp.json());
+        configFormInitialCameras = cloneConfigCameraList(configFormState.cameras);
+        configFormInitialCamerasLoaded = true;
         renderConfigForm();
         switchConfigMode('form', {skipSync: true});
     } catch (e) {
@@ -424,6 +430,10 @@ function isManagedByGo2rtcURL(streamURL) {
     return String(streamURL || '').trim() === 'managed_by_go2rtc';
 }
 
+function cloneConfigCameraList(cameras) {
+    return (cameras || []).map(cam => ({...cam}));
+}
+
 function renderConfigForm() {
     document.getElementById('dailyMergeEnabled').checked = Boolean(configFormState.daily_merge.enabled);
     document.getElementById('dailyMergeTime').value = configFormState.daily_merge.time || '03:30';
@@ -441,6 +451,12 @@ function renderConfigForm() {
         card.innerHTML = renderConfigCameraCard(cam, index);
         list.appendChild(card);
     });
+
+    const restoreBtn = document.getElementById('restoreConfigCamerasBtn');
+    if (restoreBtn) {
+        restoreBtn.disabled = !configFormInitialCamerasLoaded;
+        restoreBtn.title = configFormInitialCamerasLoaded ? '恢复打开配置时的摄像头配置' : '暂无可恢复的摄像头配置';
+    }
 }
 
 function renderConfigCameraCard(cam, index) {
@@ -554,6 +570,13 @@ function configCheckboxInput(label, field, checked, extraAttrs = '') {
 
 function refreshConfigFormFromDom() {
     configFormState = collectConfigForm({allowEmptyID: true});
+    renderConfigForm();
+}
+
+function restoreConfigCameras() {
+    if (!configFormInitialCamerasLoaded) return;
+    configFormState = collectConfigForm({allowEmptyID: true});
+    configFormState.cameras = cloneConfigCameraList(configFormInitialCameras);
     renderConfigForm();
 }
 

@@ -1468,8 +1468,18 @@ html.dark .record-timeline-card-action-delete:hover {
     background: #ffffff;
 }
 
+.config-daily-merge-card,
 .config-camera-card {
-    transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+    transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.config-daily-merge-card:hover,
+.config-camera-card:hover {
+    border-color: #93c5fd;
+    background:
+        linear-gradient(135deg, rgba(239, 246, 255, 0.86), rgba(255, 255, 255, 0.98)) !important;
+    box-shadow: 0 18px 34px -24px rgba(37, 99, 235, 0.62);
+    transform: translateY(-1px);
 }
 
 .config-camera-card.is-go2rtc-managed {
@@ -1478,6 +1488,14 @@ html.dark .record-timeline-card-action-delete:hover {
         linear-gradient(135deg, rgba(239, 246, 255, 0.98), rgba(255, 255, 255, 0.98)),
         linear-gradient(90deg, #2563eb 0 4px, transparent 4px);
     box-shadow: 0 12px 28px -24px rgba(37, 99, 235, 0.7);
+}
+
+.config-camera-card.is-go2rtc-managed:hover {
+    border-color: #60a5fa;
+    background:
+        linear-gradient(135deg, rgba(219, 234, 254, 0.98), rgba(255, 255, 255, 0.98)),
+        linear-gradient(90deg, #2563eb 0 4px, transparent 4px) !important;
+    box-shadow: 0 18px 36px -22px rgba(37, 99, 235, 0.74);
 }
 
 .config-camera-grid {
@@ -1520,6 +1538,45 @@ html.dark .record-timeline-card-action-delete:hover {
     font-weight: 700;
     overflow-wrap: anywhere;
     white-space: normal;
+}
+
+.config-add-camera-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 0 14px;
+    border: 1px solid #1d4ed8;
+    border-radius: 10px;
+    background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 0.01em;
+    box-shadow: 0 8px 18px -12px rgba(37, 99, 235, 0.9);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.config-add-camera-btn svg {
+    width: 15px;
+    height: 15px;
+    flex: 0 0 auto;
+}
+
+.config-add-camera-btn:hover {
+    border-color: #1d4ed8;
+    background: linear-gradient(180deg, #60a5fa 0%, #2563eb 100%);
+    box-shadow: 0 14px 24px -16px rgba(37, 99, 235, 0.95);
+    transform: translateY(-1px);
+}
+
+.config-add-camera-btn:active {
+    transform: translateY(0) scale(0.98);
+}
+
+.config-add-camera-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.18), 0 14px 24px -16px rgba(37, 99, 235, 0.95);
 }
 
 .config-field-wide {
@@ -1616,6 +1673,21 @@ html.dark .config-camera-card.is-go2rtc-managed {
         linear-gradient(90deg, #60a5fa 0 4px, transparent 4px) !important;
 }
 
+html.dark .config-daily-merge-card:hover,
+html.dark .config-camera-card:hover {
+    border-color: rgba(96, 165, 250, 0.62) !important;
+    background:
+        linear-gradient(135deg, rgba(30, 58, 138, 0.28), rgba(15, 23, 42, 0.98)) !important;
+    box-shadow: 0 20px 40px -26px rgba(0, 0, 0, 0.95);
+}
+
+html.dark .config-camera-card.is-go2rtc-managed:hover {
+    border-color: rgba(147, 197, 253, 0.72) !important;
+    background:
+        linear-gradient(135deg, rgba(30, 64, 175, 0.5), rgba(15, 23, 42, 0.98)),
+        linear-gradient(90deg, #93c5fd 0 4px, transparent 4px) !important;
+}
+
 html.dark .config-toggle-control {
     background: rgba(15, 23, 42, 0.72);
     border-color: #334155;
@@ -1668,6 +1740,19 @@ html.dark .config-managed-rtsp-title {
 
 html.dark .config-managed-rtsp-desc {
     color: #cbd5e1;
+}
+
+html.dark .config-add-camera-btn {
+    border-color: rgba(96, 165, 250, 0.7);
+    background: linear-gradient(180deg, rgba(59, 130, 246, 0.95) 0%, rgba(37, 99, 235, 0.98) 100%);
+    box-shadow: 0 10px 22px -16px rgba(0, 0, 0, 0.9);
+    color: #eff6ff;
+}
+
+html.dark .config-add-camera-btn:hover {
+    border-color: rgba(147, 197, 253, 0.88);
+    background: linear-gradient(180deg, rgba(96, 165, 250, 0.98) 0%, rgba(37, 99, 235, 1) 100%);
+    box-shadow: 0 16px 28px -18px rgba(0, 0, 0, 0.96);
 }
 
 html.dark .config-field input::placeholder {
