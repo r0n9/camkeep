@@ -37,11 +37,17 @@
 }
 
 .camera-node-live-btn {
-    opacity: 0.9;
+    opacity: 0.86;
 }
 
 .camera-node-card:hover .camera-node-live-btn {
     opacity: 1;
+}
+
+html.dark .camera-node-live-btn {
+    border-color: rgba(226, 232, 240, 0.18) !important;
+    background: rgba(15, 23, 42, 0.34) !important;
+    box-shadow: 0 12px 30px -18px rgba(0, 0, 0, 0.96) !important;
 }
 
 .camera-node-action-btn {
