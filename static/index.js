@@ -1705,12 +1705,12 @@ function executePlayInCell(index, source, isLive, title, forceNative = false, wa
         const warningEl = document.createElement('div');
         warningEl.id = `cell-warning-${index}`;
         // 居中显示在顶部，加入 Tailwind 动画和毛玻璃效果，鼠标穿透(pointer-events-none)不阻挡点击
-        warningEl.className = 'absolute top-5 left-1/2 -translate-x-1/2 z-30 bg-amber-500/90 text-white px-3 py-1.5 text-xs rounded-full shadow-[0_0_15px_rgba(245,158,11,0.4)] font-bold flex items-center pointer-events-none transition-all duration-1000';
+        warningEl.className = 'absolute top-5 left-1/2 -translate-x-1/2 z-30 max-w-[calc(100%-2rem)] bg-amber-500/90 text-white px-3 py-1.5 text-xs rounded-full shadow-[0_0_15px_rgba(245,158,11,0.4)] font-bold inline-flex items-center justify-center text-center leading-snug pointer-events-none transition-all duration-1000';
         warningEl.innerHTML = `
-            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-4 h-4 mr-1.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
             </svg>
-            ${warningMsg}
+            <span class="whitespace-normal text-center sm:whitespace-nowrap">${warningMsg}</span>
         `;
         cell.appendChild(warningEl);
 
@@ -2209,7 +2209,7 @@ async function loadRecords(camId) {
         const sortedDates = Object.keys(groups).sort((a, b) => b.localeCompare(a));
         const hasOpenDate = sortedDates.some(date => recordArchiveOpenDates.has(`${camId}:${date}`));
         sortedDates.forEach((date, index) => {
-            const entries = groups[date].sort((a, b) => b.meta.sortKey.localeCompare(a.meta.sortKey));
+            const entries = groups[date].sort((a, b) => a.meta.sortKey.localeCompare(b.meta.sortKey));
             const groupKey = getRecordArchiveGroupKey(camId, date);
             const isOpen = recordArchiveOpenDates.has(groupKey) || (index === 0 && !hasOpenDate);
             if (isOpen) recordArchiveOpenDates.add(groupKey);
