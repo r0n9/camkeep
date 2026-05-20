@@ -738,8 +738,16 @@ function buildCameraCoverMarkup(camId, cam, streamState) {
             </div>`;
 
     return `
-        <div class="relative h-[60px] w-[104px] shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-100 ring-1 ring-white/70">
+        <div class="camera-node-cover relative aspect-video w-[88px] shrink-0 overflow-hidden rounded-md border border-slate-200 bg-slate-100 ring-1 ring-white/70 sm:w-[96px] lg:w-[78px]">
             ${imageMarkup}
+            <button onclick="event.stopPropagation(); previewLive('${camId}')"
+                    class="camera-node-live-btn absolute left-1/2 top-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/60 bg-slate-950/65 text-white shadow-lg shadow-black/20 backdrop-blur-sm transition-all hover:border-blue-200 hover:bg-blue-600 active:scale-95"
+                    title="主动拉流直播"
+                    aria-label="主动拉流直播">
+                <svg class="h-4 w-4 translate-x-px" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5.5v13l10-6.5-10-6.5z"></path>
+                </svg>
+            </button>
         </div>
     `;
 }
@@ -806,43 +814,47 @@ async function loadStatus() {
             const streamState = cam.stream_state || 'offline';
             const recordSchedule = buildRecordScheduleDisplay(cam.record_time, cam.record_override);
             let streamLight, streamText;
-            let recordLight, recordText, recordTextClass;
+            let recordLight, recordText, recordTextClass, recordStateTitle;
 
             if (streamState === 'online') {
                 streamLight = 'bg-green-500 shadow-[0_0_5px_#22c55e]';
-                streamText = '<span class="text-[9px] leading-none text-green-600 font-bold">流在线</span>';
+                streamText = '<span class="text-[8px] leading-none text-green-600 font-bold">在线</span>';
             } else if (streamState === 'idle') {
                 streamLight = 'bg-blue-400 shadow-[0_0_5px_#60a5fa]';
-                streamText = '<span class="text-[9px] leading-none text-blue-500 font-bold">就绪待机</span>';
+                streamText = '<span class="text-[8px] leading-none text-blue-500 font-bold">待机</span>';
             } else {
                 streamLight = 'bg-red-500 shadow-[0_0_5px_#ef4444]';
-                streamText = '<span class="text-[9px] leading-none text-red-500 font-bold">流断线</span>';
+                streamText = '<span class="text-[8px] leading-none text-red-500 font-bold">断线</span>';
             }
 
             if (recordState === 'motion_recording') {
                 recordLight = 'bg-amber-500 shadow-[0_0_5px_#f59e0b] animate-pulse';
-                recordText = '动检录制中';
+                recordText = '动录';
                 recordTextClass = 'text-amber-700';
+                recordStateTitle = '动检录制中';
             } else if (recordState === 'motion_detecting') {
                 recordLight = 'bg-sky-500 shadow-[0_0_5px_#0ea5e9]';
-                recordText = '动检中';
+                recordText = '动检';
                 recordTextClass = 'text-sky-700';
+                recordStateTitle = '动检中';
             } else if (recordState === 'recording') {
                 recordLight = 'bg-red-500 shadow-[0_0_5px_#ef4444] animate-pulse';
-                recordText = '录制中';
+                recordText = '录制';
                 recordTextClass = 'text-gray-700';
+                recordStateTitle = '录制中';
             } else {
                 recordLight = 'bg-gray-300';
-                recordText = '未录像';
+                recordText = '未录';
                 recordTextClass = 'text-gray-400';
+                recordStateTitle = '未录像';
             }
 
             const modeValue = (cam.mode || 'normal').toLowerCase();
             const modeDisplay = modeValue === 'motion'
-                ? 'MOTION'
+                ? '动检'
                 : modeValue === 'timelapse'
-                    ? 'TIMELAPSE'
-                    : 'NORMAL';
+                    ? '延时'
+                    : '常规';
             const modeBadgeClass = modeValue === 'motion'
                 ? 'bg-amber-100 text-amber-700'
                 : modeValue === 'timelapse'
@@ -850,61 +862,72 @@ async function loadStatus() {
                     : 'bg-slate-100 text-slate-500';
 
             const item = document.createElement('div');
-            item.className = `px-2 py-1.5 rounded-lg border cursor-pointer transition-all flex flex-col group ${isSelected ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-100' : 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-sm'} ${isRunning ? '' : 'opacity-80'}`;
+            item.className = `camera-node-card overflow-hidden rounded-md border cursor-pointer transition-all group ${isSelected ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-100' : 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-sm'} ${isRunning ? '' : 'opacity-85'}`;
             item.onclick = () => selectCamera(id);
             item.dataset.camId = id;
 
             item.innerHTML = `
-                <div class="flex items-start gap-2">
+                <div class="flex items-center gap-1 p-1">
                     ${buildCameraCoverMarkup(id, cam, streamState)}
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-start justify-between gap-1.5">
-                            <div class="min-w-0 flex-1">
-                                <div class="flex min-w-0 items-center gap-1.5">
-                                    <span class="truncate font-bold text-gray-800 text-xs leading-4 tracking-tight">${id}</span>
-                                    <span class="shrink-0 rounded ${modeBadgeClass} px-1 py-0.5 text-[8px] font-bold uppercase leading-none">${modeDisplay}</span>
-                                </div>
-                                <div class="mt-0.5 flex flex-wrap items-center gap-0.5">
-                                    <span class="inline-flex items-center rounded bg-slate-50 px-1 py-0.5 ring-1 ring-slate-100" title="摄像机实时流状态">
-                                        <span class="w-1.5 h-1.5 rounded-full ${streamLight} mr-0.5 shrink-0"></span>
-                                        ${streamText}
-                                    </span>
-                                    <span class="inline-flex items-center rounded bg-slate-50 px-1 py-0.5 ring-1 ring-slate-100" title="本地录制状态">
-                                        <span class="w-1.5 h-1.5 rounded-full ${recordLight} mr-0.5 shrink-0"></span>
-                                        <span class="text-[9px] ${recordTextClass} font-bold leading-none">${recordText}</span>
-                                    </span>
-                                </div>
+                    <div class="flex min-w-0 flex-1 flex-col justify-center gap-0.5 py-0.5">
+                        <div class="min-w-0">
+                            <div class="flex min-w-0 items-center gap-1">
+                                <span class="truncate text-[11px] font-extrabold leading-3 tracking-tight text-gray-800">${id}</span>
+                                <span class="shrink-0 rounded ${modeBadgeClass} px-1 py-0.5 text-[7px] font-bold leading-none">${modeDisplay}</span>
                             </div>
-                            <button onclick="event.stopPropagation(); previewLive('${id}')"
-                                    class="w-6 h-6 shrink-0 flex items-center justify-center rounded bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-colors text-[10px]"
-                                    title="主动拉流直播">▶</button>
+                            <div class="mt-0.5 flex flex-wrap items-center gap-0.5">
+                                <span class="inline-flex h-3.5 items-center rounded bg-slate-50 px-1 ring-1 ring-slate-100" title="摄像机实时流状态: ${escapeHtml(streamState)}">
+                                    <span class="mr-0.5 h-1.5 w-1.5 shrink-0 rounded-full ${streamLight}"></span>
+                                    ${streamText}
+                                </span>
+                                <span class="inline-flex h-3.5 items-center rounded bg-slate-50 px-1 ring-1 ring-slate-100" title="本地录制状态: ${escapeHtml(recordStateTitle)}">
+                                    <span class="mr-0.5 h-1.5 w-1.5 shrink-0 rounded-full ${recordLight}"></span>
+                                    <span class="text-[8px] ${recordTextClass} font-bold leading-none">${recordText}</span>
+                                </span>
+                            </div>
                         </div>
-                        <div class="mt-1 flex min-w-0 items-center gap-1 rounded border ${recordSchedule.borderClass} ${recordSchedule.bgClass} px-1 py-0.5"
-                             title="${escapeHtml(recordSchedule.title)}">
-                            <svg class="h-2.5 w-2.5 shrink-0 ${recordSchedule.iconClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2"></path>
-                                <circle cx="12" cy="12" r="9"></circle>
+                    </div>
+                    <div class="camera-node-card-actions grid shrink-0 grid-cols-3 overflow-hidden rounded-md border border-slate-200 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]">
+                        <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'start')"
+                                class="camera-node-action-btn flex h-6 w-6 items-center justify-center border-r border-slate-200 text-emerald-600 transition-all hover:bg-emerald-500 hover:text-white active:scale-95"
+                                title="强制录制"
+                                aria-label="强制录制">
+                            <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
+                                <circle cx="12" cy="12" r="5"></circle>
                             </svg>
-                            <span class="shrink-0 text-[8px] font-bold leading-none ${recordSchedule.badgeClass}">${recordSchedule.badge}</span>
-                            <span class="min-w-0 flex-1 truncate font-mono text-[9px] font-semibold leading-none ${recordSchedule.textClass}">${escapeHtml(recordSchedule.text)}</span>
-                        </div>
+                            <span class="camera-node-action-label">强录</span>
+                        </button>
+                        <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'stop')"
+                                class="camera-node-action-btn flex h-6 w-6 items-center justify-center border-r border-slate-200 text-rose-600 transition-all hover:bg-rose-500 hover:text-white active:scale-95"
+                                title="强制停止"
+                                aria-label="强制停止">
+                            <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
+                                <rect x="7" y="7" width="10" height="10" rx="1.5"></rect>
+                            </svg>
+                            <span class="camera-node-action-label">停录</span>
+                        </button>
+                        <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'auto')"
+                                class="camera-node-action-btn flex h-6 w-6 items-center justify-center text-indigo-600 transition-all hover:bg-indigo-500 hover:text-white active:scale-95"
+                                title="恢复计划"
+                                aria-label="恢复计划">
+                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.3">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h10v10H7z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 3v4M15 3v4M7 11h10"></path>
+                            </svg>
+                            <span class="camera-node-action-label">计划</span>
+                        </button>
                     </div>
                 </div>
 
-                <div class="mt-1.5 flex justify-end border-t border-gray-100 pt-1">
-                    <div class="flex shrink-0 space-x-0.5">
-                        <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'start')"
-                                class="group/btn flex items-center px-1 py-0.5 text-[9px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200 rounded hover:bg-emerald-500 hover:text-white hover:border-emerald-500 transition-all duration-200 active:scale-95">
-                            强录
-                        </button>
-                        <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'stop')"
-                                class="group/btn flex items-center px-1 py-0.5 text-[9px] font-bold bg-rose-50 text-rose-600 border border-rose-200 rounded hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-all duration-200 active:scale-95">
-                            停录
-                        </button>
-                        <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'auto')"
-                                class="group/btn flex items-center px-1 py-0.5 text-[9px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-200 rounded hover:bg-indigo-500 hover:text-white hover:border-indigo-500 transition-all duration-200 active:scale-95">
-                            计划
-                        </button>
+                <div class="camera-node-card-footer flex items-center gap-0.5 border-t border-gray-100 px-1 py-0.5">
+                    <div class="flex min-w-0 flex-1 items-center gap-0.5 rounded border ${recordSchedule.borderClass} ${recordSchedule.bgClass} px-1 py-0.5"
+                         title="${escapeHtml(recordSchedule.title)}">
+                            <svg class="h-2 w-2 shrink-0 ${recordSchedule.iconClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2"></path>
+                                <circle cx="12" cy="12" r="9"></circle>
+                            </svg>
+                            <span class="shrink-0 text-[7px] font-bold leading-none ${recordSchedule.badgeClass}">${recordSchedule.badge}</span>
+                            <span class="min-w-0 flex-1 truncate font-mono text-[8px] font-semibold leading-none ${recordSchedule.textClass}">${escapeHtml(recordSchedule.text)}</span>
                     </div>
                 </div>
             `;
