@@ -66,6 +66,7 @@ func Run(appVersion string) {
 
 	// 启动实时流状态轮询任务
 	go task.PollGo2rtcStatus(&currentConfig)
+	go CameraCoverTask(ctxGlobal)
 
 	// 启动 Web 路由
 	go startWebServer()

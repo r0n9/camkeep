@@ -12,6 +12,9 @@ const maxRecordRangeDays = 7;
 const recordArchiveOpenDates = new Set();
 const recordArchiveViewModes = new Map();
 let matrixToolbarTimer = null;
+const cameraCoverObjectURLs = new Map();
+const cameraCoverRequested = new Set();
+const cameraCoverFailed = new Set();
 
 window.cameraCapabilityCache = window.cameraCapabilityCache || new Map();
 
@@ -27,6 +30,7 @@ window.onload = function () {
     loadStatus();
     setInterval(loadStatus, 5000);
     window.addEventListener('pagehide', stopAllCellPlayback);
+    window.addEventListener('pagehide', releaseCameraCoverObjectURLs);
     window.addEventListener('beforeunload', stopAllCellPlayback);
     window.addEventListener('resize', () => {
         const nextCompactGrid = window.innerWidth < 640;
@@ -714,6 +718,61 @@ function finishAppendStream(streamId) {
     }
 }
 
+function buildCameraCoverURL(camId) {
+    return cameraCoverObjectURLs.get(camId) || '';
+}
+
+function buildCameraCoverMarkup(camId, cam, streamState) {
+    ensureCameraCoverLoaded(camId, cam);
+
+    const coverURL = buildCameraCoverURL(camId);
+    const hasCover = Boolean(coverURL);
+
+    const imageMarkup = hasCover
+        ? `<img src="${escapeHtml(coverURL)}" alt="${escapeHtml(camId)} 封面" loading="lazy" decoding="async" class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]">`
+        : `<div class="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top_left,_rgba(148,163,184,0.18),_rgba(15,23,42,0.08)_70%)] text-[10px] font-bold text-slate-400">
+                <svg class="h-5 w-5 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 7.5A2.5 2.5 0 015.5 5h13A2.5 2.5 0 0121 7.5v9a2.5 2.5 0 01-2.5 2.5h-13A2.5 2.5 0 013 16.5v-9z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 9.75h.01M7 16l3.6-3.6a1 1 0 011.4 0L17 17"></path>
+                </svg>
+            </div>`;
+
+    return `
+        <div class="relative h-[60px] w-[104px] shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-100 ring-1 ring-white/70">
+            ${imageMarkup}
+        </div>
+    `;
+}
+
+async function ensureCameraCoverLoaded(camId, cam) {
+    if (cam.cover_ready !== true || cameraCoverObjectURLs.has(camId) || cameraCoverRequested.has(camId)) {
+        return;
+    }
+
+    cameraCoverRequested.add(camId);
+    try {
+        const resp = await fetch(`/api/camera/${encodeURIComponent(camId)}/cover`);
+        if (!resp.ok) throw new Error(`cover status=${resp.status}`);
+
+        const blob = await resp.blob();
+        if (blob.size === 0) throw new Error('empty cover');
+
+        cameraCoverObjectURLs.set(camId, URL.createObjectURL(blob));
+        loadStatus();
+    } catch (e) {
+        cameraCoverFailed.add(camId);
+        loadStatus();
+        console.warn(`加载摄像头封面失败: ${camId}`, e);
+    }
+}
+
+function releaseCameraCoverObjectURLs() {
+    cameraCoverObjectURLs.forEach(url => URL.revokeObjectURL(url));
+    cameraCoverObjectURLs.clear();
+    cameraCoverRequested.clear();
+    cameraCoverFailed.clear();
+}
+
 // --- 状态加载 ---
 async function loadStatus() {
     try {
@@ -793,40 +852,46 @@ async function loadStatus() {
             const item = document.createElement('div');
             item.className = `px-2 py-1.5 rounded-lg border cursor-pointer transition-all flex flex-col group ${isSelected ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-100' : 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-sm'} ${isRunning ? '' : 'opacity-80'}`;
             item.onclick = () => selectCamera(id);
+            item.dataset.camId = id;
 
             item.innerHTML = `
-                <div class="flex items-center justify-between gap-1.5">
+                <div class="flex items-start gap-2">
+                    ${buildCameraCoverMarkup(id, cam, streamState)}
                     <div class="min-w-0 flex-1">
-                        <div class="flex min-w-0 items-center gap-1.5">
-                            <span class="truncate font-bold text-gray-800 text-xs leading-4 tracking-tight">${id}</span>
-                            <span class="shrink-0 rounded ${modeBadgeClass} px-1 py-0.5 text-[8px] font-bold uppercase leading-none">${modeDisplay}</span>
+                        <div class="flex items-start justify-between gap-1.5">
+                            <div class="min-w-0 flex-1">
+                                <div class="flex min-w-0 items-center gap-1.5">
+                                    <span class="truncate font-bold text-gray-800 text-xs leading-4 tracking-tight">${id}</span>
+                                    <span class="shrink-0 rounded ${modeBadgeClass} px-1 py-0.5 text-[8px] font-bold uppercase leading-none">${modeDisplay}</span>
+                                </div>
+                                <div class="mt-0.5 flex flex-wrap items-center gap-0.5">
+                                    <span class="inline-flex items-center rounded bg-slate-50 px-1 py-0.5 ring-1 ring-slate-100" title="摄像机实时流状态">
+                                        <span class="w-1.5 h-1.5 rounded-full ${streamLight} mr-0.5 shrink-0"></span>
+                                        ${streamText}
+                                    </span>
+                                    <span class="inline-flex items-center rounded bg-slate-50 px-1 py-0.5 ring-1 ring-slate-100" title="本地录制状态">
+                                        <span class="w-1.5 h-1.5 rounded-full ${recordLight} mr-0.5 shrink-0"></span>
+                                        <span class="text-[9px] ${recordTextClass} font-bold leading-none">${recordText}</span>
+                                    </span>
+                                </div>
+                            </div>
+                            <button onclick="event.stopPropagation(); previewLive('${id}')"
+                                    class="w-6 h-6 shrink-0 flex items-center justify-center rounded bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-colors text-[10px]"
+                                    title="主动拉流直播">▶</button>
                         </div>
-                        <div class="mt-0.5 flex flex-wrap items-center gap-0.5">
-                            <span class="inline-flex items-center rounded bg-slate-50 px-1 py-0.5 ring-1 ring-slate-100" title="摄像机实时流状态">
-                                <span class="w-1.5 h-1.5 rounded-full ${streamLight} mr-0.5 shrink-0"></span>
-                                ${streamText}
-                            </span>
-                            <span class="inline-flex items-center rounded bg-slate-50 px-1 py-0.5 ring-1 ring-slate-100" title="本地录制状态">
-                                <span class="w-1.5 h-1.5 rounded-full ${recordLight} mr-0.5 shrink-0"></span>
-                                <span class="text-[9px] ${recordTextClass} font-bold leading-none">${recordText}</span>
-                            </span>
+                        <div class="mt-1 flex min-w-0 items-center gap-1 rounded border ${recordSchedule.borderClass} ${recordSchedule.bgClass} px-1 py-0.5"
+                             title="${escapeHtml(recordSchedule.title)}">
+                            <svg class="h-2.5 w-2.5 shrink-0 ${recordSchedule.iconClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2"></path>
+                                <circle cx="12" cy="12" r="9"></circle>
+                            </svg>
+                            <span class="shrink-0 text-[8px] font-bold leading-none ${recordSchedule.badgeClass}">${recordSchedule.badge}</span>
+                            <span class="min-w-0 flex-1 truncate font-mono text-[9px] font-semibold leading-none ${recordSchedule.textClass}">${escapeHtml(recordSchedule.text)}</span>
                         </div>
                     </div>
-                    <button onclick="event.stopPropagation(); previewLive('${id}')"
-                            class="w-6 h-6 shrink-0 flex items-center justify-center rounded bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-colors text-[10px]"
-                            title="主动拉流直播">▶</button>
                 </div>
 
-                <div class="mt-1 flex min-w-0 items-center gap-1 border-t border-gray-100 pt-1">
-                    <div class="flex min-w-0 flex-1 items-center gap-1 rounded border ${recordSchedule.borderClass} ${recordSchedule.bgClass} px-1 py-0.5"
-                         title="${escapeHtml(recordSchedule.title)}">
-                        <svg class="h-2.5 w-2.5 shrink-0 ${recordSchedule.iconClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2"></path>
-                            <circle cx="12" cy="12" r="9"></circle>
-                        </svg>
-                        <span class="shrink-0 text-[8px] font-bold leading-none ${recordSchedule.badgeClass}">${recordSchedule.badge}</span>
-                        <span class="min-w-0 flex-1 truncate font-mono text-[9px] font-semibold leading-none ${recordSchedule.textClass}">${escapeHtml(recordSchedule.text)}</span>
-                    </div>
+                <div class="mt-1.5 flex justify-end border-t border-gray-100 pt-1">
                     <div class="flex shrink-0 space-x-0.5">
                         <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'start')"
                                 class="group/btn flex items-center px-1 py-0.5 text-[9px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200 rounded hover:bg-emerald-500 hover:text-white hover:border-emerald-500 transition-all duration-200 active:scale-95">

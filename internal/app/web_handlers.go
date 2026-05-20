@@ -99,14 +99,19 @@ func handleStatus(c *gin.Context) {
 	service.StatusMux.RLock()
 	snapshot := make(map[string]gin.H, len(service.StatusMap))
 	for id, status := range service.StatusMap {
+		cover := cameraCovers.snapshot(id)
 		snapshot[id] = gin.H{
-			"id":           status.ID,
-			"is_running":   status.IsRunning,
-			"record_state": status.RecordState,
-			"start_time":   status.StartTime,
-			"mode":         status.Mode,
-			"record_time":  status.RecordTime,
-			"stream_state": status.StreamState,
+			"id":               status.ID,
+			"is_running":       status.IsRunning,
+			"record_state":     status.RecordState,
+			"start_time":       status.StartTime,
+			"mode":             status.Mode,
+			"record_time":      status.RecordTime,
+			"stream_state":     status.StreamState,
+			"cover_ready":      cover.Ready,
+			"cover_loading":    cover.Loading,
+			"cover_version":    cover.Version,
+			"cover_updated_at": cover.UpdatedAt,
 		}
 	}
 	service.StatusMux.RUnlock()

@@ -80,6 +80,8 @@ func cleanGhostStatus(newConfig constant.Config) {
 		validIDs[cam.ID] = true
 	}
 
+	cameraCovers.prune(validIDs)
+
 	// 遍历内存状态，如果不在新配置中，则直接删除
 	service.StatusMux.Lock()
 	defer service.StatusMux.Unlock()

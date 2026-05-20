@@ -23,6 +23,7 @@ func TestHandleStatusIncludesRecordOverride(t *testing.T) {
 	camID := "status-override-auto"
 	deleteStatusForAppTest(t, camID)
 	service.ReplaceOnvifCandidates(nil)
+	swapCameraCoverStoreForTest(t, newDisabledCameraCoverStore())
 	service.UpdateStatus(camID, false, "normal", "09:00-18:00")
 
 	w := httptest.NewRecorder()
@@ -54,6 +55,7 @@ func TestHandleStatusReturnsExplicitMode(t *testing.T) {
 	camID := "status-mode-motion"
 	deleteStatusForAppTest(t, camID)
 	service.ReplaceOnvifCandidates(nil)
+	swapCameraCoverStoreForTest(t, newDisabledCameraCoverStore())
 	service.UpdateRecordState(camID, service.RecordStateMotionDetecting, service.ModeMotion, "09:00-18:00")
 
 	w := httptest.NewRecorder()
@@ -73,6 +75,37 @@ func TestHandleStatusReturnsExplicitMode(t *testing.T) {
 	}
 	if got := payload[camID]["record_state"]; got != service.RecordStateMotionDetecting {
 		t.Fatalf("expected record_state %q, got %v", service.RecordStateMotionDetecting, got)
+	}
+}
+
+func TestHandleStatusIncludesCoverMetadata(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	camID := "status-cover-ready"
+	deleteStatusForAppTest(t, camID)
+	service.ReplaceOnvifCandidates(nil)
+	store := newDisabledCameraCoverStore()
+	storeSeedCameraCover(store, camID, []byte("cover"), "image/jpeg", 456, time.Date(2026, 5, 20, 12, 0, 0, 0, time.Local))
+	swapCameraCoverStoreForTest(t, store)
+	service.UpdateStatus(camID, false, "normal", "09:00-18:00")
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	handleStatus(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var payload map[string]map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if got := payload[camID]["cover_ready"]; got != true {
+		t.Fatalf("expected cover_ready true, got %v", got)
+	}
+	if got := payload[camID]["cover_version"]; got != float64(456) {
+		t.Fatalf("expected cover_version 456, got %v", got)
 	}
 }
 

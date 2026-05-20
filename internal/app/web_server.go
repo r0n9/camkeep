@@ -35,6 +35,7 @@ func startWebServer() {
 
 	protected.GET("/", handleIndex)
 	protected.GET("/api/status", handleStatus)
+	protected.GET("/api/camera/:id/cover", handleCameraCover)
 	protected.GET("/api/config", handleGetConfig)
 	protected.GET("/api/config/form", handleGetConfigForm)
 	protected.POST("/api/config/form/parse", handleParseConfigForm)
