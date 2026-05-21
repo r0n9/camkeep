@@ -34,6 +34,7 @@ func startWebServer() {
 	protected.Use(authRequired(webAuth))
 
 	protected.GET("/", handleIndex)
+	protected.GET("/config-usage", handleConfigUsagePage)
 	protected.GET("/api/status", handleStatus)
 	protected.GET("/api/update/check", handleUpdateCheck)
 	protected.GET("/api/camera/:id/cover", handleCameraCover)

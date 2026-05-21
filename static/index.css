@@ -3937,3 +3937,405 @@ html.dark #themeIconDark {
 html.dark #themeIconLight {
     display: block;
 }
+
+.config-doc-body {
+    min-height: 100vh;
+    background:
+        radial-gradient(circle at 10% -10%, rgba(59, 130, 246, 0.18), transparent 32rem),
+        radial-gradient(circle at 92% 0%, rgba(20, 184, 166, 0.13), transparent 28rem),
+        #f1f5f9;
+    color: #0f172a;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.config-doc-shell {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 20px 16px 36px;
+}
+
+.config-doc-hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 22px;
+    margin-bottom: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.72);
+    border-radius: 28px;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 22px;
+    box-shadow: 0 22px 56px -38px rgba(15, 23, 42, 0.46);
+    backdrop-filter: blur(18px);
+}
+
+.config-doc-hero-copy {
+    min-width: 0;
+}
+
+.config-doc-kicker {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    color: #2563eb;
+    font-size: 11px;
+    font-weight: 950;
+    letter-spacing: 0.2em;
+}
+
+.config-doc-kicker img {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+}
+
+.config-doc-kicker em {
+    border: 1px solid rgba(37, 99, 235, 0.18);
+    border-radius: 999px;
+    background: #eff6ff;
+    padding: 2px 8px;
+    color: #1d4ed8;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-style: normal;
+    letter-spacing: 0;
+}
+
+.config-doc-hero h1 {
+    margin: 10px 0 0;
+    color: #020617;
+    font-size: clamp(24px, 3vw, 36px);
+    font-weight: 950;
+    letter-spacing: -0.04em;
+}
+
+.config-doc-hero p {
+    max-width: 760px;
+    margin: 8px 0 0;
+    color: #64748b;
+    font-size: 14px;
+    font-weight: 650;
+    line-height: 1.75;
+}
+
+.config-doc-hero code {
+    border-radius: 6px;
+    background: #f1f5f9;
+    padding: 2px 6px;
+    color: #0f172a;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 12px;
+}
+
+.config-doc-actions {
+    display: flex;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.config-doc-primary-link,
+.config-doc-secondary-link {
+    display: inline-flex;
+    min-height: 40px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    padding: 0 15px;
+    font-size: 12px;
+    font-weight: 950;
+    transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.config-doc-primary-link {
+    background: #0f172a;
+    color: #ffffff;
+}
+
+.config-doc-secondary-link {
+    border: 1px solid #cbd5e1;
+    background: rgba(255, 255, 255, 0.92);
+    color: #475569;
+}
+
+.config-doc-primary-link:hover,
+.config-doc-secondary-link:hover {
+    transform: translateY(-1px);
+}
+
+.config-doc-primary-link:hover {
+    background: #1d4ed8;
+}
+
+.config-doc-secondary-link:hover {
+    border-color: #93c5fd;
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.config-doc-layout {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr);
+    gap: 18px;
+}
+
+.config-doc-sidebar {
+    min-width: 0;
+}
+
+.config-doc-toc {
+    position: sticky;
+    top: 16px;
+    display: flex;
+    max-height: calc(100vh - 32px);
+    flex-direction: column;
+    gap: 2px;
+    overflow-y: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.92);
+    padding: 10px;
+    box-shadow: 0 18px 42px -34px rgba(15, 23, 42, 0.4);
+}
+
+.config-doc-toc a {
+    border-radius: 12px;
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 850;
+    line-height: 1.25;
+    padding: 8px 10px;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.config-doc-toc a:hover {
+    background: #f1f5f9;
+    color: #1d4ed8;
+}
+
+.config-doc-toc-level-1 {
+    color: #0f172a !important;
+}
+
+.config-doc-toc-level-3 {
+    padding-left: 22px !important;
+    font-size: 12px !important;
+    font-weight: 750 !important;
+}
+
+.config-doc-content {
+    min-width: 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 28px;
+    background: rgba(255, 255, 255, 0.94);
+    padding: 28px;
+    box-shadow: 0 22px 56px -40px rgba(15, 23, 42, 0.48);
+}
+
+.config-doc-content h1,
+.config-doc-content h2,
+.config-doc-content h3 {
+    color: #020617;
+    font-weight: 950;
+    letter-spacing: -0.03em;
+    scroll-margin-top: 24px;
+}
+
+.config-doc-content h1 {
+    margin: 0 0 18px;
+    font-size: 32px;
+}
+
+.config-doc-content h2 {
+    margin: 32px 0 12px;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 24px;
+    font-size: 24px;
+}
+
+.config-doc-content h1 + h2,
+.config-doc-content h2:first-child {
+    margin-top: 0;
+    border-top: 0;
+    padding-top: 0;
+}
+
+.config-doc-content h3 {
+    margin: 22px 0 10px;
+    font-size: 18px;
+}
+
+.config-doc-content p,
+.config-doc-content li {
+    color: #475569;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.82;
+}
+
+.config-doc-content p {
+    margin: 10px 0;
+}
+
+.config-doc-content ul {
+    margin: 10px 0 16px;
+    padding-left: 24px;
+}
+
+.config-doc-content li {
+    margin: 6px 0;
+    list-style: disc;
+}
+
+.config-doc-content strong {
+    color: #0f172a;
+    font-weight: 950;
+}
+
+.config-doc-content code {
+    border: 1px solid #e2e8f0;
+    border-radius: 7px;
+    background: #f8fafc;
+    padding: 2px 6px;
+    color: #0f172a;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 12px;
+    font-weight: 750;
+}
+
+.config-doc-content pre {
+    margin: 14px 0 18px;
+    overflow-x: auto;
+    border-radius: 18px;
+    background: #020617;
+    padding: 16px;
+    box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.18);
+}
+
+.config-doc-content pre code {
+    display: block;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: #e2e8f0;
+    font-size: 12px;
+    font-weight: 650;
+    line-height: 1.72;
+    white-space: pre;
+}
+
+@media (max-width: 900px) {
+    .config-doc-hero {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .config-doc-actions {
+        width: 100%;
+    }
+
+    .config-doc-primary-link,
+    .config-doc-secondary-link {
+        flex: 1 1 150px;
+    }
+
+    .config-doc-layout {
+        display: block;
+    }
+
+    .config-doc-sidebar {
+        display: none;
+    }
+
+    .config-doc-content {
+        padding: 20px;
+    }
+}
+
+html.dark .config-doc-body {
+    background:
+        radial-gradient(circle at 10% -10%, rgba(37, 99, 235, 0.24), transparent 32rem),
+        radial-gradient(circle at 92% 0%, rgba(20, 184, 166, 0.16), transparent 28rem),
+        #020617;
+    color: #e2e8f0;
+}
+
+html.dark .config-doc-hero,
+html.dark .config-doc-toc,
+html.dark .config-doc-content {
+    border-color: #1e293b;
+    background: rgba(15, 23, 42, 0.92);
+    box-shadow: 0 24px 58px -40px rgba(0, 0, 0, 0.92);
+}
+
+html.dark .config-doc-kicker {
+    color: #93c5fd;
+}
+
+html.dark .config-doc-kicker em {
+    border-color: rgba(96, 165, 250, 0.42);
+    background: rgba(59, 130, 246, 0.14);
+    color: #bfdbfe;
+}
+
+html.dark .config-doc-hero h1,
+html.dark .config-doc-content h1,
+html.dark .config-doc-content h2,
+html.dark .config-doc-content h3,
+html.dark .config-doc-content strong {
+    color: #f8fafc;
+}
+
+html.dark .config-doc-hero p,
+html.dark .config-doc-content p,
+html.dark .config-doc-content li {
+    color: #cbd5e1;
+}
+
+html.dark .config-doc-hero code,
+html.dark .config-doc-content code {
+    border-color: #334155;
+    background: #020617;
+    color: #dbeafe;
+}
+
+html.dark .config-doc-secondary-link {
+    border-color: #334155;
+    background: rgba(15, 23, 42, 0.92);
+    color: #cbd5e1;
+}
+
+html.dark .config-doc-secondary-link:hover,
+html.dark .config-doc-toc a:hover {
+    background: rgba(37, 99, 235, 0.16);
+    color: #bfdbfe;
+}
+
+html.dark .config-doc-primary-link {
+    background: #2563eb;
+}
+
+html.dark .config-doc-primary-link:hover {
+    background: #3b82f6;
+}
+
+html.dark .config-doc-toc a {
+    color: #94a3b8;
+}
+
+html.dark .config-doc-toc-level-1 {
+    color: #f8fafc !important;
+}
+
+html.dark .config-doc-content h2 {
+    border-color: #1e293b;
+}
+
+html.dark .config-doc-content pre {
+    background: #020617;
+    box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.2);
+}
+
+html.dark .config-doc-content pre code {
+    background: transparent;
+    color: #e2e8f0;
+}

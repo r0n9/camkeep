@@ -115,6 +115,21 @@ func handleIndex(c *gin.Context) {
 	})
 }
 
+func handleConfigUsagePage(c *gin.Context) {
+	data, err := os.ReadFile("conf_usage.md")
+	if err != nil {
+		c.String(http.StatusInternalServerError, "读取配置说明失败: %s", err.Error())
+		return
+	}
+
+	doc := renderMarkdownDocument(string(data))
+	c.HTML(http.StatusOK, "config_usage.html", gin.H{
+		"Version": version,
+		"DocHTML": doc.HTML,
+		"DocTOC":  doc.TOC,
+	})
+}
+
 func handleStatus(c *gin.Context) {
 	service.StatusMux.RLock()
 	snapshot := make(map[string]statusResponseEntry, len(service.StatusMap))

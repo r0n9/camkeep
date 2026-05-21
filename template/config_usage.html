@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <title>CamKeep 配置说明</title>
+    <script>
+        window.tailwind = window.tailwind || {};
+        window.tailwind.config = {darkMode: 'class'};
+        (function () {
+            try {
+                var savedTheme = localStorage.getItem('camkeep-theme');
+                var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+                    document.documentElement.classList.add('dark');
+                }
+            } catch (e) {
+            }
+        })();
+    </script>
+    <script src="/static/tailwindcss.min.js"></script>
+    <link rel="icon" href="/static/camkeep_w200.png">
+    <link rel="stylesheet" href="/static/index.css">
+</head>
+<body class="config-doc-body">
+<div class="config-doc-shell">
+    <header class="config-doc-hero">
+        <div class="config-doc-hero-copy">
+            <div class="config-doc-kicker">
+                <img src="/static/camkeep_w80.png" alt="CamKeep">
+                <span>CONFIGURATION GUIDE</span>
+                <em>{{ .Version }}</em>
+            </div>
+            <h1>CamKeep 配置说明</h1>
+            <p>直接预览 <code>conf_usage.md</code>。修改 Markdown 文件后刷新此页面即可同步，无需维护第二份配置说明。</p>
+        </div>
+        <div class="config-doc-actions">
+            <a href="/" class="config-doc-secondary-link">返回控制台</a>
+            <a href="https://github.com/r0n9/camkeep/blob/main/conf_usage.md" target="_blank" rel="noopener" class="config-doc-primary-link">查看 Markdown</a>
+        </div>
+    </header>
+
+    <main class="config-doc-layout">
+        <aside class="config-doc-sidebar">
+            <nav class="config-doc-toc" aria-label="配置说明目录">
+                {{ range .DocTOC }}
+                <a href="#{{ .ID }}" class="{{ .Class }}">{{ .Text }}</a>
+                {{ end }}
+            </nav>
+        </aside>
+
+        <article class="config-doc-content">
+            {{ .DocHTML }}
+        </article>
+    </main>
+</div>
+</body>
+</html>
