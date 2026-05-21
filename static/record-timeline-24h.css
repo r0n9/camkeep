@@ -249,7 +249,7 @@
     overflow: hidden;
     padding: 0;
     border: 0;
-    border-radius: 9999px;
+    border-radius: 2px;
     background: transparent;
     cursor: pointer;
     transform: translateY(0);

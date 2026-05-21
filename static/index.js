@@ -1010,12 +1010,11 @@ function buildCameraCardView(id, cam) {
     ensureCameraCoverLoaded(id, cam);
 
     const recordState = cam.record_state || (cam.is_running ? 'recording' : 'idle');
-    const isRunning = recordState === 'recording' || recordState === 'motion_detecting' || recordState === 'motion_recording';
     const isSelected = currentSelectedCam === id;
     const streamState = cam.stream_state || 'offline';
     const recordSchedule = buildRecordScheduleDisplay(cam.record_time, cam.record_override);
+    const recordStateView = buildRecordStateView(recordState);
     let streamLight, streamText;
-    let recordLight, recordText, recordTextClass, recordStateTitle;
 
     if (streamState === 'online') {
         streamLight = 'bg-green-500 shadow-[0_0_5px_#22c55e]';
@@ -1026,28 +1025,6 @@ function buildCameraCardView(id, cam) {
     } else {
         streamLight = 'bg-red-500 shadow-[0_0_5px_#ef4444]';
         streamText = '<span class="text-[8px] leading-none text-red-500 font-bold">断线</span>';
-    }
-
-    if (recordState === 'motion_recording') {
-        recordLight = 'bg-amber-500 shadow-[0_0_5px_#f59e0b] animate-pulse';
-        recordText = '动录';
-        recordTextClass = 'text-amber-700';
-        recordStateTitle = '动检录制中';
-    } else if (recordState === 'motion_detecting') {
-        recordLight = 'bg-sky-500 shadow-[0_0_5px_#0ea5e9]';
-        recordText = '动检';
-        recordTextClass = 'text-sky-700';
-        recordStateTitle = '动检中';
-    } else if (recordState === 'recording') {
-        recordLight = 'bg-red-500 shadow-[0_0_5px_#ef4444] animate-pulse';
-        recordText = '录制';
-        recordTextClass = 'text-gray-700';
-        recordStateTitle = '录制中';
-    } else {
-        recordLight = 'bg-gray-300';
-        recordText = '未录';
-        recordTextClass = 'text-gray-400';
-        recordStateTitle = '未录像';
     }
 
     const modeValue = (cam.mode || 'normal').toLowerCase();
@@ -1062,7 +1039,7 @@ function buildCameraCardView(id, cam) {
             ? 'bg-sky-100 text-sky-700'
             : 'bg-slate-100 text-slate-500';
 
-    const className = `camera-node-card overflow-hidden rounded-md border cursor-pointer transition-all group ${isSelected ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-100' : 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-sm'} ${isRunning ? '' : 'opacity-85'}`;
+    const className = `camera-node-card ${recordStateView.cardClass} ${isSelected ? 'is-selected' : ''} overflow-hidden rounded-md border cursor-pointer transition-all group`;
     const html = `
         <div class="flex items-center gap-1 p-1">
             ${buildCameraCoverMarkup(id, cam, streamState)}
@@ -1071,15 +1048,12 @@ function buildCameraCardView(id, cam) {
                     <div class="flex min-w-0 items-center gap-1">
                         <span class="truncate text-[11px] font-extrabold leading-3 tracking-tight text-gray-800">${id}</span>
                         <span class="shrink-0 rounded ${modeBadgeClass} px-1 py-0.5 text-[7px] font-bold leading-none">${modeDisplay}</span>
+                        <span class="camera-node-record-chip ${recordStateView.chipClass}" title="本地录制状态: ${escapeHtml(recordStateView.title)}">${recordStateView.label}</span>
                     </div>
                     <div class="mt-0.5 flex flex-wrap items-center gap-0.5">
                         <span class="inline-flex h-3.5 items-center rounded bg-slate-50 px-1 ring-1 ring-slate-100" title="摄像机实时流状态: ${escapeHtml(streamState)}">
                             <span class="mr-0.5 h-1.5 w-1.5 shrink-0 rounded-full ${streamLight}"></span>
                             ${streamText}
-                        </span>
-                        <span class="inline-flex h-3.5 items-center rounded bg-slate-50 px-1 ring-1 ring-slate-100" title="本地录制状态: ${escapeHtml(recordStateTitle)}">
-                            <span class="mr-0.5 h-1.5 w-1.5 shrink-0 rounded-full ${recordLight}"></span>
-                            <span class="text-[8px] ${recordTextClass} font-bold leading-none">${recordText}</span>
                         </span>
                     </div>
                 </div>
@@ -1117,7 +1091,7 @@ function buildCameraCardView(id, cam) {
         </div>
 
         <div class="camera-node-card-footer flex items-center gap-0.5 border-t border-gray-100 px-1 py-0.5">
-            <div class="flex min-w-0 flex-1 items-center gap-0.5 rounded border ${recordSchedule.borderClass} ${recordSchedule.bgClass} px-1 py-0.5"
+            <div class="camera-node-schedule-pill flex min-w-0 flex-1 items-center gap-0.5 rounded border px-1 py-0.5"
                  title="${escapeHtml(recordSchedule.title)}">
                     <svg class="h-2 w-2 shrink-0 ${recordSchedule.iconClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2"></path>
@@ -1130,6 +1104,42 @@ function buildCameraCardView(id, cam) {
     `;
 
     return {className, html};
+}
+
+function buildRecordStateView(recordState) {
+    if (recordState === 'motion_recording') {
+        return {
+            cardClass: 'is-motion-recording',
+            chipClass: 'camera-node-record-chip--motion-recording',
+            label: '动检录制',
+            title: '动检录制中'
+        };
+    }
+
+    if (recordState === 'motion_detecting') {
+        return {
+            cardClass: 'is-motion-detecting',
+            chipClass: 'camera-node-record-chip--motion-detecting',
+            label: '动检中',
+            title: '动检中'
+        };
+    }
+
+    if (recordState === 'recording') {
+        return {
+            cardClass: 'is-recording',
+            chipClass: 'camera-node-record-chip--recording',
+            label: '录制中',
+            title: '录制中'
+        };
+    }
+
+    return {
+        cardClass: 'is-idle',
+        chipClass: 'camera-node-record-chip--idle',
+        label: '未录像',
+        title: '未录像'
+    };
 }
 
 // --- 状态加载 ---
