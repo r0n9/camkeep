@@ -1737,6 +1737,14 @@ html.dark .record-timeline-card-action-delete:hover {
     min-width: 0;
 }
 
+.config-discovery-title-row {
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
 .config-discovery-copy h3,
 .config-daily-merge-card h3,
 .config-section-head h3 {
@@ -1755,6 +1763,35 @@ html.dark .record-timeline-card-action-delete:hover {
     font-size: 12px;
     font-weight: 650;
     line-height: 1.55;
+}
+
+.config-import-summary-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    background: linear-gradient(135deg, #f59e0b, #2563eb);
+    color: #ffffff;
+    padding: 4px 8px;
+    font-size: 10px;
+    font-weight: 950;
+    line-height: 1;
+    box-shadow: 0 10px 20px -16px rgba(37, 99, 235, 0.8);
+}
+
+.config-import-summary-badge.hidden {
+    display: none !important;
+}
+
+.config-discovery-card.has-importable-streams:not([open]) {
+    border-color: rgba(245, 158, 11, 0.62);
+    background:
+        radial-gradient(circle at 96% 0%, rgba(245, 158, 11, 0.13), transparent 28%),
+        linear-gradient(135deg, rgba(255, 251, 235, 0.94), rgba(239, 246, 255, 0.98));
+    box-shadow: 0 18px 38px -30px rgba(245, 158, 11, 0.58);
+}
+
+.config-discovery-card.has-importable-streams:not([open]) .config-discovery-icon {
+    color: #d97706;
 }
 
 .config-discovery-actions {
@@ -2240,8 +2277,62 @@ html.dark .record-timeline-card-action-delete:hover {
 
 .config-camera-card-head {
     display: flex;
+    align-items: stretch;
+    gap: 10px;
+}
+
+.config-camera-card-summary {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 auto;
     align-items: flex-start;
     gap: 10px;
+    border-radius: 12px;
+    padding: 2px;
+    transition: background 0.18s ease;
+}
+
+.config-camera-card-summary:hover {
+    background: rgba(239, 246, 255, 0.76);
+}
+
+.config-camera-card-summary:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.14);
+}
+
+.config-camera-collapse-icon {
+    display: inline-flex;
+    width: 26px;
+    height: 26px;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background: #f1f5f9;
+    color: #64748b;
+    transition: transform 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.config-camera-collapse-icon svg {
+    width: 14px;
+    height: 14px;
+}
+
+.config-camera-card.is-expanded .config-camera-collapse-icon {
+    transform: rotate(180deg);
+    background: #dbeafe;
+    color: #2563eb;
+}
+
+.config-camera-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.config-camera-card.is-collapsed .config-camera-card-body {
+    display: none;
 }
 
 .config-camera-card-index {
@@ -2813,6 +2904,17 @@ html.dark .config-discovery-icon {
     box-shadow: inset 0 0 0 1px rgba(147, 197, 253, 0.15), 0 14px 28px -20px rgba(0, 0, 0, 0.94);
 }
 
+html.dark .config-discovery-card.has-importable-streams:not([open]) {
+    border-color: rgba(245, 158, 11, 0.46);
+    background:
+        radial-gradient(circle at 96% 0%, rgba(245, 158, 11, 0.14), transparent 28%),
+        linear-gradient(135deg, rgba(120, 53, 15, 0.18), rgba(15, 23, 42, 0.96));
+}
+
+html.dark .config-discovery-card.has-importable-streams:not([open]) .config-discovery-icon {
+    color: #fbbf24;
+}
+
 html.dark .config-unmanaged-list {
     border-color: rgba(96, 165, 250, 0.24);
 }
@@ -2977,6 +3079,20 @@ html.dark .config-camera-card.is-go2rtc-managed:hover {
 html.dark .config-camera-card-index {
     background: #e2e8f0;
     color: #0f172a;
+}
+
+html.dark .config-camera-card-summary:hover {
+    background: rgba(30, 58, 138, 0.34);
+}
+
+html.dark .config-camera-collapse-icon {
+    background: rgba(51, 65, 85, 0.78);
+    color: #cbd5e1;
+}
+
+html.dark .config-camera-card.is-expanded .config-camera-collapse-icon {
+    background: rgba(30, 64, 175, 0.52);
+    color: #bfdbfe;
 }
 
 html.dark .config-camera-chip--go2rtc {

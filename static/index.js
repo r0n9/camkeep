@@ -145,10 +145,13 @@ let configFormState = {daily_merge: {enabled: false, time: '03:30'}, cameras: []
 let configFormInitialCameras = [];
 let configFormInitialCamerasLoaded = false;
 let go2rtcStreamInfoMap = new Map();
+let configCameraExpandedKeys = new Set();
+let configCameraUiSeq = 0;
 
 async function openConfig() {
     showConfigPage();
     go2rtcStreamInfoMap = new Map();
+    configCameraExpandedKeys = new Set();
     configFormInitialCameras = [];
     configFormInitialCamerasLoaded = false;
     renderConfigLoadingState();
@@ -267,6 +270,7 @@ async function switchConfigMode(mode, options = {}) {
             return;
         }
         configFormState = normalizeConfigForm(parsed.config);
+        configCameraExpandedKeys = new Set();
         renderConfigForm();
     }
     if (mode === 'yaml' && configEditMode !== 'yaml' && !options.skipSync) {
@@ -302,6 +306,7 @@ async function validateConfigYaml(yamlText) {
 
 async function scanUnmanagedStreams() {
     const listDiv = document.getElementById('unmanagedList');
+    updateGo2rtcImportBadge(0);
     listDiv.innerHTML = '<span class="config-import-result-message">正在扫描 go2rtc 中可导入的摄像头流...</span>';
     listDiv.classList.remove('hidden');
 
@@ -317,10 +322,12 @@ async function scanUnmanagedStreams() {
         rerenderConfigFormPreservingInput();
 
         if (!scan.unmanaged || scan.unmanaged.length === 0) {
+            updateGo2rtcImportBadge(0);
             listDiv.innerHTML = '<span class="config-import-result-message config-import-result-message--ok">go2rtc 中的流都已经加入 CamKeep 配置，当前没有可导入项。</span>';
             return;
         }
 
+        updateGo2rtcImportBadge(scan.unmanaged.length);
         listDiv.innerHTML = `
             <div class="config-import-result-head">
                 <span class="config-import-result-count">${scan.unmanaged.length} 个可导入流</span>
@@ -345,8 +352,19 @@ async function scanUnmanagedStreams() {
             listDiv.appendChild(tag);
         });
     } catch (e) {
+        updateGo2rtcImportBadge(0);
         listDiv.innerHTML = `<span class="config-import-result-message config-import-result-message--error">扫描失败: ${escapeHtml(e.message)}</span>`;
     }
+}
+
+function updateGo2rtcImportBadge(count) {
+    const badge = document.getElementById('go2rtcImportBadge');
+    const card = document.querySelector('.config-discovery-card');
+    if (!badge) return;
+    const safeCount = Number(count) || 0;
+    badge.textContent = safeCount > 0 ? `${safeCount} 个可导入` : '';
+    badge.classList.toggle('hidden', safeCount <= 0);
+    card?.classList.toggle('has-importable-streams', safeCount > 0);
 }
 
 function normalizeGo2rtcScanPayload(payload) {
@@ -394,6 +412,7 @@ function rerenderConfigFormPreservingInput() {
     if (!configPageVisible) return;
 
     try {
+        syncConfigCameraExpandedStateFromDom();
         configFormState = collectConfigForm({allowEmptyID: true});
     } catch (e) {
         // 表单刚初始化或正在切换模式时，保留现有状态即可。
@@ -484,6 +503,19 @@ function cloneConfigCameraList(cameras) {
     return (cameras || []).map(cam => ({...cam}));
 }
 
+function ensureConfigCameraUiKey(cam, fallback = '') {
+    if (!cam) return '';
+    if (cam.__uiKey) return cam.__uiKey;
+    const key = fallback || `camera-ui-${Date.now()}-${++configCameraUiSeq}`;
+    Object.defineProperty(cam, '__uiKey', {
+        value: key,
+        enumerable: false,
+        configurable: true,
+        writable: true
+    });
+    return key;
+}
+
 function renderConfigForm() {
     document.getElementById('dailyMergeEnabled').checked = Boolean(configFormState.daily_merge.enabled);
     document.getElementById('dailyMergeTime').value = configFormState.daily_merge.time || '03:30';
@@ -494,11 +526,14 @@ function renderConfigForm() {
     empty.classList.toggle('hidden', configFormState.cameras.length > 0);
 
     configFormState.cameras.forEach((cam, index) => {
+        const uiKey = ensureConfigCameraUiKey(cam);
+        const expanded = configCameraExpandedKeys.has(uiKey);
         const managedClass = isManagedByGo2rtcURL(cam.stream_url) ? ' is-go2rtc-managed' : '';
         const card = document.createElement('div');
-        card.className = `config-camera-card${managedClass} rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-3 shadow-sm`;
+        card.className = `config-camera-card${managedClass} ${expanded ? 'is-expanded' : 'is-collapsed'} rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-3 shadow-sm`;
         card.dataset.index = String(index);
-        card.innerHTML = renderConfigCameraCard(cam, index);
+        card.dataset.uiKey = uiKey;
+        card.innerHTML = renderConfigCameraCard(cam, index, expanded);
         list.appendChild(card);
     });
 
@@ -509,7 +544,7 @@ function renderConfigForm() {
     }
 }
 
-function renderConfigCameraCard(cam, index) {
+function renderConfigCameraCard(cam, index, expanded = false) {
     const modeValue = String(cam.mode || 'normal').toLowerCase();
     const normalMode = modeValue !== 'timelapse';
     const managedByGo2rtc = isManagedByGo2rtcURL(cam.stream_url);
@@ -527,45 +562,52 @@ function renderConfigCameraCard(cam, index) {
     return `
         <div class="config-camera-card-shell">
             <div class="config-camera-card-head">
-                <div class="config-camera-card-index">#${index + 1}</div>
-                <div class="min-w-0 flex-1">
-                    <div class="config-camera-title-row">
-                        <h4 class="truncate text-sm font-extrabold text-slate-800">${escapeHtml(cam.id || '未命名摄像头')}</h4>
-                        ${managedByGo2rtc ? '<span class="config-camera-chip config-camera-chip--go2rtc">go2rtc 接管</span>' : ''}
-                        ${motionEnabled ? '<span class="config-camera-chip config-camera-chip--motion">动检</span>' : ''}
-                        <span class="config-camera-chip config-camera-chip--mode">${escapeHtml(modeValue || 'normal')} / ${escapeHtml(cam.format || 'ts')}</span>
+                <button onclick="toggleConfigCamera(${index})" class="config-camera-card-summary" type="button" aria-expanded="${expanded ? 'true' : 'false'}">
+                    <div class="config-camera-card-index">#${index + 1}</div>
+                    <div class="min-w-0 flex-1 text-left">
+                        <div class="config-camera-title-row">
+                            <h4 class="truncate text-sm font-extrabold text-slate-800">${escapeHtml(cam.id || '未命名摄像头')}</h4>
+                            ${managedByGo2rtc ? '<span class="config-camera-chip config-camera-chip--go2rtc">go2rtc 接管</span>' : ''}
+                            ${motionEnabled ? '<span class="config-camera-chip config-camera-chip--motion">动检</span>' : ''}
+                            <span class="config-camera-chip config-camera-chip--mode">${escapeHtml(modeValue || 'normal')} / ${escapeHtml(cam.format || 'ts')}</span>
+                        </div>
+                        <p class="mt-1 truncate text-[11px] font-medium text-slate-500">${sourceHint}；${motionHint}</p>
                     </div>
-                    <p class="mt-1 truncate text-[11px] font-medium text-slate-500">${sourceHint}；${motionHint}</p>
-                </div>
+                    <span class="config-camera-collapse-icon" aria-hidden="true">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M19 9l-7 7-7-7"></path></svg>
+                    </span>
+                </button>
                 <button onclick="removeConfigCamera(${index})" class="config-camera-delete-btn" type="button">删除</button>
             </div>
-            ${configFormSection('基础信息', '识别、模式和录像时间，改完后立即影响当前卡片展示。', `
-                ${configTextInput('摄像头 ID', 'id', cam.id, 'front-door', true)}
-                ${configNumberInput('排序 order', 'order', cam.order, '0，数字越小越靠前')}
-                ${configSelectInput('模式', 'mode', cam.mode, [['normal', '普通'], ['timelapse', '延时']], `onchange="refreshConfigFormFromDom()"`)}
-                ${configSelectInput('格式', 'format', cam.format, [['ts', 'ts'], ['mp4', 'mp4']])}
-                ${configTextInput('录制时间', 'record_time', cam.record_time, '00:00-23:59')}
-            `, 'config-form-section--identity')}
-            ${configFormSection('接入源', '会注册到 go2rtc 的源地址，可填写 RTSP、ONVIF、FFmpeg 或其他 go2rtc 支持的 URL。', `
-                ${managedByGo2rtc ? configManagedStreamField(cam.id) : configTextInput('接入源 stream_url', 'stream_url', cam.stream_url, 'rtsp://... / onvif://... / ffmpeg:...', true, 'config-field-wide')}
-            `, managedByGo2rtc ? 'config-form-section--stream is-go2rtc-managed' : 'config-form-section--stream')}
-            ${configFormSection('录像策略', '控制保留、切片和磁盘占用。', `
-                ${configNumberInput('保留天数', 'retention_days', cam.retention_days, '0 不清理')}
-                ${configNumberInput('切片秒数', 'segment_duration', cam.segment_duration, '300 / 600')}
-                ${configNumberInput('最小文件 KB', 'min_size_kb', cam.min_size_kb, '1024')}
-            `, 'config-form-section--storage')}
-            ${configFormSection(motionSectionTitle, motionSectionDesc, normalMode ? `
-                ${configCheckboxInput('动检录制', 'motion_detect', motionEnabled, motionDetectAttrs)}
-                ${configTextInput('动检流 motion_url', 'motion_url', cam.motion_url, '可选，低码率子码流，仅用于识别', false, 'config-field-wide', motionUrlAttrs)}
-                ${configHiddenInput('capture_interval', cam.capture_interval)}
-                ${configNumberInput('动检阈值', 'motionDetectRatioThreshold', cam.motionDetectRatioThreshold, '0.01 表示 1%', '0.001', '', motionThresholdAttrs)}
-            ` : `
-                ${configNumberInput('延时抓拍间隔', 'capture_interval', cam.capture_interval, '仅延时生效', '1', 'config-field-wide', captureIntervalAttrs)}
-                ${configHiddenInput('motion_url', cam.motion_url)}
-                ${configHiddenInput('motionDetectRatioThreshold', cam.motionDetectRatioThreshold)}
-                <input data-field="motion_detect" type="checkbox" ${cam.motion_detect ? 'checked' : ''} hidden>
-                <div class="config-form-section-note config-field-wide">延时模式不使用动检录像，保留接入源与抓拍间隔即可。</div>
-            `, normalMode ? 'config-form-section--motion' : 'config-form-section--motion config-form-section--timelapse is-muted')}
+            <div class="config-camera-card-body">
+                ${configFormSection('基础信息', '识别、模式和录像时间，改完后立即影响当前卡片展示。', `
+                    ${configTextInput('摄像头 ID', 'id', cam.id, 'front-door', true)}
+                    ${configNumberInput('排序 order', 'order', cam.order, '0，数字越小越靠前')}
+                    ${configSelectInput('模式', 'mode', cam.mode, [['normal', '普通'], ['timelapse', '延时']], `onchange="refreshConfigFormFromDom()"`)}
+                    ${configSelectInput('格式', 'format', cam.format, [['ts', 'ts'], ['mp4', 'mp4']])}
+                    ${configTextInput('录制时间', 'record_time', cam.record_time, '00:00-23:59')}
+                `, 'config-form-section--identity')}
+                ${configFormSection('接入源', '会注册到 go2rtc 的源地址，可填写 RTSP、ONVIF、FFmpeg 或其他 go2rtc 支持的 URL。', `
+                    ${managedByGo2rtc ? configManagedStreamField(cam.id) : configTextInput('接入源 stream_url', 'stream_url', cam.stream_url, 'rtsp://... / onvif://... / ffmpeg:...', true, 'config-field-wide')}
+                `, managedByGo2rtc ? 'config-form-section--stream is-go2rtc-managed' : 'config-form-section--stream')}
+                ${configFormSection('录像策略', '控制保留、切片和磁盘占用。', `
+                    ${configNumberInput('保留天数', 'retention_days', cam.retention_days, '0 不清理')}
+                    ${configNumberInput('切片秒数', 'segment_duration', cam.segment_duration, '300 / 600')}
+                    ${configNumberInput('最小文件 KB', 'min_size_kb', cam.min_size_kb, '1024')}
+                `, 'config-form-section--storage')}
+                ${configFormSection(motionSectionTitle, motionSectionDesc, normalMode ? `
+                    ${configCheckboxInput('动检录制', 'motion_detect', motionEnabled, motionDetectAttrs)}
+                    ${configTextInput('动检流 motion_url', 'motion_url', cam.motion_url, '可选，低码率子码流，仅用于识别', false, 'config-field-wide', motionUrlAttrs)}
+                    ${configHiddenInput('capture_interval', cam.capture_interval)}
+                    ${configNumberInput('动检阈值', 'motionDetectRatioThreshold', cam.motionDetectRatioThreshold, '0.01 表示 1%', '0.001', '', motionThresholdAttrs)}
+                ` : `
+                    ${configNumberInput('延时抓拍间隔', 'capture_interval', cam.capture_interval, '仅延时生效', '1', 'config-field-wide', captureIntervalAttrs)}
+                    ${configHiddenInput('motion_url', cam.motion_url)}
+                    ${configHiddenInput('motionDetectRatioThreshold', cam.motionDetectRatioThreshold)}
+                    <input data-field="motion_detect" type="checkbox" ${cam.motion_detect ? 'checked' : ''} hidden>
+                    <div class="config-form-section-note config-field-wide">延时模式不使用动检录像，保留接入源与抓拍间隔即可。</div>
+                `, normalMode ? 'config-form-section--motion' : 'config-form-section--motion config-form-section--timelapse is-muted')}
+            </div>
         </div>
     `;
 }
@@ -667,14 +709,17 @@ function configCheckboxInput(label, field, checked, extraAttrs = '') {
 }
 
 function refreshConfigFormFromDom() {
+    syncConfigCameraExpandedStateFromDom();
     configFormState = collectConfigForm({allowEmptyID: true});
     renderConfigForm();
 }
 
 function restoreConfigCameras() {
     if (!configFormInitialCamerasLoaded) return;
+    syncConfigCameraExpandedStateFromDom();
     configFormState = collectConfigForm({allowEmptyID: true});
     configFormState.cameras = cloneConfigCameraList(configFormInitialCameras);
+    configCameraExpandedKeys = new Set();
     renderConfigForm();
 }
 
@@ -705,6 +750,7 @@ function collectConfigForm(options = {}) {
             motionDetectRatioThreshold: readCardFloat(card, 'motionDetectRatioThreshold', 0),
             auto_discovered: isManagedByGo2rtcURL(readCardField(card, 'stream_url'))
         };
+        ensureConfigCameraUiKey(cam, card.dataset.uiKey);
         if (!cam.id && !options.allowEmptyID) throw new Error(`第 ${index + 1} 个摄像头 ID 不能为空`);
         cfg.cameras.push(cam);
     });
@@ -734,8 +780,9 @@ function readCardCheckbox(card, field) {
 }
 
 function addConfigCamera(seed = {}) {
+    syncConfigCameraExpandedStateFromDom();
     configFormState = collectConfigForm({allowEmptyID: true});
-    configFormState.cameras.unshift(normalizeConfigCamera({
+    const nextCam = normalizeConfigCamera({
         id: '',
         order: 0,
         stream_url: '',
@@ -751,14 +798,42 @@ function addConfigCamera(seed = {}) {
         motionDetectRatioThreshold: 0.01,
         auto_discovered: false,
         ...seed
-    }));
+    });
+    const uiKey = ensureConfigCameraUiKey(nextCam);
+    configFormState.cameras.unshift(nextCam);
+    configCameraExpandedKeys.add(uiKey);
     renderConfigForm();
 }
 
 function removeConfigCamera(index) {
+    syncConfigCameraExpandedStateFromDom();
+    const removedKey = document.querySelector(`.config-camera-card[data-index="${index}"]`)?.dataset.uiKey;
     configFormState = collectConfigForm({allowEmptyID: true});
     configFormState.cameras.splice(index, 1);
+    if (removedKey) configCameraExpandedKeys.delete(removedKey);
     renderConfigForm();
+}
+
+function toggleConfigCamera(index) {
+    syncConfigCameraExpandedStateFromDom();
+    const card = document.querySelector(`.config-camera-card[data-index="${index}"]`);
+    const uiKey = card?.dataset.uiKey;
+    if (!uiKey) return;
+    if (configCameraExpandedKeys.has(uiKey)) {
+        configCameraExpandedKeys.delete(uiKey);
+    } else {
+        configCameraExpandedKeys.add(uiKey);
+    }
+    configFormState = collectConfigForm({allowEmptyID: true});
+    renderConfigForm();
+}
+
+function syncConfigCameraExpandedStateFromDom() {
+    const next = new Set();
+    document.querySelectorAll('.config-camera-card.is-expanded').forEach(card => {
+        if (card.dataset.uiKey) next.add(card.dataset.uiKey);
+    });
+    configCameraExpandedKeys = next;
 }
 
 function configToYaml(cfg) {
@@ -851,8 +926,17 @@ function finishAppendStream(streamId) {
     const tag = document.getElementById(`unmanaged-${encodeURIComponent(streamId)}`);
     if (tag) tag.remove();
     const listDiv = document.getElementById('unmanagedList');
-    if (listDiv.children.length === 0) {
-        listDiv.innerHTML = '<span class="text-xs text-emerald-600 font-bold">🎉 所有发现设备已追加到下方配置框，请根据需要调整参数后点击【保存并应用】。</span>';
+    const remaining = listDiv.querySelectorAll('.config-import-result-item').length;
+    updateGo2rtcImportBadge(remaining);
+    const head = listDiv.querySelector('.config-import-result-head');
+    if (remaining > 0) {
+        const count = head?.querySelector('.config-import-result-count');
+        if (count) count.textContent = `${remaining} 个可导入流`;
+        return;
+    }
+    if (head) head.remove();
+    if (!listDiv.querySelector('.config-import-result-message')) {
+        listDiv.innerHTML = '<span class="config-import-result-message config-import-result-message--ok">已导入当前扫描到的全部流，检查参数后保存并应用。</span>';
     }
 }
 
