@@ -175,6 +175,14 @@ func handleStatus(c *gin.Context) {
 	c.Data(http.StatusOK, "application/json; charset=utf-8", body)
 }
 
+func handleUpdateCheck(c *gin.Context) {
+	if updateChecker == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "更新检查器尚未初始化"})
+		return
+	}
+	c.JSON(http.StatusOK, updateChecker.Snapshot())
+}
+
 func marshalOrderedStatusResponse(snapshot map[string]statusResponseEntry) ([]byte, error) {
 	ids := sortedStatusIDs(snapshot)
 	var buf bytes.Buffer

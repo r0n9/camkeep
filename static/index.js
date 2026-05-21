@@ -24,6 +24,7 @@ window.cameraCapabilityCache = window.cameraCapabilityCache || new Map();
 
 window.onload = function () {
     initThemeControls();
+    initUpdateBadge();
     if (typeof DPlayer === 'undefined') {
         alert("播放器组件加载失败，请检查网络！");
         return;
@@ -74,6 +75,50 @@ function syncThemeToggleIcon() {
     if (darkIcon) darkIcon.classList.toggle('hidden', isDark);
     if (button) button.title = isDark ? '切换到浅色模式' : '切换到深色模式';
     if (button) button.setAttribute('aria-label', button.title);
+}
+
+async function initUpdateBadge() {
+    const badge = document.getElementById('updateBadge');
+    if (!badge) return;
+
+    try {
+        const resp = await fetch('/api/update/check');
+        if (!resp.ok) return;
+
+        const data = await resp.json();
+        renderUpdateBadge(data);
+    } catch (e) {
+        console.warn('检查更新失败:', e);
+    }
+}
+
+function renderUpdateBadge(data) {
+    const badge = document.getElementById('updateBadge');
+    if (!badge || !data) return;
+
+    const latest = String(data.latest_stable_version || '').trim();
+    const releaseURL = String(data.release_url || 'https://github.com/r0n9/camkeep/releases/latest').trim();
+    const channel = String(data.channel || '').trim().toLowerCase();
+
+    badge.classList.add('hidden');
+    badge.classList.remove('is-reference');
+    badge.textContent = '';
+
+    if (data.update_available && latest) {
+        badge.href = releaseURL;
+        badge.textContent = `有新版本 ${latest}`;
+        badge.title = data.message || `发现新版本 ${latest}`;
+        badge.classList.remove('hidden');
+        return;
+    }
+
+    if ((channel === 'dev' || channel === 'test') && latest) {
+        badge.href = releaseURL;
+        badge.textContent = `最新稳定版 ${latest}`;
+        badge.title = data.message || '当前为开发/测试版本，不参与稳定版更新判断';
+        badge.classList.add('is-reference');
+        badge.classList.remove('hidden');
+    }
 }
 
 // --- 控制面板动作弹窗 ---

@@ -35,6 +35,8 @@ func Run(appVersion string) {
 	// 设置全局 Context，确保 go2rtc 子进程和后台任务能在退出时一起停止。
 	var cancelGlobal context.CancelFunc
 	ctxGlobal, cancelGlobal = context.WithCancel(context.Background())
+	updateChecker = NewUpdateChecker(version)
+	updateChecker.Start(ctxGlobal)
 
 	// 在 CamKeep 业务逻辑启动前，先拉起底座进程
 	go2rtcDone := task.StartGo2rtcDaemon(ctxGlobal)

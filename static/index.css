@@ -32,6 +32,49 @@
     max-width: min(52vw, 420px);
 }
 
+.version-update-badge {
+    display: inline-flex;
+    height: 21px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    padding: 0 8px;
+    border: 1px solid rgba(245, 158, 11, 0.28);
+    background: linear-gradient(180deg, rgba(255, 251, 235, 0.96), rgba(254, 243, 199, 0.96));
+    color: #b45309;
+    font-size: 11px;
+    font-weight: 900;
+    line-height: 1;
+    text-decoration: none;
+    box-shadow: 0 10px 20px -18px rgba(180, 83, 9, 0.72);
+    transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.version-update-badge.hidden {
+    display: none;
+}
+
+.version-update-badge:hover {
+    border-color: rgba(217, 119, 6, 0.5);
+    background: linear-gradient(180deg, rgba(254, 243, 199, 0.98), rgba(253, 230, 138, 0.98));
+    color: #92400e;
+    transform: translateY(-1px);
+    box-shadow: 0 12px 22px -18px rgba(180, 83, 9, 0.82);
+}
+
+.version-update-badge.is-reference {
+    border-color: rgba(59, 130, 246, 0.18);
+    background: linear-gradient(180deg, rgba(239, 246, 255, 0.96), rgba(219, 234, 254, 0.86));
+    color: #1d4ed8;
+    box-shadow: 0 10px 20px -18px rgba(37, 99, 235, 0.62);
+}
+
+.version-update-badge.is-reference:hover {
+    border-color: rgba(37, 99, 235, 0.42);
+    background: linear-gradient(180deg, rgba(219, 234, 254, 0.98), rgba(191, 219, 254, 0.9));
+    color: #1e40af;
+}
+
 .record24h-dock {
     position: relative;
     z-index: 6;
@@ -1083,6 +1126,31 @@ html.dark body {
     color: #e2e8f0;
 }
 
+html.dark .version-update-badge {
+    border-color: rgba(251, 191, 36, 0.36);
+    background: rgba(120, 53, 15, 0.36);
+    color: #fbbf24;
+    box-shadow: 0 10px 22px -18px rgba(0, 0, 0, 0.92);
+}
+
+html.dark .version-update-badge:hover {
+    border-color: rgba(252, 211, 77, 0.58);
+    background: rgba(146, 64, 14, 0.48);
+    color: #fde68a;
+}
+
+html.dark .version-update-badge.is-reference {
+    border-color: rgba(96, 165, 250, 0.32);
+    background: rgba(30, 58, 138, 0.38);
+    color: #93c5fd;
+}
+
+html.dark .version-update-badge.is-reference:hover {
+    border-color: rgba(147, 197, 253, 0.52);
+    background: rgba(30, 64, 175, 0.44);
+    color: #bfdbfe;
+}
+
 html.dark [class~="bg-white"],
 html.dark [class~="bg-white/60"] {
     background-color: #111827 !important;
@@ -1885,6 +1953,12 @@ html.dark .record-timeline-card-action-delete:hover {
 .config-setting-card-icon svg {
     width: 18px;
     height: 18px;
+}
+
+.config-discovery-icon img {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
 }
 
 .config-discovery-copy {
