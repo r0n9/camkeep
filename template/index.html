@@ -208,6 +208,9 @@
                                     <button id="restoreConfigCamerasBtn" onclick="restoreConfigCameras()" class="config-quiet-action" type="button">
                                         还原
                                     </button>
+                                    <button onclick="toggleBatchCameraPanel()" class="config-batch-camera-btn" type="button">
+                                        批量添加
+                                    </button>
                                     <button onclick="addConfigCamera()" class="config-add-camera-btn" type="button">
                                         <svg aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M12 5v14M5 12h14"></path>
@@ -215,6 +218,39 @@
                                         <span>添加摄像头</span>
                                     </button>
                                 </div>
+                            </div>
+                            <div id="batchCameraPanel" class="config-batch-camera-panel hidden">
+                                <div class="config-batch-camera-head">
+                                    <div>
+                                        <h4>批量添加摄像头</h4>
+                                        <p>每行一个摄像头，支持 <code>id 接入源</code> 或只填接入源自动生成 ID。</p>
+                                    </div>
+                                    <button onclick="toggleBatchCameraPanel(false)" class="config-batch-camera-close" type="button" aria-label="关闭批量添加">关闭</button>
+                                </div>
+                                <div class="config-batch-camera-body">
+                                    <div class="config-batch-camera-editor">
+                                        <div class="config-batch-camera-editor-top">
+                                            <span>批量输入</span>
+                                            <button onclick="clearBatchCameraInput()" type="button">清空</button>
+                                        </div>
+                                        <textarea id="batchCameraInput" class="config-batch-camera-input" rows="7" spellcheck="false" oninput="renderBatchCameraPreview()" placeholder="front-door rtsp://user:pass@192.168.1.10/stream1&#10;garage rtsp://user:pass@192.168.1.11/stream1&#10;onvif://user:pass@192.168.1.12"></textarea>
+                                        <div class="config-batch-camera-format">
+                                            <span>格式 1：<code>摄像头ID 接入源</code></span>
+                                            <span>格式 2：<code>接入源</code>，系统按 host 自动生成 ID</span>
+                                        </div>
+                                    </div>
+                                    <div class="config-batch-camera-side">
+                                        <div id="batchCameraSummary" class="config-batch-camera-summary">粘贴多行接入源后会在这里预览。</div>
+                                        <div class="config-batch-camera-defaults">
+                                            <span>默认 normal</span>
+                                            <span>全天录像</span>
+                                            <span>保留 7 天</span>
+                                        </div>
+                                        <div id="batchCameraFeedback" class="config-batch-camera-feedback hidden"></div>
+                                        <button id="batchCameraApplyBtn" onclick="applyBatchAddCameras()" class="config-batch-camera-apply" type="button" disabled>确认添加</button>
+                                    </div>
+                                </div>
+                                <div id="batchCameraPreview" class="config-batch-camera-preview hidden"></div>
                             </div>
                             <div id="configCameraList" class="space-y-3 p-3"></div>
                             <div id="configCameraEmpty" class="hidden px-4 pb-5 text-center text-sm font-bold text-slate-400">暂无摄像头配置，点击“添加摄像头”创建。</div>

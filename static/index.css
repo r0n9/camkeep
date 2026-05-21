@@ -2825,6 +2825,348 @@ html.dark .record-timeline-card-action-delete:hover {
     box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.18), 0 14px 24px -16px rgba(37, 99, 235, 0.95);
 }
 
+.config-batch-camera-btn {
+    display: inline-flex;
+    min-height: 34px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #ffffff;
+    color: #475569;
+    padding: 0 11px;
+    font-size: 12px;
+    font-weight: 900;
+    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.config-batch-camera-btn:hover {
+    border-color: #93c5fd;
+    background: #eff6ff;
+    color: #1d4ed8;
+    transform: translateY(-1px);
+}
+
+.config-batch-camera-panel {
+    display: grid;
+    gap: 12px;
+    margin: 0 12px 12px;
+    border: 1px solid #bfdbfe;
+    border-radius: 18px;
+    background:
+        radial-gradient(circle at 100% 0, rgba(59, 130, 246, 0.12), transparent 30%),
+        linear-gradient(135deg, rgba(239, 246, 255, 0.9), rgba(255, 255, 255, 0.98));
+    padding: 12px;
+    box-shadow: 0 18px 36px -30px rgba(37, 99, 235, 0.5);
+}
+
+.config-batch-camera-panel.hidden {
+    display: none;
+}
+
+.config-batch-camera-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.config-batch-camera-head h4 {
+    color: #0f172a;
+    font-size: 13px;
+    font-weight: 950;
+}
+
+.config-batch-camera-head p,
+.config-batch-camera-summary {
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 750;
+}
+
+.config-batch-camera-head code {
+    color: #1d4ed8;
+    font-weight: 900;
+}
+
+.config-batch-camera-close {
+    flex: 0 0 auto;
+    border-radius: 9999px;
+    color: #64748b;
+    padding: 5px 9px;
+    font-size: 11px;
+    font-weight: 900;
+}
+
+.config-batch-camera-close:hover {
+    background: rgba(255, 255, 255, 0.72);
+    color: #1d4ed8;
+}
+
+.config-batch-camera-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1.8fr) minmax(220px, 0.8fr);
+    gap: 12px;
+}
+
+.config-batch-camera-editor,
+.config-batch-camera-side {
+    min-width: 0;
+}
+
+.config-batch-camera-editor {
+    display: grid;
+    gap: 8px;
+}
+
+.config-batch-camera-editor-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.config-batch-camera-editor-top span {
+    color: #334155;
+    font-size: 11px;
+    font-weight: 950;
+}
+
+.config-batch-camera-editor-top button {
+    border-radius: 9999px;
+    color: #64748b;
+    padding: 4px 8px;
+    font-size: 10px;
+    font-weight: 900;
+}
+
+.config-batch-camera-editor-top button:hover {
+    background: #ffffff;
+    color: #1d4ed8;
+}
+
+.config-batch-camera-input {
+    min-height: 118px;
+    resize: vertical;
+    border: 1px solid #bfdbfe;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.94);
+    color: #0f172a;
+    padding: 10px 11px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.65;
+    outline: none;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.config-batch-camera-input::placeholder {
+    color: #94a3b8;
+}
+
+.config-batch-camera-input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
+}
+
+.config-batch-camera-format,
+.config-batch-camera-defaults {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.config-batch-camera-format span,
+.config-batch-camera-defaults span {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    padding: 4px 7px;
+    font-size: 10px;
+    font-weight: 850;
+    line-height: 1;
+}
+
+.config-batch-camera-format span {
+    background: rgba(255, 255, 255, 0.62);
+    color: #475569;
+}
+
+.config-batch-camera-format code {
+    color: #1d4ed8;
+    font-weight: 950;
+}
+
+.config-batch-camera-side {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    border: 1px solid rgba(191, 219, 254, 0.82);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.56);
+    padding: 10px;
+}
+
+.config-batch-camera-summary {
+    display: grid;
+    gap: 3px;
+}
+
+.config-batch-camera-summary strong {
+    color: #0f172a;
+    font-size: 16px;
+    font-weight: 950;
+    letter-spacing: -0.02em;
+}
+
+.config-batch-camera-summary span {
+    line-height: 1.35;
+}
+
+.config-batch-camera-defaults span {
+    background: rgba(219, 234, 254, 0.7);
+    color: #1d4ed8;
+}
+
+.config-batch-camera-feedback {
+    border: 1px solid rgba(16, 185, 129, 0.28);
+    border-radius: 10px;
+    background: rgba(236, 253, 245, 0.84);
+    color: #047857;
+    padding: 8px 9px;
+    font-size: 11px;
+    font-weight: 900;
+    line-height: 1.35;
+}
+
+.config-batch-camera-feedback.hidden {
+    display: none;
+}
+
+.config-batch-camera-apply {
+    width: 100%;
+    flex: 0 0 auto;
+    min-height: 34px;
+    border: 1px solid #1d4ed8;
+    border-radius: 10px;
+    background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+    color: #ffffff;
+    padding: 0 13px;
+    font-size: 11px;
+    font-weight: 950;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, opacity 0.18s ease;
+}
+
+.config-batch-camera-apply:hover:not(:disabled) {
+    box-shadow: 0 12px 22px -18px rgba(37, 99, 235, 0.95);
+    transform: translateY(-1px);
+}
+
+.config-batch-camera-apply:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+.config-batch-camera-preview {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.config-batch-camera-preview.hidden {
+    display: none;
+}
+
+.config-batch-camera-preview-group {
+    display: grid;
+    align-content: start;
+    gap: 7px;
+    min-width: 0;
+}
+
+.config-batch-camera-preview-title {
+    color: #2563eb;
+    font-size: 11px;
+    font-weight: 950;
+}
+
+.config-batch-camera-preview-title.is-error {
+    color: #e11d48;
+}
+
+.config-batch-camera-preview-item {
+    display: flex;
+    min-width: 0;
+    align-items: flex-start;
+    gap: 8px;
+    border: 1px solid rgba(191, 219, 254, 0.86);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.68);
+    padding: 8px;
+}
+
+.config-batch-camera-preview-item.is-error {
+    border-color: rgba(251, 113, 133, 0.38);
+    background: rgba(255, 241, 242, 0.72);
+}
+
+.config-batch-camera-preview-line {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    border-radius: 9999px;
+    background: #dbeafe;
+    color: #1d4ed8;
+    padding: 3px 6px;
+    font-size: 10px;
+    font-weight: 950;
+    line-height: 1;
+}
+
+.config-batch-camera-preview-item.is-error .config-batch-camera-preview-line {
+    background: #ffe4e6;
+    color: #e11d48;
+}
+
+.config-batch-camera-preview-item strong,
+.config-batch-camera-preview-item em {
+    display: block;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.config-batch-camera-preview-item strong {
+    color: #0f172a;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 12px;
+    font-weight: 950;
+    line-height: 1.2;
+}
+
+.config-batch-camera-preview-item em {
+    margin-top: 2px;
+    color: #64748b;
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.config-batch-camera-generated {
+    display: inline-flex;
+    margin-right: 6px;
+    border-radius: 9999px;
+    background: #eff6ff;
+    color: #2563eb;
+    padding: 2px 5px;
+    font-size: 9px;
+    font-weight: 950;
+    line-height: 1;
+}
+
 .config-quiet-action {
     display: inline-flex;
     min-height: 34px;
@@ -2920,9 +3262,15 @@ html.dark .record-timeline-card-action-delete:hover {
     .config-page-hero,
     .config-daily-merge-card,
     .config-section-head,
+    .config-batch-camera-head,
     .config-page-actionbar {
         align-items: stretch;
         flex-direction: column;
+    }
+
+    .config-batch-camera-body,
+    .config-batch-camera-preview {
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .config-page-hero {
@@ -3350,6 +3698,105 @@ html.dark .config-camera-delete-btn:hover {
     border-color: rgba(251, 113, 133, 0.62);
     background: rgba(225, 29, 72, 0.72);
     color: #fff1f2;
+}
+
+html.dark .config-batch-camera-btn {
+    border-color: rgba(51, 65, 85, 0.95);
+    background: rgba(15, 23, 42, 0.76);
+    color: #cbd5e1;
+}
+
+html.dark .config-batch-camera-btn:hover {
+    border-color: rgba(96, 165, 250, 0.54);
+    background: rgba(30, 58, 138, 0.34);
+    color: #bfdbfe;
+}
+
+html.dark .config-batch-camera-panel {
+    border-color: rgba(96, 165, 250, 0.34);
+    background:
+        radial-gradient(circle at 100% 0, rgba(59, 130, 246, 0.14), transparent 30%),
+        linear-gradient(135deg, rgba(30, 58, 138, 0.22), rgba(15, 23, 42, 0.96));
+    box-shadow: 0 22px 42px -34px rgba(0, 0, 0, 0.95);
+}
+
+html.dark .config-batch-camera-head h4,
+html.dark .config-batch-camera-preview-item strong {
+    color: #e5e7eb;
+}
+
+html.dark .config-batch-camera-head p,
+html.dark .config-batch-camera-summary,
+html.dark .config-batch-camera-preview-item em {
+    color: #94a3b8;
+}
+
+html.dark .config-batch-camera-head code {
+    color: #93c5fd;
+}
+
+html.dark .config-batch-camera-close:hover,
+html.dark .config-batch-camera-editor-top button:hover {
+    background: rgba(30, 58, 138, 0.34);
+    color: #bfdbfe;
+}
+
+html.dark .config-batch-camera-editor-top span,
+html.dark .config-batch-camera-summary strong {
+    color: #e5e7eb;
+}
+
+html.dark .config-batch-camera-input {
+    border-color: rgba(96, 165, 250, 0.3);
+    background: rgba(15, 23, 42, 0.72);
+    color: #e5e7eb;
+}
+
+html.dark .config-batch-camera-format span,
+html.dark .config-batch-camera-side {
+    border-color: rgba(96, 165, 250, 0.22);
+    background: rgba(15, 23, 42, 0.42);
+    color: #94a3b8;
+}
+
+html.dark .config-batch-camera-format code {
+    color: #93c5fd;
+}
+
+html.dark .config-batch-camera-defaults span {
+    background: rgba(30, 64, 175, 0.38);
+    color: #bfdbfe;
+}
+
+html.dark .config-batch-camera-feedback {
+    border-color: rgba(52, 211, 153, 0.28);
+    background: rgba(6, 78, 59, 0.26);
+    color: #a7f3d0;
+}
+
+html.dark .config-batch-camera-preview-item {
+    border-color: rgba(96, 165, 250, 0.28);
+    background: rgba(15, 23, 42, 0.46);
+}
+
+html.dark .config-batch-camera-preview-item.is-error {
+    border-color: rgba(251, 113, 133, 0.34);
+    background: rgba(127, 29, 29, 0.24);
+}
+
+html.dark .config-batch-camera-preview-line {
+    background: rgba(30, 64, 175, 0.48);
+    color: #bfdbfe;
+}
+
+html.dark .config-batch-camera-preview-item.is-error .config-batch-camera-preview-line {
+    background: rgba(159, 18, 57, 0.38);
+    color: #fda4af;
+}
+
+html.dark .config-batch-camera-generated {
+    background: rgba(30, 64, 175, 0.38);
+    color: #bfdbfe;
 }
 
 html.dark .config-form-section {

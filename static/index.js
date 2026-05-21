@@ -12,6 +12,7 @@ const maxRecordRangeDays = 7;
 const recordTimelineFallbackDurationSeconds = 5 * 60;
 const recordArchiveOpenDates = new Set();
 const recordArchiveViewModes = new Map();
+let latestBatchCameraPreview = {valid: [], invalid: []};
 let activeRecordTimeline24hDockKey = '';
 let matrixToolbarTimer = null;
 let configPageVisible = false;
@@ -848,6 +849,228 @@ function addConfigCamera(seed = {}) {
     configFormState.cameras.unshift(nextCam);
     configCameraExpandedKeys.add(uiKey);
     renderConfigForm();
+}
+
+function toggleBatchCameraPanel(forceOpen = null) {
+    const panel = document.getElementById('batchCameraPanel');
+    const input = document.getElementById('batchCameraInput');
+    if (!panel) return;
+
+    const open = forceOpen === null ? panel.classList.contains('hidden') : Boolean(forceOpen);
+    panel.classList.toggle('hidden', !open);
+    if (open) {
+        renderBatchCameraPreview();
+        requestAnimationFrame(() => input?.focus());
+    }
+}
+
+function renderBatchCameraPreview() {
+    const input = document.getElementById('batchCameraInput');
+    const summary = document.getElementById('batchCameraSummary');
+    const preview = document.getElementById('batchCameraPreview');
+    const applyBtn = document.getElementById('batchCameraApplyBtn');
+    if (!input || !summary || !preview || !applyBtn) return;
+
+    latestBatchCameraPreview = parseBatchCameraInput(input.value);
+    const validCount = latestBatchCameraPreview.valid.length;
+    const invalidCount = latestBatchCameraPreview.invalid.length;
+
+    applyBtn.disabled = validCount === 0 || invalidCount > 0;
+    summary.innerHTML = renderBatchCameraSummary(validCount, invalidCount);
+
+    preview.classList.toggle('hidden', validCount === 0 && invalidCount === 0);
+    preview.innerHTML = renderBatchCameraPreviewMarkup(latestBatchCameraPreview);
+}
+
+function renderBatchCameraSummary(validCount, invalidCount) {
+    if (validCount === 0 && invalidCount === 0) {
+        return `
+            <strong>等待输入</strong>
+            <span>粘贴多行接入源后会实时解析。</span>
+        `;
+    }
+    return `
+        <strong>${validCount} 个可添加</strong>
+        <span>${invalidCount ? `${invalidCount} 行需要修正后才能添加` : '检查无误，确认后追加到列表顶部。'}</span>
+    `;
+}
+
+function renderBatchCameraPreviewMarkup(result) {
+    const validItems = result.valid.map(item => `
+        <div class="config-batch-camera-preview-item">
+            <span class="config-batch-camera-preview-line">L${item.line}</span>
+            <div class="min-w-0">
+                <strong>${escapeHtml(item.id)}</strong>
+                <em>${item.generated ? '<span class="config-batch-camera-generated">自动 ID</span>' : ''}${escapeHtml(item.stream_url)}</em>
+            </div>
+        </div>
+    `).join('');
+    const invalidItems = result.invalid.map(item => `
+        <div class="config-batch-camera-preview-item is-error">
+            <span class="config-batch-camera-preview-line">L${item.line}</span>
+            <div class="min-w-0">
+                <strong>${escapeHtml(item.error)}</strong>
+                <em>${escapeHtml(item.raw)}</em>
+            </div>
+        </div>
+    `).join('');
+    const validMarkup = validItems
+        ? `<div class="config-batch-camera-preview-group"><div class="config-batch-camera-preview-title">可添加</div>${validItems}</div>`
+        : '';
+    const invalidMarkup = invalidItems
+        ? `<div class="config-batch-camera-preview-group"><div class="config-batch-camera-preview-title is-error">需要修正</div>${invalidItems}</div>`
+        : '';
+    return validMarkup + invalidMarkup;
+}
+
+function clearBatchCameraInput() {
+    const input = document.getElementById('batchCameraInput');
+    const feedback = document.getElementById('batchCameraFeedback');
+    if (input) input.value = '';
+    if (feedback) feedback.classList.add('hidden');
+    renderBatchCameraPreview();
+}
+
+function parseBatchCameraInput(text) {
+    let existingIDs = new Set();
+    try {
+        const cfg = collectConfigForm({allowEmptyID: true});
+        existingIDs = new Set(cfg.cameras.map(cam => cam.id).filter(Boolean));
+    } catch (e) {
+        existingIDs = new Set((configFormState.cameras || []).map(cam => cam.id).filter(Boolean));
+    }
+
+    const usedIDs = new Set(existingIDs);
+    const result = {valid: [], invalid: []};
+    String(text || '').split(/\r?\n/).forEach((rawLine, index) => {
+        const line = index + 1;
+        const raw = rawLine.trim();
+        if (!raw || raw.startsWith('#')) return;
+
+        const parsed = parseBatchCameraLine(raw);
+        if (!parsed.stream_url) {
+            result.invalid.push({line, raw, error: parsed.error || '缺少接入源'});
+            return;
+        }
+
+        const baseID = parsed.id || cameraIDFromSource(parsed.stream_url, line);
+        const id = uniqueCameraID(baseID, usedIDs);
+        usedIDs.add(id);
+        result.valid.push({
+            line,
+            id,
+            stream_url: parsed.stream_url,
+            generated: !parsed.id
+        });
+    });
+    return result;
+}
+
+function parseBatchCameraLine(raw) {
+    const firstSpace = raw.search(/\s/);
+    if (firstSpace < 0) {
+        if (looksLikeCameraSource(raw)) return {id: '', stream_url: raw};
+        return {id: raw, stream_url: '', error: '缺少接入源'};
+    }
+
+    const first = raw.slice(0, firstSpace).trim();
+    const rest = raw.slice(firstSpace).trim();
+    if (looksLikeCameraSource(first)) {
+        return {id: '', stream_url: raw};
+    }
+    return {id: normalizeBatchCameraID(first), stream_url: rest};
+}
+
+function looksLikeCameraSource(value) {
+    const text = String(value || '').trim().toLowerCase();
+    return text === 'managed_by_go2rtc'
+        || /^[a-z][a-z0-9+.-]*:/.test(text)
+        || text.includes('://');
+}
+
+function normalizeBatchCameraID(value) {
+    return String(value || '')
+        .trim()
+        .replace(/\s+/g, '-')
+        .replace(/[^\w.-]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+}
+
+function cameraIDFromSource(source, line) {
+    const text = String(source || '').trim();
+    const host = extractHostFromCameraSource(text);
+    const base = normalizeBatchCameraID(host || `cam-${line}`).toLowerCase();
+    return base.startsWith('cam-') ? base : `cam-${base}`;
+}
+
+function extractHostFromCameraSource(source) {
+    const text = String(source || '').trim();
+    const nestedURL = text.match(/[a-z][a-z0-9+.-]*:\/\/[^#\s]+/i)?.[0] || text;
+    try {
+        const parsed = new URL(nestedURL);
+        if (parsed.hostname) return parsed.hostname;
+    } catch (e) {
+    }
+
+    const afterAuth = text.includes('@') ? text.split('@').pop() : text;
+    const hostMatch = afterAuth.match(/([a-z0-9.-]+\.[a-z]{2,}|\d{1,3}(?:\.\d{1,3}){3})/i);
+    return hostMatch ? hostMatch[1] : '';
+}
+
+function uniqueCameraID(baseID, usedIDs) {
+    const base = normalizeBatchCameraID(baseID) || 'cam';
+    if (!usedIDs.has(base)) return base;
+    let index = 2;
+    while (usedIDs.has(`${base}-${index}`)) {
+        index++;
+    }
+    return `${base}-${index}`;
+}
+
+function applyBatchAddCameras() {
+    const input = document.getElementById('batchCameraInput');
+    if (!input) return;
+
+    const parsed = parseBatchCameraInput(input.value);
+    latestBatchCameraPreview = parsed;
+    renderBatchCameraPreview();
+    if (parsed.valid.length === 0) return;
+
+    syncConfigCameraExpandedStateFromDom();
+    configFormState = collectConfigForm({allowEmptyID: true});
+    const nextCameras = parsed.valid.map(item => normalizeConfigCamera({
+        id: item.id,
+        order: 0,
+        stream_url: item.stream_url,
+        motion_url: '',
+        retention_days: 7,
+        segment_duration: 600,
+        format: 'ts',
+        min_size_kb: 1024,
+        record_time: '00:00-23:59',
+        mode: 'normal',
+        capture_interval: 1,
+        motion_detect: false,
+        motionDetectRatioThreshold: 0.01,
+        auto_discovered: false
+    }));
+
+    nextCameras.forEach(cam => ensureConfigCameraUiKey(cam));
+    configFormState.cameras = [...nextCameras, ...configFormState.cameras];
+    configCameraExpandedKeys = new Set();
+    renderConfigForm();
+
+    input.value = '';
+    latestBatchCameraPreview = {valid: [], invalid: []};
+    showBatchCameraFeedback(`已添加 ${nextCameras.length} 个摄像头，保存并应用后生效。`);
+    renderBatchCameraPreview();
+}
+
+function showBatchCameraFeedback(message) {
+    const feedback = document.getElementById('batchCameraFeedback');
+    if (!feedback) return;
+    feedback.textContent = message;
+    feedback.classList.remove('hidden');
 }
 
 function removeConfigCamera(index) {
