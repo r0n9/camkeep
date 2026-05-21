@@ -161,16 +161,24 @@
 }
 
 .record24h-stage {
+    --record24h-elastic-x: 0px;
     position: relative;
     min-width: 100%;
+    transform: translateX(var(--record24h-elastic-x));
     user-select: none;
     touch-action: none;
+    transition: transform 0.22s cubic-bezier(0.2, 0.9, 0.2, 1);
+    will-change: transform;
 }
 
 .record24h-stage.is-dragging,
 .record24h-stage.is-pinching,
 .record24h-stage.is-scrubbing {
     cursor: grabbing;
+}
+
+.record24h-stage.is-dragging {
+    transition-duration: 0s;
 }
 
 .record24h-stage.is-dragging .record24h-segment,

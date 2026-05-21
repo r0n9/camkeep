@@ -8,6 +8,7 @@
     const WHEEL_ZOOM_THRESHOLD = 90;
     const PINCH_ZOOM_STEP_RATIO = 1.22;
     const MIN_LABEL_GAP_PX = 72;
+    const MAX_ELASTIC_PAN_PX = 34;
     const fallbackDurationSeconds = 5 * 60;
     const states = new Map();
     const zoomLevels = [
@@ -393,6 +394,29 @@
         let pinch = null;
         let wheelZoomDelta = 0;
         let wheelZoomTimer = null;
+        let elasticPanOffset = 0;
+
+        const setElasticPanOffset = (offset) => {
+            const nextOffset = Math.abs(offset) < 0.5 ? 0 : offset;
+            if (Math.abs(nextOffset - elasticPanOffset) < 0.5) return;
+            elasticPanOffset = nextOffset;
+            stage.style.setProperty('--record24h-elastic-x', `${nextOffset.toFixed(1)}px`);
+        };
+
+        const settleElasticPanOffset = () => {
+            if (elasticPanOffset === 0) return;
+            setElasticPanOffset(0);
+        };
+
+        const applyPanDrag = (deltaX) => {
+            const maxScrollLeft = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
+            const desiredScrollLeft = drag.startScrollLeft - deltaX;
+            const nextScrollLeft = clamp(desiredScrollLeft, 0, maxScrollLeft);
+            viewport.scrollLeft = nextScrollLeft;
+
+            const boundaryOverflow = nextScrollLeft - desiredScrollLeft;
+            setElasticPanOffset(rubberbandPanOffset(boundaryOverflow, viewport.clientWidth));
+        };
 
         const rememberViewportAnchor = (clientX, seconds = null) => {
             const rect = viewport.getBoundingClientRect();
@@ -455,6 +479,8 @@
                     startZoomIndex: state.zoomIndex
                 };
                 drag = null;
+                stage.classList.remove('is-dragging', 'is-scrubbing');
+                settleElasticPanOffset();
                 stage.classList.add('is-pinching');
                 rememberViewportAnchor(centerX);
                 event.preventDefault();
@@ -499,7 +525,7 @@
             if (drag.mode === 'pointer') {
                 updatePointer(eventSeconds(event, stage, zoom));
             } else {
-                viewport.scrollLeft = drag.startScrollLeft - deltaX;
+                applyPanDrag(deltaX);
             }
             event.preventDefault();
         });
@@ -535,6 +561,7 @@
             if (!wasDrag) return;
             drag = null;
             stage.classList.remove('is-dragging', 'is-scrubbing');
+            settleElasticPanOffset();
             const seconds = eventSeconds(event, stage, zoom);
             if (wasDrag.mode === 'pointer') {
                 if (wasDrag.active) updatePointer(seconds);
@@ -555,6 +582,7 @@
             if (drag && drag.pointerId === event.pointerId) {
                 drag = null;
                 stage.classList.remove('is-dragging', 'is-scrubbing');
+                settleElasticPanOffset();
             }
             if (activePointers.size < 2) {
                 pinch = null;
@@ -687,6 +715,14 @@
         if (event.deltaMode === 1) return value * 16;
         if (event.deltaMode === 2) return value * pageSize;
         return value;
+    }
+
+    function rubberbandPanOffset(offset, viewportWidth) {
+        if (!Number.isFinite(offset) || offset === 0) return 0;
+        const limit = Math.min(MAX_ELASTIC_PAN_PX, Math.max(20, viewportWidth * 0.06));
+        const absOffset = Math.abs(offset);
+        const resisted = limit * (1 - Math.exp(-absOffset / (limit * 2.8)));
+        return Math.sign(offset) * Math.min(limit, resisted);
     }
 
     function pointerDistance(first, second) {
