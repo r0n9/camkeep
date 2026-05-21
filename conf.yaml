@@ -1,25 +1,61 @@
-cameras:
-# 普通录制模式 mode=normal
-  - id: "摄像头1"
-    stream_url: "rtsp://admin:password@192.168.2.110:554/Streaming/Channels/101"
-    motion_url: ""          # 可选，仅动检识别使用；留空则使用主码流
-    retention_days: 7       # 保留7天
-    segment_duration: 300   # 每段300秒 (5分钟)
-    format: "ts"            # 推荐 ts
-    min_size_kb: 1024       # 小于1MB自动删除
-    record_time: "00:00-23:59" # 录制区间
-    mode: "normal"            # 普通录制模式: "normal" 或 "timelapse"，留空默认为 normal
-    motion_detect: true        # 开启动检录制，仅 normal 模式生效；默认 false
-    motionDetectRatioThreshold: 0.01 # 动检变化像素比例阈值，0.01 表示 1%
+# CamKeep 配置示例
+# stream_url 是 go2rtc 接入源，支持 rtsp://、onvif://、ffmpeg:、exec: 等 go2rtc source。
+# 旧字段 rtsp_url 仍兼容；新配置建议统一使用 stream_url。
 
-# 延时录像模式 mode=timelapse，间隔抓拍，能够极大地节省存储，但是比普通模式CPU消耗高
-  - id: "摄像头2"
-    stream_url: "rtsp://admin:password@192.168.2.120:554/Streaming/Channels/101"
-    motion_url: ""          # 可选，仅动检识别使用；留空则使用主码流
-    retention_days: 7       # 保留7天
-    segment_duration: 600   # 每段600秒 (10分钟) ，延时录像建议把切片时间设长一点，比如 3600 秒 (1小时)
-    format: "ts"            # 推荐 ts
-    min_size_kb: 1024       # 小于1MB自动删除
-    record_time: "07:00-19:00" # 录制区间
-    mode: "timelapse"            # 模式: "timelapse" 延时录像
-    capture_interval: 1       # 延时录像，抓拍间隔(秒)，例如 5 表示每5秒抓一帧
+daily_merge:
+  enabled: false          # 是否每天按自然小时合并前一天录像
+  time: "03:30"           # 每日合并时间，建议放在低峰时段
+
+cameras:
+# 普通录像：适合 7x24 安防录制
+  - id: "camera-1"        # 摄像头唯一 ID，会作为 go2rtc 流名和录像目录名
+    order: 0              # 展示排序，数字越小越靠前
+    stream_url: "rtsp://admin:password@192.168.2.110:554/Streaming/Channels/101"
+    motion_url: ""        # 可选，仅动检识别使用；留空则使用默认 go2rtc 流
+    retention_days: 7     # 保留 7 天；-1 表示不按天数自动清理
+    segment_duration: 300 # 每段 300 秒
+    format: "ts"          # ts 更适合边写边播；mp4 手机浏览器兼容性更好
+    min_size_kb: 1024     # 小于 1MB 的已完成碎片自动删除
+    record_time: "00:00-23:59"
+    mode: "normal"        # 配置态仅支持 normal 或 timelapse
+    motion_detect: false  # 开启动检录像时保持 mode=normal，并设置为 true
+    motionDetectRatioThreshold: 0.01
+
+# ONVIF 接入：支持 ONVIF 能力探测和可用时的 PTZ / 成像控制
+  - id: "camera-onvif"
+    order: 10
+    stream_url: "onvif://admin:password@192.168.2.120"
+    motion_url: ""
+    retention_days: 7
+    segment_duration: 300
+    format: "ts"
+    min_size_kb: 1024
+    record_time: "00:00-23:59"
+    mode: "normal"
+    motion_detect: false
+    motionDetectRatioThreshold: 0.01
+
+# 延时摄影：按间隔抓帧，适合长时间慢变化场景
+  - id: "camera-timelapse"
+    order: 20
+    stream_url: "rtsp://admin:password@192.168.2.130:554/Streaming/Channels/101"
+    motion_url: ""
+    retention_days: 30
+    segment_duration: 3600
+    format: "mp4"
+    min_size_kb: 1024
+    record_time: "07:00-19:00"
+    mode: "timelapse"
+    capture_interval: 5   # 每 5 秒抓 1 帧
+
+# go2rtc 托管流：通常由 Web 配置页“从 go2rtc 导入”自动生成
+#  - id: "existing-go2rtc-stream"
+#    order: 30
+#    stream_url: "managed_by_go2rtc"
+#    auto_discovered: true
+#    retention_days: 7
+#    segment_duration: 300
+#    format: "ts"
+#    min_size_kb: 1024
+#    record_time: "00:00-23:59"
+#    mode: "normal"

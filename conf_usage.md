@@ -1,5 +1,10 @@
-### `conf.yaml` 基础结构
-配置文件包含全局选项和 `cameras` 摄像头列表。
+# CamKeep 配置说明
+
+CamKeep 的配置文件默认位于 `config/conf.yaml`。建议优先通过 Web 配置管理页面编辑；如果需要手写 YAML，请参考本说明。
+
+`stream_url` 现在表示 **go2rtc 接入源**，不是单纯的 RTSP 地址。CamKeep 会把每路摄像头注册到内置 go2rtc，再从本机 go2rtc 流录制、预览、截图和执行 ONVIF 识别。
+
+## 基础结构
 
 ```yaml
 daily_merge:
@@ -7,103 +12,266 @@ daily_merge:
   time: "03:30"
 
 cameras:
-  - id: "cam_01"
-    stream_url: "rtsp://admin:password@192.168.1.100:554/live"
+  - id: "front-door"
+    order: 0
+    stream_url: "rtsp://admin:password@192.168.1.100:554/Streaming/Channels/101"
     motion_url: ""
     retention_days: 7
-    segment_duration: 600
+    segment_duration: 300
     format: "ts"
     min_size_kb: 1024
     record_time: "00:00-23:59"
     mode: "normal"
     motion_detect: false
     motionDetectRatioThreshold: 0.01
-  - id: "cam_02"
-    stream_url: "rtsp://admin:password@192.168.1.100:554/live"
-    motion_url: ""
-    retention_days: 7
-    segment_duration: 600
-    format: "ts"
-    min_size_kb: 1024
-    record_time: "00:00-23:59"
-    mode: "timelapse"
-    capture_interval: 5
 ```
 
----
+## 接入源示例
 
-### 配置项详细说明
+### RTSP 摄像头
 
-#### `daily_merge` (每日按小时合并)
-* **作用**：每天在指定时间，将前一天同一摄像头目录下的碎片录像按自然小时合并为 MP4 文件，合并成功后删除对应原碎片。
-* **低功耗原则**：默认关闭；开启后任务只在定时时间唤醒，合并时视频使用 FFmpeg 直接流拷贝，音频会转为浏览器兼容的 AAC。
-* **子项**：
-    * `enabled`：是否开启每日合并。
-    * `time`：每日执行时间，格式为 `HH:mm`，建议设置在 `03:00-05:00` 等低峰时段。
+```yaml
+- id: "front-door"
+  stream_url: "rtsp://admin:password@192.168.1.10:554/Streaming/Channels/101"
+  mode: "normal"
+```
 
-#### 1. `id` (摄像头标识)
-* **作用**：摄像头的唯一标识符。该字段将被用作 Web 控制台的显示名称、底层视频流的名称，以及存储历史录像的**文件夹名称**。
-* **推荐值**：使用英文字母、数字或简短中文（如 `"cam_front"`、`"大门监控"`）。
-* **注意**：绝对不要包含特殊字符（如 `/`、`\`、`:` 等），否则会导致系统无法创建存储文件夹。
+### ONVIF 摄像头
 
-#### 2. `stream_url` (主码流地址)
-* **作用**：摄像机主码流地址，支持 go2rtc 兼容的各类源地址。
-* **兼容性**：旧字段 `rtsp_url` 仍然可用；如果两者都填写，系统优先使用 `stream_url` 同步到 go2rtc。
-* **推荐值**：按你的设备填写对应地址，RTSP 只是其中一种，例如：`rtsp://admin:123456@192.168.1.88:554/Streaming/Channels/101`。
-* **ONVIF**：如果该地址是 `onvif://...`，或从 go2rtc 同步的同名流来源是 `onvif://...`，CamKeep 会自动把它识别为 ONVIF 控制候选设备，不需要额外配置 `onvif` 块。
+```yaml
+- id: "garage"
+  stream_url: "onvif://admin:password@192.168.1.11"
+  mode: "normal"
+```
 
-#### 3. `motion_url` (动检流地址，可选)
-* **作用**：仅在 `motion_detect: true` 且 `mode: "normal"` 时用于画面变化检测。检测到运动后，事件录像仍使用主码流地址。
-* **默认值**：留空或不配置时保持原逻辑，动检继续使用系统为该摄像头注册的默认流。
-* **推荐值**：可填写摄像机低分辨率子码流，例如海康常见的 `/Streaming/Channels/102`，用于降低动检 CPU 和带宽开销。
+使用 `onvif://` 时，CamKeep 会把该设备识别为 ONVIF 控制候选设备。设备能力探测成功后，Web 页面会展示 PTZ、变焦、对焦、光圈等可用控制。
 
-#### 4. `retention_days` (保留天数)
-* **作用**：历史录像在硬盘中保留的天数。系统底层的清理任务每天会扫描并自动删除超过此天数的录像文件。
-* **推荐值**：
-    * 永久：`0` 或 `-1`。（不自动清理，手动删除也可以）。
-    * 普通安防监控：`7` 或 `15`（取决于硬盘大小）。
-    * 延时摄影：`30`（因为延时摄影产生的文件非常小）。
+### go2rtc 托管流
 
-#### 5. `segment_duration` (切片时长)
-* **作用**：单个录像视频文件的时长（单位：秒）。FFmpeg 会在达到此时长后自动切断并生成一个新的文件。
-* **推荐值**：
-    * 普通模式：`600`（10分钟）或 `1800`（半小时）。不建议太大，文件过大不利于 Web 端在线回放和拖拽。
-    * 延时摄影模式：`3600`（1小时）或更大。
+```yaml
+- id: "yard"
+  stream_url: "managed_by_go2rtc"
+  auto_discovered: true
+  mode: "normal"
+```
 
-#### 6. `format` (视频格式)
-* **作用**：生成的视频文件扩展名。
-> 💡注意：`ts` 格式切片，手机浏览器大概率播放不了。手机浏览器访问需求用户，请直接选择 `mp4` 格式。
-* **推荐值**：
-    * 普通模式：强烈推荐 `"ts"`。TS 格式支持无缝切片，且**遇到断电或异常中断时文件不会损坏**（MP4 在异常断开时往往会导致文件尾部数据丢失而彻底无法播放）。系统自带的播放器已完美原生支持 TS 播放。
-    * 延时摄影模式：推荐 `"mp4"`。因为延时摄影常用于导出分享，MP4 兼容性更好。
+这种配置通常由 Web 配置页“从 go2rtc 导入”自动生成。它表示这路流已经在 go2rtc 里存在，CamKeep 不覆盖它的 source，只负责录制、回放、状态和控制集成。
 
-#### 7. `min_size_kb` (最小体积过滤)
-* **作用**：清理废弃文件的阈值（单位：KB）。如果是网络极度不稳定、瞬间断线产生的只有几 KB 的残缺切片，系统在切片完成后会自动将其判定为垃圾文件并删除。
-* **推荐值**：`1024`（即 1MB）。普通的 10 分钟 1080P 录像一般在百兆级别，如果文件小于 1MB 基本上就是损坏或无画面的死流。
+### 动检录像
 
-#### 8. `record_time` (录制时间段)
-* **作用**：系统允许自动录像的时间区间。支持单个区间 `HH:MM-HH:MM`，也支持多个区间用逗号分隔，例如 `"08:00-12:00,14:00-18:00"`。只有当前服务器时间落在任一区间内，且未被手动强制停录时，才会启动录像。
-* **推荐值**：
-    * 全天候安防：`"00:00-23:59"`。
-    * 仅工作时间（如监控员工或客流）：`"09:00-18:00"`。
-    * 多个时段：`"08:00-12:00,14:00-18:00"`。
+```yaml
+- id: "driveway"
+  stream_url: "rtsp://admin:password@192.168.1.12:554/Streaming/Channels/101"
+  motion_url: "rtsp://admin:password@192.168.1.12:554/Streaming/Channels/102"
+  mode: "normal"
+  motion_detect: true
+  motionDetectRatioThreshold: 0.01
+  record_time: "00:00-23:59"
+```
 
-#### 9. `mode` (工作模式)
-* **作用**：指定该路摄像头的处理逻辑。
-* **可选值**：
-    * `"normal"`（或留空）：**普通拷贝模式**。极低 CPU 消耗，直接将视频流存入硬盘，适合绝大多数监控场景。
-    * `"timelapse"`：**延时摄影模式**。适合记录长时间的缓慢变化（如工地建设、植物生长）。
+`motion_url` 只用于低成本画面变化检测。事件录像仍使用该摄像头注册到 go2rtc 的默认录制源。
 
-#### 10. `capture_interval` (抓拍间隔)
-* **作用**：**仅在 `mode: "timelapse"` 时生效**。表示每隔多少秒从直播流中提取一帧画面。
-* **推荐值**：
-    * `"5"`（每 5 秒拍 1 张）：适合人流量浓缩、天空云彩变化。
-    * `"60"`（每 1 分钟拍 1 张）：适合几个月周期的工地施工记录、植物生长记录。
+### 延时摄影
 
-#### 11. `motion_detect` (动检录制)
-* **作用**：**仅在 `mode: "normal"` 时生效**。开启后普通录制不再按时间段持续落盘，而是在录制时间段内检测到画面变化时启动事件录像；画面连续约 10 秒无变化后停止。
-* **默认值**：`false`。`mode: "timelapse"` 会忽略此项。
+```yaml
+- id: "construction"
+  stream_url: "rtsp://admin:password@192.168.1.13:554/live"
+  mode: "timelapse"
+  capture_interval: 5
+  segment_duration: 3600
+  format: "mp4"
+  record_time: "07:00-19:00"
+```
 
-#### 12. `motionDetectRatioThreshold` (动检阈值)
-* **作用**：**仅在 `motion_detect: true` 且 `mode: "normal"` 时生效**。表示低分辨率检测帧中变化像素占比超过多少时判定为运动。
-* **默认值**：`0.01`（约 1%）。数值越小越敏感，越大越不敏感。
+## 全局配置
+
+### `daily_merge`
+
+每日按自然小时合并前一天的碎片录像，输出 MP4。默认关闭。
+
+* `enabled`：是否启用每日合并。
+* `time`：每日执行时间，格式为 `HH:mm`，建议放在 `03:00-05:00` 等低峰时段。
+
+说明：
+
+* `mode: "timelapse"` 的摄像头会跳过每日合并。
+* 合并成功后会删除对应原碎片。
+* 视频使用 FFmpeg 流拷贝，音频会处理为浏览器更兼容的封装。
+
+## 摄像头字段
+
+### `id`
+
+摄像头唯一标识。该值会作为 go2rtc 流名称、Web 展示名称和录像目录名。
+
+建议使用英文、数字、短横线或下划线，例如 `front-door`、`cam_01`。不要包含 `/`、`\`、`:` 等会破坏文件路径的字符。
+
+### `order`
+
+摄像头排序字段，纯数字，默认 `0`。Web 实时节点、配置表单和 `/api/status` 返回顺序会优先按 `order` 升序排列；`order` 相同时保持配置文件顺序。
+
+### `stream_url`
+
+摄像头接入源，支持任意 go2rtc 兼容 source。
+
+常见值：
+
+* `rtsp://...`
+* `onvif://...`
+* `ffmpeg:...`
+* `exec:...`
+* `managed_by_go2rtc`
+
+兼容说明：
+
+* 旧字段 `rtsp_url` 仍可使用。
+* 如果 `stream_url` 和 `rtsp_url` 同时存在，优先使用 `stream_url`。
+* 新配置建议统一使用 `stream_url`。
+
+### `rtsp_url`
+
+旧版兼容字段。仅为兼容旧配置保留，不建议新配置继续使用。
+
+### `motion_url`
+
+动检识别专用接入源，可选。只在 `mode: "normal"` 且 `motion_detect: true` 时用于低分辨率帧差检测。
+
+如果留空，动检会使用该摄像头的默认 go2rtc 流。建议填写低分辨率子码流以降低 CPU 和带宽消耗。
+
+### `retention_days`
+
+录像保留天数。后台清理任务每小时扫描一次。
+
+* `> 0`：保留指定天数，超过后自动删除。
+* `0`：配置读取时会被默认值逻辑补为 `7`。
+* `-1`：不按保留天数自动清理。
+
+### `segment_duration`
+
+切片时长，单位秒。默认值逻辑为 `600`。
+
+建议：
+
+* 普通录像：`300`、`600` 或 `1800`。
+* 延时摄影：`3600` 或更长。
+
+### `format`
+
+录像文件格式，支持 `ts` 或 `mp4`，默认 `ts`。
+
+建议：
+
+* 普通录像优先使用 `ts`，异常中断时更不容易损坏，适合边写边播。
+* 手机浏览器兼容优先时可使用 `mp4`。
+* 延时摄影更适合使用 `mp4`，便于下载和分享。
+
+### `min_size_kb`
+
+过小碎片清理阈值，单位 KB，默认值逻辑为 `1024`。清理任务会跳过全局最新文件，避免误删正在写入的切片。
+
+### `record_time`
+
+自动录制时间段。支持单个或多个区间：
+
+```yaml
+record_time: "00:00-23:59"
+record_time: "08:00-12:00,14:00-18:00"
+```
+
+手动录制控制会覆盖该时间段：
+
+* `start`：强制录制。
+* `stop`：强制停止。
+* `auto`：恢复按 `record_time` 自动判断。
+
+手动控制由 Web UI 写入覆盖状态，不需要在 `conf.yaml` 中配置。
+
+### `mode`
+
+配置态录制模式，只支持：
+
+* `normal`：普通录像模式，默认值。
+* `timelapse`：延时摄影模式。
+
+注意：运行态 `/api/status.mode` 还可能返回 `motion`，表示这路摄像头正在按动检录像逻辑运行。配置文件里不要写 `mode: "motion"`；动检通过 `mode: "normal"` 加 `motion_detect: true` 开启。
+
+### `capture_interval`
+
+延时摄影抓帧间隔，单位秒，只在 `mode: "timelapse"` 时生效。小于等于 0 时运行时按 `1` 秒处理。
+
+示例：
+
+* `5`：每 5 秒取 1 帧。
+* `60`：每 60 秒取 1 帧。
+
+### `motion_detect`
+
+是否启用动检录像，只在 `mode: "normal"` 时生效。开启后，这路摄像头不再按时间段持续落盘，而是在录制时间段内检测到画面变化时生成事件录像。
+
+### `motionDetectRatioThreshold`
+
+动检变化像素比例阈值，范围 `0` 到 `1`。默认示例为 `0.01`，即约 1% 的低分辨率检测像素变化时判定为运动。
+
+数值越小越敏感，误触发可能越多；数值越大越不敏感，可能漏掉小范围移动。
+
+### `auto_discovered`
+
+标记该摄像头是否来自 go2rtc 自动发现或导入。通常由 Web 配置页维护，不建议手写。
+
+当 `stream_url: "managed_by_go2rtc"` 时，CamKeep 会把该摄像头视为 go2rtc 托管流。
+
+## 运行态状态字段
+
+`/api/status` 会返回每个摄像头的运行态信息，常用字段包括：
+
+* `mode`：运行态录制模式，`normal`、`motion`、`timelapse`。
+* `record_state`：当前录像状态，`idle`、`recording`、`motion_detecting`、`motion_recording`。
+* `stream_state`：实时流状态，`online`、`offline`、`idle`。
+* `record_override`：手动录制覆盖状态，`auto`、`start`、`stop`。
+* `cover_ready` / `cover_version`：实时封面是否可用及版本。
+* `onvif_enabled` / `ptz_state` / `imaging_state`：ONVIF 能力状态。
+
+判断录制模式请使用 `mode`，不要根据 `record_state` 反推。
+
+## 实时封面
+
+CamKeep 会为每路摄像头维护一张最新成功获取的封面图：
+
+```text
+records/<camera>/cover.jpg
+```
+
+刷新策略：
+
+* 应用启动后会立即扫描一次。
+* 后台每 10 分钟周期刷新一次。
+* 即使设备处于按需休眠状态，如果没有封面，也会尝试获取一次。
+* 优先通过 go2rtc `/api/frame.jpeg` 获取截图。
+* go2rtc 截图失败时，回退到本地 FFmpeg 从 `rtsp://127.0.0.1:8554/<camera>` 获取。
+
+前端默认只在首次打开或刷新页面时请求封面，并且只对当前可视区域的节点触发加载，避免实时状态轮询导致封面闪烁或额外消耗。
+
+## Web 批量添加
+
+配置管理页支持一次添加多路摄像头。每行一条，支持两种格式：
+
+```text
+front-door rtsp://user:pass@192.168.1.10/stream1
+garage rtsp://user:pass@192.168.1.11/stream1
+onvif://user:pass@192.168.1.12
+```
+
+说明：
+
+* `id source`：显式指定摄像头 ID。
+* `source`：只写接入源时，系统会根据 host 自动生成 ID。
+* 如果 ID 重复，Web UI 会自动追加后缀。
+* 批量添加后仍需保存并应用配置才会生效。
+
+## 版本检查与隐私
+
+后端启动后会异步检查一次 GitHub Releases，之后按周期缓存刷新。稳定版发现新版本时，Web 顶部版本号旁会显示更新入口。
+
+`dev`、`test` 或自定义版本不会被标记为“有新稳定版可升级”，但仍可能展示最新稳定版本参考。
+
+CamKeep 默认没有遥测，不上传视频、设备列表或使用行为。版本检查只请求 GitHub Releases 元数据。

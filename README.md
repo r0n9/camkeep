@@ -11,66 +11,87 @@
 
 ---
 
-**专为家庭 NAS 设计的轻量级私有化监控录像机 (NVR)**
+**全面兼容 go2rtc 的自托管 NVR，面向家庭 NAS 与边缘设备。**
 
-CamKeep 是一款基于 Go 语言开发，深度集成 **go2rtc** 和 **FFmpeg** 的流媒体监控与录制网关。它专为家庭 NAS (飞牛、群晖、威联通、Unraid 等) 和低功耗小主机设计，让你彻底告别昂贵的品牌硬盘录像机和隐私泄露风险。
+CamKeep 基于 Go、go2rtc 和 FFmpeg，提供本地优先的视频接入、录制、回放和设备管理能力。它已经不再只是 RTSP 极简录像机，而是一个可以接入 go2rtc 现有流、ONVIF 设备以及其他 go2rtc source 的统一 NVR 网关。
 
 ![camkeep](camkeep_console.png)
 
+## 设计初衷与原则
+
+CamKeep 的初衷不是替代大型企业级安防平台，而是为家庭 NAS、低功耗小主机和内网自托管场景提供一套够用、稳定、可控的 NVR。
+
+* **极简**：单容器运行，配置尽量少，常用能力优先在 Web 控制台完成，不把用户拖进复杂的视频工程配置里。
+* **低功耗**：优先复用 go2rtc 流代理，录像默认流拷贝，封面与状态刷新控制频率和并发，尽量适合长期运行在 NAS、软路由、ARM 小主机上。
+* **内网安全**：默认本地优先，不依赖云端，不上传视频和设备信息；建议部署在可信局域网内，必要时通过内置登录鉴权或反向代理访问。
+
 ## ✨ 功能亮点
 
-CamKeep 的目标很明确：在你自己的内网里，用尽可能少的配置和资源，把 RTSP / ONVIF 摄像头稳定录到 NAS 上。
+* 🧩 **go2rtc-native 接入**：`stream_url` 支持任意 go2rtc 兼容接入源，例如 `rtsp://`、`onvif://`、`ffmpeg:`、`exec:`，也支持导入已有 go2rtc 流。
+* 🕹️ **ONVIF PTZ 控制**：自动识别 ONVIF 控制候选设备，支持云台移动、变焦、停止，以及设备支持时的对焦和光圈控制。
+* 🖼️ **实时封面**：每个实时节点展示持久化封面，默认保存到 `records/<camera>/cover.jpg`；优先使用 go2rtc 截图，失败后回退本地 FFmpeg。
+* 📺 **紧凑实时看板**：实时节点卡片适配桌面和移动端，封面只在可视区域按需加载，后台每 10 分钟轻量巡检，减少性能消耗和画面闪烁。
+* 🕓 **24H 时间轴回放**：保留原卡片列表和旧时间轴，同时新增可吸附到播放器下方的 24H 时间轴，支持拖动、滚轮缩放、移动端双指缩放和按时间点播放。
+* 🧰 **Web 配置管理**：单页面配置管理，支持表单/YAML 双模式、摄像头卡片折叠、恢复未保存修改、单个添加、批量添加和从 go2rtc 导入未接管流。
+* 🎥 **完整录像能力**：支持定时录像、手动强制开始/停止、动检录像、延时摄影、TS/MP4 切片、历史回放、下载和删除。
+* 🧠 **低成本动检**：普通模式下可启用 `motion_detect`，使用低分辨率帧差检测和 Time-Shift 缓存，只在画面变化时生成事件录像。
+* 🧹 **自动存储管理**：支持 `retention_days` 过期清理、过小碎片过滤、每日按小时合并录像，适合长期运行在 NAS 上。
+* 🔒 **本地优先**：不依赖云端、不强制账号、不上传摄像头数据；登录鉴权可通过环境变量开启。
 
-* 🐳 **单容器极简部署**：内置 go2rtc 与 FFmpeg，Docker 启动即可使用；配置文件简单，Web 控制台支持热更新。
-* 🔒 **纯内网私有运行**：不依赖云端、不强制账号、不要求公网服务。视频流、录像文件和回放入口都留在你的局域网与 NAS 内。
-* ⚡ **低功耗友好**：基于 go2rtc 做流代理，多终端观看也尽量只向摄像头拉取一路流；常规录制默认 `copy`，避免不必要的重编码。
-* 📹 **RTSP / ONVIF 接入**：兼容海康、大华、TP-Link、刷机摄像头、旧手机等各类视频源，也可扫描并接管已有 go2rtc 流；`onvif://` 来源会自动识别为 ONVIF 控制候选设备。
-* 🎥 **轻量录像能力完整**：支持定时录像、手动启停、动检录像、延时摄影、TS/MP4 切片、按天回放和历史片段浏览。
-* 🧠 **低成本动检录制**：动检模式采用低分辨率帧差检测，配合 Time-Shift 缓存，只在有画面变化时生成事件录像，减少空镜头占用。
-* 🧹 **自动存储管理**：通过 `retention_days` 控制保留天数，后台自动滚动清理过期录像，适合长期放在 NAS 上运行。
-* 🖥️ **实用监控面板**：支持 WebRTC 低延迟直播，异常场景可回退到 MSE / mpegts；提供 4/6 宫格预览、双击全屏、设备状态和日期回放。
-* 🏗️ **适合 NAS 与边缘设备**：原生支持 x86-64 与 ARM64，适配群晖、威联通、Unraid、飞牛、树莓派、RK3588 等设备。
+## 状态与模式
 
----
+`/api/status` 中的 `mode` 表示运行态录制模式，取值为 `normal`、`motion`、`timelapse`。`record_state` 只表示当前录制状态，取值为 `idle`、`recording`、`motion_detecting`、`motion_recording`，不要用它判断录制模式。
 
-## 🚀 极速部署
+## 接入源说明
 
-得益于底层的全面整合，CamKeep 现在只需映射所需的端口和目录即可一键启动。你可以根据习惯选择 `Docker Run` 或 `Docker-Compose`。
+`stream_url` 是 CamKeep 的接入源字段，语义是“go2rtc source”，不是单纯的 RTSP 地址。旧字段 `rtsp_url` 仍兼容，但推荐迁移到 `stream_url`。
+
+常见写法：
+
+```yaml
+stream_url: "rtsp://admin:password@192.168.1.10:554/Streaming/Channels/101"
+stream_url: "onvif://admin:password@192.168.1.11"
+stream_url: "ffmpeg:rtsp://admin:password@192.168.1.12/live#video=copy#audio=aac"
+stream_url: "managed_by_go2rtc"
+```
+
+`managed_by_go2rtc` 通常由 Web 配置页导入已有 go2rtc 流时自动写入，表示该流由 go2rtc 管理，CamKeep 只负责录制、回放和状态展示。
+
+## 🚀 快速部署
+
+CamKeep Docker 镜像内置 go2rtc 和 FFmpeg。推荐使用 host 网络，尤其是需要 WebRTC 低延迟直播时。
 
 ### 1. 准备目录与配置文件
 
-> 💡v1.1.0 之后版本支持通过 Web 控制台更新配置，但初次启动建议准备好配置目录。
-
-在你的 NAS 或服务器上创建一个基础目录（例如 `/vol1/CamKeep`），并在其中新建配置文件 `config/conf.yaml`：
-
-具体配置项说明，请阅览：[配置说明文档 (conf_usage.md)](https://github.com/r0n9/camkeep/blob/main/conf_usage.md)
+在 NAS 或服务器上创建基础目录，例如 `/vol1/CamKeep`，并在其中准备 `config/conf.yaml`。详细字段见 [配置说明文档](./conf_usage.md)。
 
 ```yaml
 daily_merge:
-  enabled: false          # 是否每天合并前一天碎片录像
-  time: "03:30"           # 每日合并时间，建议放在低峰时段
+  enabled: false
+  time: "03:30"
 
 cameras:
-# 普通录制模式示例
-  - id: "front-door"      # 摄像头唯一ID (英文/数字)
-    stream_url: "rtsp://admin:123456@192.168.1.100:554/stream"
-    motion_url: ""          # 可选，仅动检识别使用；留空使用主码流
-    retention_days: 7       # 录像保留 7 天
-    segment_duration: 300   # 每 5 分钟切分一个录像文件
-    format: "ts"            # 强烈推荐 ts 格式，支持边写边播
-    record_time: "00:00-24:00" # 允许录制的时间段
+  - id: "front-door"
+    order: 0
+    stream_url: "rtsp://admin:password@192.168.1.100:554/stream"
+    motion_url: ""
+    retention_days: 7
+    segment_duration: 300
+    format: "ts"
+    min_size_kb: 1024
+    record_time: "00:00-23:59"
     mode: "normal"
-    motion_detect: false    # 默认关闭动检录制
-    motionDetectRatioThreshold: 0.01 # 动检阈值，默认 1%
+    motion_detect: false
+    motionDetectRatioThreshold: 0.01
 ```
 
-### 2. 启动服务 (二选一)
+说明：`records` 目录会保存录像文件，也会保存每个摄像头的最新封面截图。
 
-说明：`CAMKEEP_AUTH_PASSWORD` 用来开启登录鉴权；如果不设置它，系统不会启用鉴权，此时也不需要配置 `CAMKEEP_AUTH_USER` 和 `CAMKEEP_SESSION_SECRET`。下面的示例是启用鉴权的默认写法。
+### 2. 启动服务
 
-#### 方式一：Docker Run (单行命令，推荐极简部署)
+`CAMKEEP_AUTH_PASSWORD` 用来开启登录鉴权；如果不设置它，Web 控制台不会启用登录鉴权，也不需要配置 `CAMKEEP_AUTH_USER` 和 `CAMKEEP_SESSION_SECRET`。
 
-在终端中执行以下命令（请将 `${PWD}` 替换为你的实际物理路径）：
+#### Docker Run
 
 ```bash
 docker run -d \
@@ -86,9 +107,7 @@ docker run -d \
   ghcr.io/r0n9/camkeep:latest
 ```
 
-#### 方式二：Docker-Compose
-
-如果你习惯使用 Compose 管理，在同级目录下新建 `docker-compose.yaml`：
+#### Docker Compose
 
 ```yaml
 services:
@@ -96,7 +115,7 @@ services:
     image: ghcr.io/r0n9/camkeep:latest
     container_name: camkeep
     restart: unless-stopped
-    network_mode: "host" # 建议使用 host 网络，否则WebRTC可能握手失败
+    network_mode: "host" # 推荐 host 网络，否则 WebRTC 可能握手失败
     environment:
       - TZ=Asia/Shanghai
       - CAMKEEP_AUTH_USER=admin
@@ -107,23 +126,37 @@ services:
       - ./records:/app/records
 #    ports:
 #      - "9110:9110"      # CamKeep Web 控制台
-#      - "1984:1984"      # go2rtc API 端口
-#      - "8554:8554"      # RTSP 服务端口
-#      - "8555:8555/tcp"  # WebRTC 端口 (必须暴露，否则无画面)
+#      - "1984:1984"      # go2rtc API / 控制台
+#      - "8554:8554"      # go2rtc RTSP 服务
+#      - "8555:8555/tcp"  # WebRTC
 #      - "8555:8555/udp"
 ```
 
 然后执行：
+
 ```bash
 docker-compose up -d
 ```
 
-### 3. 开始使用
-启动成功后，在浏览器中访问 `http://<你的NAS IP>:9110` 即可进入监控中心。
+### 3. 进入控制台
+
+浏览器访问 `http://<你的NAS IP>:9110`。如果启用了鉴权，使用环境变量中的用户名和密码登录。
+
+## Web 控制台
+
+* **实时节点**：展示封面、在线状态、录制状态、手动录制控制和实时预览入口。
+* **历史录像**：按摄像头和日期查看录像，支持卡片列表、传统时间轴和 24H 时间轴回放。
+* **配置管理**：支持表单编辑和 YAML 编辑，批量添加摄像头，从 go2rtc 扫描并导入未接管流。
+* **ONVIF 控制**：对支持的设备显示 PTZ、变焦、对焦和光圈控制。
+* **版本更新**：启动后异步检查 GitHub Releases，之后按周期缓存刷新；稳定版发现更新时会在版本号旁展示入口。`dev`、`test` 或自定义版本不会被标记为稳定版升级。
+
+## 隐私说明
+
+CamKeep 默认不包含遥测，不上传视频、设备列表或使用行为。版本检查只请求 GitHub Releases 元数据，用于判断是否有新版本。
 
 ## 📄 开源协议
 
-本项目基于 **MIT License** 开源。欢迎大家提交 Issue 和 PR 共同完善这款属于个人的 NAS 监控系统。
+本项目基于 **MIT License** 开源。欢迎提交 Issue 和 PR。
 
 This project uses:
 
