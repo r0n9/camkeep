@@ -109,6 +109,46 @@ func TestHandleStatusIncludesCoverMetadata(t *testing.T) {
 	}
 }
 
+func TestHandleStatusOrdersByCameraOrder(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	service.ReplaceOnvifCandidates(nil)
+	swapCameraCoverStoreForTest(t, newDisabledCameraCoverStore())
+	deleteStatusForAppTest(t, "cam-a")
+	deleteStatusForAppTest(t, "cam-b")
+
+	cfg := constant.Config{
+		Cameras: []constant.Camera{
+			{ID: "cam-b", Order: 2},
+			{ID: "cam-a", Order: 1},
+		},
+	}
+	setCurrentConfigForAppTest(t, cfg)
+	service.UpdateStatus("cam-b", false, "normal", "00:00-23:59")
+	service.UpdateStatus("cam-a", false, "normal", "00:00-23:59")
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	handleStatus(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+	first := strings.Index(body, `"cam-a"`)
+	second := strings.Index(body, `"cam-b"`)
+	if first == -1 || second == -1 {
+		t.Fatalf("expected both camera ids in response, got %s", body)
+	}
+	if first > second {
+		t.Fatalf("expected cam-a to appear before cam-b, got %s", body)
+	}
+	if !strings.Contains(body, `"order":1`) || !strings.Contains(body, `"order":2`) {
+		t.Fatalf("expected order field in response, got %s", body)
+	}
+}
+
 func TestFilterRecordEntriesDefaultKeepsLatestSevenAvailableDates(t *testing.T) {
 	entries := []recordEntry{
 		testRecordEntry(t, "2026-05-03"),
@@ -491,6 +531,15 @@ cameras:
     motionDetectRatioThreshold: 1.5
 `,
 			want: "motionDetectRatioThreshold",
+		},
+		{
+			name: "negative order",
+			yaml: `
+cameras:
+  - id: "cam_01"
+    order: -1
+`,
+			want: "order",
 		},
 	}
 

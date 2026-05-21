@@ -374,12 +374,21 @@ async function parseConfigYamlToForm(yamlText) {
 }
 
 function normalizeConfigForm(cfg) {
+    const cameras = (readConfigValue(cfg, ['cameras', 'Cameras'], []) || [])
+        .map((cam, index) => ({cam: normalizeConfigCamera(cam), index}))
+        .sort((left, right) => {
+            const orderDelta = (Number(left.cam.order) || 0) - (Number(right.cam.order) || 0);
+            if (orderDelta !== 0) return orderDelta;
+            return left.index - right.index;
+        })
+        .map(item => item.cam);
+
     return {
         daily_merge: {
             enabled: Boolean(readConfigValue(cfg.daily_merge, ['enabled', 'Enabled'], false)),
             time: readConfigValue(cfg.daily_merge, ['time', 'Time'], '03:30') || '03:30'
         },
-        cameras: (readConfigValue(cfg, ['cameras', 'Cameras'], []) || []).map(normalizeConfigCamera)
+        cameras
     };
 }
 
@@ -394,6 +403,7 @@ function normalizeConfigCamera(cam) {
 
     return {
         id: readConfigValue(cam, ['id', 'ID'], ''),
+        order: readConfigNumber(cam, ['order', 'Order'], 0),
         stream_url: effectiveStreamURL,
         motion_url: readConfigValue(cam, ['motion_url', 'MotionURL'], ''),
         retention_days: readConfigNumber(cam, ['retention_days', 'RetentionDays'], 7),
@@ -460,51 +470,99 @@ function renderConfigForm() {
 }
 
 function renderConfigCameraCard(cam, index) {
-    const normalMode = cam.mode !== 'timelapse';
+    const modeValue = String(cam.mode || 'normal').toLowerCase();
+    const normalMode = modeValue !== 'timelapse';
     const managedByGo2rtc = isManagedByGo2rtcURL(cam.stream_url);
-    const motionDisabled = normalMode ? '' : 'disabled';
-    const sourceHint = managedByGo2rtc ? '使用 go2rtc 同名流' : 'CamKeep 会把 stream_url 注册到 go2rtc';
+    const motionEnabled = normalMode && Boolean(cam.motion_detect);
+    const motionDetectAttrs = normalMode ? 'onchange="refreshConfigFormFromDom()"' : 'disabled';
+    const motionUrlAttrs = normalMode ? '' : 'disabled title="延时模式不使用动检流"';
+    const motionThresholdAttrs = motionEnabled ? '' : 'disabled title="先启用动检录制后再调整阈值"';
+    const captureIntervalAttrs = normalMode ? 'disabled title="仅延时模式生效"' : '';
+    const motionSectionTitle = normalMode ? '动检录制' : '延时摄影';
+    const motionSectionDesc = normalMode
+        ? '启用后仅事件片段会触发录像，阈值越低越敏感。'
+        : '仅在延时模式下生效，动检项会被忽略。';
+    const sourceHint = managedByGo2rtc ? '使用 go2rtc 同名流' : 'CamKeep 会把接入源注册到 go2rtc';
     const motionHint = normalMode ? '动检开启后仅事件录像' : '延时录像模式会忽略动检';
     return `
-        <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div class="min-w-0">
-                <div class="flex flex-wrap items-center gap-2">
-                    <span class="rounded-full bg-slate-900 px-2 py-0.5 text-[11px] font-extrabold text-white">#${index + 1}</span>
-                    <h4 class="truncate text-sm font-extrabold text-slate-800">${escapeHtml(cam.id || '未命名摄像头')}</h4>
-                    ${managedByGo2rtc ? '<span class="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-extrabold text-blue-700 ring-1 ring-blue-100">go2rtc 接管</span>' : ''}
-                    ${cam.motion_detect && normalMode ? '<span class="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-extrabold text-emerald-700 ring-1 ring-emerald-100">动检</span>' : ''}
-                    <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-extrabold text-slate-600">${escapeHtml(cam.mode || 'normal')} / ${escapeHtml(cam.format || 'ts')}</span>
+        <div class="config-camera-card-shell">
+            <div class="config-camera-card-head">
+                <div class="config-camera-card-index">#${index + 1}</div>
+                <div class="min-w-0 flex-1">
+                    <div class="config-camera-title-row">
+                        <h4 class="truncate text-sm font-extrabold text-slate-800">${escapeHtml(cam.id || '未命名摄像头')}</h4>
+                        ${managedByGo2rtc ? '<span class="config-camera-chip config-camera-chip--go2rtc">go2rtc 接管</span>' : ''}
+                        ${motionEnabled ? '<span class="config-camera-chip config-camera-chip--motion">动检</span>' : ''}
+                        <span class="config-camera-chip config-camera-chip--mode">${escapeHtml(modeValue || 'normal')} / ${escapeHtml(cam.format || 'ts')}</span>
+                    </div>
+                    <p class="mt-1 truncate text-[11px] font-medium text-slate-500">${sourceHint}；${motionHint}</p>
                 </div>
-                <p class="mt-1 truncate text-[11px] font-medium text-slate-500">${sourceHint}；${motionHint}</p>
+                <button onclick="removeConfigCamera(${index})" class="config-camera-delete-btn" type="button">删除</button>
             </div>
-            <button onclick="removeConfigCamera(${index})" class="shrink-0 rounded-lg border border-red-100 bg-red-50 px-2.5 py-1 text-[11px] font-extrabold text-red-600 transition-all hover:bg-red-600 hover:text-white active:scale-95">删除</button>
-        </div>
-        <div class="config-camera-grid">
-            ${configTextInput('摄像头 ID', 'id', cam.id, 'front-door', true)}
-            ${managedByGo2rtc ? configManagedStreamField(cam.id) : configTextInput('主码流 stream_url', 'stream_url', cam.stream_url, 'go2rtc 支持的 URL / 源地址', true, 'config-field-wide')}
-            ${configTextInput('动检流 motion_url', 'motion_url', cam.motion_url, '可选，低码率子码流，仅用于识别', false, 'config-field-wide')}
-            ${configTextInput('录制时间', 'record_time', cam.record_time, '00:00-23:59')}
-            ${configSelectInput('模式', 'mode', cam.mode, [['normal', '普通'], ['timelapse', '延时']], `onchange="refreshConfigFormFromDom()"`)}
-            ${configSelectInput('格式', 'format', cam.format, [['ts', 'ts'], ['mp4', 'mp4']])}
-            ${configCheckboxInput('动检录制', 'motion_detect', cam.motion_detect && normalMode, motionDisabled)}
-        </div>
-        <details class="config-advanced mt-2">
-            <summary>高级参数</summary>
-            <div class="config-camera-grid mt-2">
+            ${configFormSection('基础信息', '识别、模式和录像时间，改完后立即影响当前卡片展示。', `
+                ${configTextInput('摄像头 ID', 'id', cam.id, 'front-door', true)}
+                ${configNumberInput('排序 order', 'order', cam.order, '0，数字越小越靠前')}
+                ${configSelectInput('模式', 'mode', cam.mode, [['normal', '普通'], ['timelapse', '延时']], `onchange="refreshConfigFormFromDom()"`)}
+                ${configSelectInput('格式', 'format', cam.format, [['ts', 'ts'], ['mp4', 'mp4']])}
+                ${configTextInput('录制时间', 'record_time', cam.record_time, '00:00-23:59')}
+            `, 'config-form-section--identity')}
+            ${configFormSection('接入源', '会注册到 go2rtc 的源地址，可填写 RTSP、ONVIF、FFmpeg 或其他 go2rtc 支持的 URL。', `
+                ${managedByGo2rtc ? configManagedStreamField(cam.id) : configTextInput('接入源 stream_url', 'stream_url', cam.stream_url, 'rtsp://... / onvif://... / ffmpeg:...', true, 'config-field-wide')}
+            `, managedByGo2rtc ? 'config-form-section--stream is-go2rtc-managed' : 'config-form-section--stream')}
+            ${configFormSection('录像策略', '控制保留、切片和磁盘占用。', `
                 ${configNumberInput('保留天数', 'retention_days', cam.retention_days, '0 不清理')}
                 ${configNumberInput('切片秒数', 'segment_duration', cam.segment_duration, '300 / 600')}
                 ${configNumberInput('最小文件 KB', 'min_size_kb', cam.min_size_kb, '1024')}
-                ${configNumberInput('延时抓拍间隔', 'capture_interval', cam.capture_interval, '仅延时生效')}
-                ${configNumberInput('动检阈值', 'motionDetectRatioThreshold', cam.motionDetectRatioThreshold, '0.01 表示 1%', '0.001')}
+            `, 'config-form-section--storage')}
+            ${configFormSection(motionSectionTitle, motionSectionDesc, normalMode ? `
+                ${configCheckboxInput('动检录制', 'motion_detect', motionEnabled, motionDetectAttrs)}
+                ${configTextInput('动检流 motion_url', 'motion_url', cam.motion_url, '可选，低码率子码流，仅用于识别', false, 'config-field-wide', motionUrlAttrs)}
+                ${configHiddenInput('capture_interval', cam.capture_interval)}
+                ${configNumberInput('动检阈值', 'motionDetectRatioThreshold', cam.motionDetectRatioThreshold, '0.01 表示 1%', '0.001', '', motionThresholdAttrs)}
+            ` : `
+                ${configNumberInput('延时抓拍间隔', 'capture_interval', cam.capture_interval, '仅延时生效', '1', 'config-field-wide', captureIntervalAttrs)}
+                ${configHiddenInput('motion_url', cam.motion_url)}
+                ${configHiddenInput('motionDetectRatioThreshold', cam.motionDetectRatioThreshold)}
+                <input data-field="motion_detect" type="checkbox" ${cam.motion_detect ? 'checked' : ''} hidden>
+                <div class="config-form-section-note config-field-wide">延时模式不使用动检录像，保留接入源与抓拍间隔即可。</div>
+            `, normalMode ? 'config-form-section--motion' : 'config-form-section--motion config-form-section--timelapse is-muted')}
+        </div>
+    `;
+}
+
+function configFormSection(title, desc, content, extraClass = '') {
+    return `
+        <section class="config-form-section ${extraClass}">
+            <div class="config-form-section-header">
+                <div class="min-w-0">
+                    <h5 class="config-form-section-title">${escapeHtml(title)}</h5>
+                    <p class="config-form-section-desc">${escapeHtml(desc)}</p>
+                </div>
             </div>
-        </details>
+            <div class="config-form-section-grid">${content}</div>
+        </section>
+    `;
+}
+
+function configHiddenInput(field, value) {
+    return `<input data-field="${field}" type="hidden" value="${escapeHtml(value ?? '')}">`;
+}
+
+function configFieldLabel(label, required = false) {
+    const tagText = required ? '必填' : '选填';
+    const tagClass = required ? 'config-field-tag--required' : 'config-field-tag--optional';
+    return `
+        <span class="config-field-label">
+            <span>${escapeHtml(label)}</span>
+            <span class="config-field-tag ${tagClass}">${tagText}</span>
+        </span>
     `;
 }
 
 function configTextInput(label, field, value, placeholder, required = false, extraClass = '', attrs = '') {
     return `
         <label class="config-field ${extraClass}">
-            <span class="mb-1 block text-[11px] font-extrabold text-slate-500">${label}</span>
+            ${configFieldLabel(label, required)}
             <input data-field="${field}" type="text" value="${escapeHtml(value || '')}" placeholder="${escapeHtml(placeholder || '')}" ${required ? 'required' : ''} ${attrs} class="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10">
         </label>
     `;
@@ -514,7 +572,7 @@ function configManagedStreamField(camID) {
     const desc = configManagedStreamDesc(camID);
     return `
         <label class="config-field config-field-wide">
-            <span class="mb-1 block text-[11px] font-extrabold text-slate-500">主码流来源</span>
+            ${configFieldLabel('接入源', true)}
             <input data-field="stream_url" type="hidden" value="managed_by_go2rtc">
             <div class="config-managed-rtsp">
                 <span class="config-managed-rtsp-title">go2rtc 已接管</span>
@@ -530,24 +588,24 @@ function configManagedStreamDesc(camID) {
     return `接入方式：${sourceLabel}`;
 }
 
-function configNumberInput(label, field, value, placeholder, step = '1') {
+function configNumberInput(label, field, value, placeholder, step = '1', extraClass = '', attrs = '') {
     return `
-        <label class="config-field">
-            <span class="mb-1 block text-[11px] font-extrabold text-slate-500">${label}</span>
-            <input data-field="${field}" type="number" step="${step}" value="${escapeHtml(value ?? '')}" placeholder="${escapeHtml(placeholder || '')}" class="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10">
+        <label class="config-field ${extraClass}">
+            ${configFieldLabel(label, false)}
+            <input data-field="${field}" type="number" step="${step}" value="${escapeHtml(value ?? '')}" placeholder="${escapeHtml(placeholder || '')}" ${attrs} class="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10">
         </label>
     `;
 }
 
-function configSelectInput(label, field, value, options, attrs = '') {
+function configSelectInput(label, field, value, options, attrs = '', required = true) {
     const opts = options.map(([optionValue, optionLabel]) => {
         const selected = String(value || '') === optionValue ? 'selected' : '';
         return `<option value="${optionValue}" ${selected}>${optionLabel}</option>`;
     }).join('');
     return `
         <label class="config-field">
-            <span class="mb-1 block text-[11px] font-extrabold text-slate-500">${label}</span>
-            <select data-field="${field}" ${attrs} class="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10">${opts}</select>
+            ${configFieldLabel(label, required)}
+            <select data-field="${field}" ${required ? 'required' : ''} ${attrs} class="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10">${opts}</select>
         </label>
     `;
 }
@@ -555,7 +613,7 @@ function configSelectInput(label, field, value, options, attrs = '') {
 function configCheckboxInput(label, field, checked, extraAttrs = '') {
     return `
         <label class="config-field">
-            <span class="mb-1 block text-[11px] font-extrabold text-slate-500">${label}</span>
+            ${configFieldLabel(label, false)}
             <span class="config-toggle-control">
                 <span class="text-xs font-extrabold text-slate-700">启用</span>
                 <span class="relative inline-flex h-5 w-9 shrink-0 items-center">
@@ -593,6 +651,7 @@ function collectConfigForm(options = {}) {
         const mode = readCardField(card, 'mode') || 'normal';
         const cam = {
             id: readCardField(card, 'id').trim(),
+            order: readCardNumber(card, 'order', 0),
             stream_url: readCardField(card, 'stream_url').trim(),
             motion_url: readCardField(card, 'motion_url').trim(),
             retention_days: readCardNumber(card, 'retention_days', 0),
@@ -636,8 +695,9 @@ function readCardCheckbox(card, field) {
 
 function addConfigCamera(seed = {}) {
     configFormState = collectConfigForm({allowEmptyID: true});
-    configFormState.cameras.push(normalizeConfigCamera({
+    configFormState.cameras.unshift(normalizeConfigCamera({
         id: '',
+        order: 0,
         stream_url: '',
         motion_url: '',
         retention_days: 7,
@@ -671,6 +731,7 @@ function configToYaml(cfg) {
     ];
     cfg.cameras.forEach(cam => {
         lines.push(`  - id: ${yamlScalar(cam.id)}`);
+        lines.push(`    order: ${cam.order || 0}`);
         lines.push(`    stream_url: ${yamlScalar(cam.stream_url)}`);
         lines.push(`    motion_url: ${yamlScalar(cam.motion_url)}`);
         lines.push(`    retention_days: ${cam.retention_days}`);
@@ -697,9 +758,11 @@ function appendStreamToConfig(stream) {
     if (!streamId) return;
     go2rtcStreamInfoMap.set(streamId, streamInfo);
 
+    const nextOrder = nextConfigCameraOrder();
     if (configEditMode === 'form') {
         addConfigCamera({
             id: streamId,
+            order: nextOrder,
             stream_url: 'managed_by_go2rtc',
             auto_discovered: true
         });
@@ -718,7 +781,7 @@ function appendStreamToConfig(stream) {
         propIndent = listIndent + "  ";
     }
 
-    const newCamYaml = [`${listIndent}- id: "${streamId}"`, `${propIndent}stream_url: "managed_by_go2rtc"`, `${propIndent}motion_url: ""`, `${propIndent}auto_discovered: true`, `${propIndent}retention_days: 7`, `${propIndent}segment_duration: 600`, `${propIndent}format: ts`, `${propIndent}min_size_kb: 1024`, `${propIndent}record_time: "00:00-23:59"`, `${propIndent}mode: normal`, `${propIndent}motion_detect: false`, `${propIndent}motionDetectRatioThreshold: 0.01`].join('\n') + '\n';
+    const newCamYaml = [`${listIndent}- id: "${streamId}"`, `${propIndent}order: ${nextOrder}`, `${propIndent}stream_url: "managed_by_go2rtc"`, `${propIndent}motion_url: ""`, `${propIndent}auto_discovered: true`, `${propIndent}retention_days: 7`, `${propIndent}segment_duration: 600`, `${propIndent}format: ts`, `${propIndent}min_size_kb: 1024`, `${propIndent}record_time: "00:00-23:59"`, `${propIndent}mode: normal`, `${propIndent}motion_detect: false`, `${propIndent}motionDetectRatioThreshold: 0.01`].join('\n') + '\n';
 
     if (content.trim() === '') {
         content = 'cameras:\n';
@@ -733,6 +796,15 @@ function appendStreamToConfig(stream) {
 
     textArea.classList.add('ring-2', 'ring-emerald-400', 'transition-all', 'duration-300');
     setTimeout(() => textArea.classList.remove('ring-2', 'ring-emerald-400'), 800);
+}
+
+function nextConfigCameraOrder() {
+    try {
+        const cfg = collectConfigForm({allowEmptyID: true});
+        return cfg.cameras.reduce((maxOrder, cam) => Math.max(maxOrder, Number(cam.order) || 0), 0) + 1;
+    } catch (e) {
+        return 0;
+    }
 }
 
 function finishAppendStream(streamId) {
@@ -940,7 +1012,7 @@ async function loadStatus() {
         const resp = await fetch('/api/status');
         const data = await resp.json();
         const list = document.getElementById('camList');
-        const cameras = Object.entries(data || {}).sort(([a], [b]) => a.localeCompare(b, undefined, {numeric: true}));
+        const cameras = Object.entries(data || {});
         updateCameraStats(cameras);
 
         if (cameras.length === 0) {

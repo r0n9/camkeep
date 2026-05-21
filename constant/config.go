@@ -9,6 +9,7 @@ var ConfigMux sync.RWMutex
 
 type Camera struct {
 	ID              string `yaml:"id" json:"id"`
+	Order           int    `yaml:"order" json:"order"`
 	StreamURL       string `yaml:"stream_url,omitempty" json:"stream_url,omitempty"`
 	RTSPUrl         string `yaml:"rtsp_url,omitempty" json:"rtsp_url,omitempty"` // 兼容旧配置；stream_url 有值时优先使用 stream_url
 	MotionURL       string `yaml:"motion_url" json:"motion_url"`                 // 可选：仅用于动检识别的流地址，录像仍使用主码流

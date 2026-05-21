@@ -32,6 +32,7 @@ func loadOrInitConfig() constant.Config {
 				Cameras: []constant.Camera{
 					{
 						ID:                         "camkeep",
+						Order:                      0,
 						StreamURL:                  "rtsp://admin:password@192.168.1.100:554/live",
 						MotionURL:                  "",
 						RetentionDays:              7,
@@ -151,6 +152,9 @@ func validateCameraConfig(cam constant.Camera) error {
 	}
 	if cam.MinSizeKb < 0 {
 		return fmt.Errorf("min_size_kb 不能为负数")
+	}
+	if cam.Order < 0 {
+		return fmt.Errorf("order 不能为负数")
 	}
 	if cam.MotionDetectRatioThreshold < 0 || cam.MotionDetectRatioThreshold > 1 {
 		return fmt.Errorf("motionDetectRatioThreshold 必须在 0 到 1 之间")

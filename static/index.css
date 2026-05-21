@@ -1498,6 +1498,159 @@ html.dark .record-timeline-card-action-delete:hover {
     box-shadow: 0 18px 36px -22px rgba(37, 99, 235, 0.74);
 }
 
+.config-camera-card-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.config-camera-card-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.config-camera-card-index {
+    display: inline-flex;
+    height: 24px;
+    min-width: 34px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background: #0f172a;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.config-camera-title-row {
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.config-camera-chip {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    padding: 2px 7px;
+    font-size: 10px;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.config-camera-chip--go2rtc {
+    background: #dbeafe;
+    color: #1d4ed8;
+    box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.16);
+}
+
+.config-camera-chip--motion {
+    background: #dcfce7;
+    color: #047857;
+    box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.18);
+}
+
+.config-camera-chip--mode {
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.config-camera-delete-btn {
+    flex: 0 0 auto;
+    border: 1px solid #fecdd3;
+    border-radius: 9px;
+    background: #fff1f2;
+    color: #e11d48;
+    padding: 5px 10px;
+    font-size: 11px;
+    font-weight: 900;
+    transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+}
+
+.config-camera-delete-btn:hover {
+    border-color: #fb7185;
+    background: #e11d48;
+    color: #ffffff;
+}
+
+.config-camera-delete-btn:active {
+    transform: scale(0.97);
+}
+
+.config-form-section {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.68);
+    padding: 10px;
+}
+
+.config-form-section--stream {
+    border-color: #bfdbfe;
+    background: rgba(239, 246, 255, 0.72);
+}
+
+.config-form-section--storage {
+    border-color: #bbf7d0;
+    background: rgba(240, 253, 244, 0.66);
+}
+
+.config-form-section--motion {
+    border-color: #fed7aa;
+    background: rgba(255, 247, 237, 0.74);
+}
+
+.config-form-section--timelapse {
+    border-color: #bae6fd;
+    background: rgba(240, 249, 255, 0.76);
+}
+
+.config-form-section.is-muted {
+    border-style: dashed;
+}
+
+.config-form-section-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.config-form-section-title {
+    color: #0f172a;
+    font-size: 12px;
+    font-weight: 900;
+    line-height: 1.2;
+}
+
+.config-form-section-desc {
+    margin-top: 2px;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 650;
+    line-height: 1.35;
+}
+
+.config-form-section-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+}
+
+.config-form-section-note {
+    border: 1px dashed rgba(14, 165, 233, 0.36);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.62);
+    color: #0369a1;
+    padding: 7px 9px;
+    font-size: 11px;
+    font-weight: 750;
+}
+
 .config-camera-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -1508,9 +1661,49 @@ html.dark .record-timeline-card-action-delete:hover {
     min-width: 0;
 }
 
+.config-field-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    margin-bottom: 4px;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.config-field-tag {
+    flex: 0 0 auto;
+    border-radius: 9999px;
+    padding: 2px 5px;
+    font-size: 9px;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.config-field-tag--required {
+    background: #eff6ff;
+    color: #2563eb;
+    box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.14);
+}
+
+.config-field-tag--optional {
+    background: #f8fafc;
+    color: #94a3b8;
+    box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.16);
+}
+
 .config-field input,
 .config-field select {
     min-height: 32px;
+}
+
+.config-field input:disabled,
+.config-field select:disabled,
+.config-toggle-control:has(input:disabled) {
+    cursor: not-allowed;
+    opacity: 0.62;
 }
 
 .config-managed-rtsp {
@@ -1611,26 +1804,9 @@ html.dark .record-timeline-card-action-delete:hover {
     opacity: 0.65;
 }
 
-.config-advanced {
-    border-top: 1px dashed #e2e8f0;
-    padding-top: 8px;
-}
-
-.config-advanced summary {
-    width: fit-content;
-    cursor: pointer;
-    color: #64748b;
-    font-size: 11px;
-    font-weight: 800;
-    user-select: none;
-}
-
-.config-advanced summary:hover {
-    color: #2563eb;
-}
-
 @media (min-width: 768px) {
-    .config-camera-grid {
+    .config-camera-grid,
+    .config-form-section-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
@@ -1646,6 +1822,27 @@ html.dark .record-timeline-card-action-delete:hover {
 
     .config-toggle-control {
         grid-column: span 1;
+    }
+}
+
+@media (min-width: 1180px) {
+    .config-form-section--identity .config-form-section-grid,
+    .config-form-section--storage .config-form-section-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .config-form-section--motion .config-form-section-grid {
+        grid-template-columns: minmax(140px, 0.8fr) minmax(280px, 1.7fr) minmax(150px, 0.8fr);
+    }
+}
+
+@media (max-width: 640px) {
+    .config-camera-card-head {
+        align-items: stretch;
+    }
+
+    .config-camera-delete-btn {
+        padding-inline: 9px;
     }
 }
 
@@ -1688,6 +1885,95 @@ html.dark .config-camera-card.is-go2rtc-managed:hover {
         linear-gradient(90deg, #93c5fd 0 4px, transparent 4px) !important;
 }
 
+html.dark .config-camera-card-index {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+html.dark .config-camera-chip--go2rtc {
+    background: rgba(30, 64, 175, 0.48);
+    color: #bfdbfe;
+    box-shadow: inset 0 0 0 1px rgba(147, 197, 253, 0.18);
+}
+
+html.dark .config-camera-chip--motion {
+    background: rgba(6, 78, 59, 0.5);
+    color: #a7f3d0;
+    box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.16);
+}
+
+html.dark .config-camera-chip--mode {
+    background: rgba(51, 65, 85, 0.72);
+    color: #cbd5e1;
+}
+
+html.dark .config-camera-delete-btn {
+    border-color: rgba(251, 113, 133, 0.28);
+    background: rgba(127, 29, 29, 0.28);
+    color: #fda4af;
+}
+
+html.dark .config-camera-delete-btn:hover {
+    border-color: rgba(251, 113, 133, 0.62);
+    background: rgba(225, 29, 72, 0.72);
+    color: #fff1f2;
+}
+
+html.dark .config-form-section {
+    border-color: rgba(51, 65, 85, 0.95);
+    background: rgba(15, 23, 42, 0.58);
+}
+
+html.dark .config-form-section--stream {
+    border-color: rgba(96, 165, 250, 0.36);
+    background: rgba(30, 58, 138, 0.22);
+}
+
+html.dark .config-form-section--storage {
+    border-color: rgba(52, 211, 153, 0.24);
+    background: rgba(6, 78, 59, 0.14);
+}
+
+html.dark .config-form-section--motion {
+    border-color: rgba(251, 146, 60, 0.28);
+    background: rgba(124, 45, 18, 0.18);
+}
+
+html.dark .config-form-section--timelapse {
+    border-color: rgba(56, 189, 248, 0.32);
+    background: rgba(12, 74, 110, 0.18);
+}
+
+html.dark .config-form-section-title {
+    color: #e2e8f0;
+}
+
+html.dark .config-form-section-desc {
+    color: #94a3b8;
+}
+
+html.dark .config-form-section-note {
+    border-color: rgba(56, 189, 248, 0.28);
+    background: rgba(15, 23, 42, 0.58);
+    color: #7dd3fc;
+}
+
+html.dark .config-field-label {
+    color: #94a3b8;
+}
+
+html.dark .config-field-tag--required {
+    background: rgba(30, 64, 175, 0.4);
+    color: #bfdbfe;
+    box-shadow: inset 0 0 0 1px rgba(147, 197, 253, 0.16);
+}
+
+html.dark .config-field-tag--optional {
+    background: rgba(51, 65, 85, 0.58);
+    color: #94a3b8;
+    box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.12);
+}
+
 html.dark .config-toggle-control {
     background: rgba(15, 23, 42, 0.72);
     border-color: #334155;
@@ -1707,18 +1993,6 @@ html.dark .config-toggle-thumb {
 
 html.dark .config-toggle-control input:disabled ~ .config-toggle-track {
     background: #1e293b;
-}
-
-html.dark .config-advanced {
-    border-top-color: #334155;
-}
-
-html.dark .config-advanced summary {
-    color: #94a3b8;
-}
-
-html.dark .config-advanced summary:hover {
-    color: #60a5fa;
 }
 
 html.dark select,

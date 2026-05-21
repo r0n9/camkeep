@@ -51,6 +51,26 @@ type probeResult struct {
 	ProbeNote string `json:"probe_note,omitempty"`
 }
 
+type statusResponseEntry struct {
+	ID                   string    `json:"id"`
+	IsRunning            bool      `json:"is_running"`
+	RecordState          string    `json:"record_state"`
+	StartTime            time.Time `json:"start_time"`
+	Mode                 string    `json:"mode"`
+	RecordTime           string    `json:"record_time"`
+	StreamState          string    `json:"stream_state"`
+	CoverReady           bool      `json:"cover_ready"`
+	CoverLoading         bool      `json:"cover_loading"`
+	CoverVersion         int64     `json:"cover_version"`
+	CoverUpdatedAt       time.Time `json:"cover_updated_at"`
+	Order                int       `json:"order"`
+	RecordOverride       string    `json:"record_override"`
+	OnvifEnabled         bool      `json:"onvif_enabled"`
+	OnvifCapabilityState string    `json:"onvif_capability_state"`
+	PTZState             string    `json:"ptz_state"`
+	ImagingState         string    `json:"imaging_state"`
+}
+
 type go2rtcStreamScanResponse struct {
 	Streams   map[string]go2rtcStreamInfo `json:"streams"`
 	Unmanaged []go2rtcStreamInfo          `json:"unmanaged"`
@@ -97,40 +117,124 @@ func handleIndex(c *gin.Context) {
 
 func handleStatus(c *gin.Context) {
 	service.StatusMux.RLock()
-	snapshot := make(map[string]gin.H, len(service.StatusMap))
+	snapshot := make(map[string]statusResponseEntry, len(service.StatusMap))
 	for id, status := range service.StatusMap {
 		cover := cameraCovers.snapshot(id)
-		snapshot[id] = gin.H{
-			"id":               status.ID,
-			"is_running":       status.IsRunning,
-			"record_state":     status.RecordState,
-			"start_time":       status.StartTime,
-			"mode":             status.Mode,
-			"record_time":      status.RecordTime,
-			"stream_state":     status.StreamState,
-			"cover_ready":      cover.Ready,
-			"cover_loading":    cover.Loading,
-			"cover_version":    cover.Version,
-			"cover_updated_at": cover.UpdatedAt,
+		snapshot[id] = statusResponseEntry{
+			ID:             status.ID,
+			IsRunning:      status.IsRunning,
+			RecordState:    status.RecordState,
+			StartTime:      status.StartTime,
+			Mode:           status.Mode,
+			RecordTime:     status.RecordTime,
+			StreamState:    status.StreamState,
+			CoverReady:     cover.Ready,
+			CoverLoading:   cover.Loading,
+			CoverVersion:   cover.Version,
+			CoverUpdatedAt: cover.UpdatedAt,
 		}
 	}
 	service.StatusMux.RUnlock()
 
 	for id, status := range snapshot {
-		status["record_override"] = task.GetOverride(id)
+		status.RecordOverride = task.GetOverride(id)
 		if onvifStatus, ok := service.GetOnvifStatus(id); ok {
-			status["onvif_enabled"] = onvifStatus.Enabled
-			status["onvif_capability_state"] = onvifStatus.CapabilityState
-			status["ptz_state"] = onvifStatus.PTZState
-			status["imaging_state"] = onvifStatus.ImagingState
+			status.OnvifEnabled = onvifStatus.Enabled
+			status.OnvifCapabilityState = onvifStatus.CapabilityState
+			status.PTZState = onvifStatus.PTZState
+			status.ImagingState = onvifStatus.ImagingState
 		} else {
-			status["onvif_enabled"] = false
-			status["onvif_capability_state"] = service.OnvifStateUnavailable
-			status["ptz_state"] = service.OnvifStateUnavailable
-			status["imaging_state"] = service.OnvifStateUnavailable
+			status.OnvifEnabled = false
+			status.OnvifCapabilityState = service.OnvifStateUnavailable
+			status.PTZState = service.OnvifStateUnavailable
+			status.ImagingState = service.OnvifStateUnavailable
 		}
+		snapshot[id] = status
 	}
-	c.JSON(200, snapshot)
+
+	constant.ConfigMux.RLock()
+	orderByID := make(map[string]int, len(currentConfig.Cameras))
+	for _, cam := range currentConfig.Cameras {
+		orderByID[cam.ID] = cam.Order
+	}
+	constant.ConfigMux.RUnlock()
+
+	for id, entry := range snapshot {
+		entry.Order = orderByID[id]
+		if entry.ID == "" {
+			entry.ID = id
+		}
+		snapshot[id] = entry
+	}
+
+	body, err := marshalOrderedStatusResponse(snapshot)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "生成状态响应失败: " + err.Error()})
+		return
+	}
+	c.Data(http.StatusOK, "application/json; charset=utf-8", body)
+}
+
+func marshalOrderedStatusResponse(snapshot map[string]statusResponseEntry) ([]byte, error) {
+	ids := sortedStatusIDs(snapshot)
+	var buf bytes.Buffer
+	buf.WriteByte('{')
+	for i, id := range ids {
+		if i > 0 {
+			buf.WriteByte(',')
+		}
+
+		key, err := json.Marshal(id)
+		if err != nil {
+			return nil, err
+		}
+		value, err := json.Marshal(snapshot[id])
+		if err != nil {
+			return nil, err
+		}
+
+		buf.Write(key)
+		buf.WriteByte(':')
+		buf.Write(value)
+	}
+	buf.WriteByte('}')
+	return buf.Bytes(), nil
+}
+
+func sortedStatusIDs(snapshot map[string]statusResponseEntry) []string {
+	constant.ConfigMux.RLock()
+	orderedCameras := append([]constant.Camera(nil), currentConfig.Cameras...)
+	constant.ConfigMux.RUnlock()
+
+	type cameraOrder struct {
+		order int
+		index int
+	}
+	orderByID := make(map[string]cameraOrder, len(orderedCameras))
+	for index, cam := range orderedCameras {
+		orderByID[cam.ID] = cameraOrder{order: cam.Order, index: index}
+	}
+
+	ids := make([]string, 0, len(snapshot))
+	for id := range snapshot {
+		ids = append(ids, id)
+	}
+	sort.SliceStable(ids, func(i, j int) bool {
+		left, leftConfigured := orderByID[ids[i]]
+		right, rightConfigured := orderByID[ids[j]]
+		if left.order != right.order {
+			return left.order < right.order
+		}
+		if leftConfigured && rightConfigured && left.index != right.index {
+			return left.index < right.index
+		}
+		if leftConfigured != rightConfigured {
+			return leftConfigured
+		}
+		return strings.Compare(ids[i], ids[j]) < 0
+	})
+
+	return ids
 }
 
 func handleGetConfig(c *gin.Context) {
