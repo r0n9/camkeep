@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -33,6 +34,8 @@ const (
 	cameraCoverMaxConcurrentRefreshes = 2
 	cameraCoverFileName               = "cover.jpg"
 	cameraCoverTaskInterval           = 10 * time.Minute
+	cameraCoverTaskIdleInterval       = 2 * time.Hour
+	cameraCoverStatusActiveWindow     = 5 * time.Minute
 )
 
 type cameraCoverFFmpegRunner func(ctx context.Context, args ...string) ([]byte, error)
@@ -74,6 +77,8 @@ type cameraCoverStore struct {
 }
 
 var cameraCovers = newCameraCoverStore()
+var cameraCoverLastStatusRequestAt atomic.Int64
+var cameraCoverStatusActivityCh = make(chan struct{}, 1)
 
 func newCameraCoverStore() *cameraCoverStore {
 	return &cameraCoverStore{
@@ -119,20 +124,61 @@ func (s *cameraCoverStore) touchAll(statuses map[string]coverRefreshStatus) {
 }
 
 func CameraCoverTask(ctx context.Context) {
-	ticker := time.NewTicker(cameraCoverTaskInterval)
-	defer ticker.Stop()
-
 	cameraCovers.touchAll(snapshotCoverRefreshStatuses())
+	timer := time.NewTimer(cameraCoverTaskIntervalFor(time.Now()))
+	defer timer.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
 			log.Println("摄像头封面刷新任务已停止")
 			return
-		case <-ticker.C:
+		case <-timer.C:
 			cameraCovers.touchAll(snapshotCoverRefreshStatuses())
+			resetCameraCoverTaskTimer(timer, cameraCoverTaskIntervalFor(time.Now()))
+		case <-cameraCoverStatusActivityCh:
+			resetCameraCoverTaskTimer(timer, cameraCoverTaskInterval)
 		}
 	}
+}
+
+func markCameraCoverStatusRequest(now time.Time) {
+	if now.IsZero() {
+		now = time.Now()
+	}
+
+	prev := cameraCoverLastStatusRequestAt.Swap(now.UnixNano())
+	if prev == 0 || now.Sub(time.Unix(0, prev)) > cameraCoverStatusActiveWindow {
+		select {
+		case cameraCoverStatusActivityCh <- struct{}{}:
+		default:
+		}
+	}
+}
+
+func cameraCoverTaskIntervalFor(now time.Time) time.Duration {
+	if cameraCoverHasRecentStatusRequest(now) {
+		return cameraCoverTaskInterval
+	}
+	return cameraCoverTaskIdleInterval
+}
+
+func cameraCoverHasRecentStatusRequest(now time.Time) bool {
+	last := cameraCoverLastStatusRequestAt.Load()
+	if last == 0 {
+		return false
+	}
+	return now.Sub(time.Unix(0, last)) <= cameraCoverStatusActiveWindow
+}
+
+func resetCameraCoverTaskTimer(timer *time.Timer, interval time.Duration) {
+	if !timer.Stop() {
+		select {
+		case <-timer.C:
+		default:
+		}
+	}
+	timer.Reset(interval)
 }
 
 func snapshotCoverRefreshStatuses() map[string]coverRefreshStatus {

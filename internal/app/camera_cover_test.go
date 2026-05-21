@@ -302,6 +302,25 @@ func TestCameraCoverTaskRefreshesConfiguredCoversBeforeStatusMap(t *testing.T) {
 	}
 }
 
+func TestCameraCoverTaskIntervalUsesStatusActivity(t *testing.T) {
+	resetCameraCoverStatusActivityForTest(t)
+
+	now := time.Date(2026, 5, 21, 12, 0, 0, 0, time.Local)
+	if got := cameraCoverTaskIntervalFor(now); got != cameraCoverTaskIdleInterval {
+		t.Fatalf("expected idle interval without status requests, got %s", got)
+	}
+
+	markCameraCoverStatusRequest(now.Add(-cameraCoverStatusActiveWindow + time.Second))
+	if got := cameraCoverTaskIntervalFor(now); got != cameraCoverTaskInterval {
+		t.Fatalf("expected active interval after recent status request, got %s", got)
+	}
+
+	markCameraCoverStatusRequest(now.Add(-cameraCoverStatusActiveWindow - time.Second))
+	if got := cameraCoverTaskIntervalFor(now); got != cameraCoverTaskIdleInterval {
+		t.Fatalf("expected idle interval after status quiet window, got %s", got)
+	}
+}
+
 func newDisabledCameraCoverStore() *cameraCoverStore {
 	store := newCameraCoverStore()
 	store.enabled = false
@@ -328,4 +347,27 @@ func storeSeedCameraCover(store *cameraCoverStore, camID string, content []byte,
 	entry.ContentType = contentType
 	entry.Version = version
 	entry.UpdatedAt = updatedAt
+}
+
+func resetCameraCoverStatusActivityForTest(t *testing.T) {
+	t.Helper()
+
+	oldLastRequest := cameraCoverLastStatusRequestAt.Load()
+	cameraCoverLastStatusRequestAt.Store(0)
+	drainCameraCoverStatusActivityForTest()
+
+	t.Cleanup(func() {
+		cameraCoverLastStatusRequestAt.Store(oldLastRequest)
+		drainCameraCoverStatusActivityForTest()
+	})
+}
+
+func drainCameraCoverStatusActivityForTest() {
+	for {
+		select {
+		case <-cameraCoverStatusActivityCh:
+		default:
+			return
+		}
+	}
 }

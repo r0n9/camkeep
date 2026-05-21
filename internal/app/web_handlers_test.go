@@ -109,6 +109,25 @@ func TestHandleStatusIncludesCoverMetadata(t *testing.T) {
 	}
 }
 
+func TestHandleStatusMarksCameraCoverActivity(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	resetCameraCoverStatusActivityForTest(t)
+	service.ReplaceOnvifCandidates(nil)
+	swapCameraCoverStoreForTest(t, newDisabledCameraCoverStore())
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	handleStatus(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if !cameraCoverHasRecentStatusRequest(time.Now()) {
+		t.Fatal("expected /api/status request to mark camera cover activity")
+	}
+}
+
 func TestHandleStatusOrdersByCameraOrder(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

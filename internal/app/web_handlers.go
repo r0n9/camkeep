@@ -131,6 +131,8 @@ func handleConfigUsagePage(c *gin.Context) {
 }
 
 func handleStatus(c *gin.Context) {
+	markCameraCoverStatusRequest(time.Now())
+
 	service.StatusMux.RLock()
 	snapshot := make(map[string]statusResponseEntry, len(service.StatusMap))
 	for id, status := range service.StatusMap {
