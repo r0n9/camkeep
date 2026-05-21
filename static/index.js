@@ -1278,10 +1278,14 @@ function buildCameraCardView(id, cam) {
     ensureCameraCoverLoaded(id, cam);
 
     const recordState = cam.record_state || (cam.is_running ? 'recording' : 'idle');
+    const overrideState = normalizeRecordOverride(cam.record_override);
     const isSelected = currentSelectedCam === id;
     const streamState = cam.stream_state || 'offline';
-    const recordSchedule = buildRecordScheduleDisplay(cam.record_time, cam.record_override);
-    const recordStateView = buildRecordStateView(recordState);
+    const recordSchedule = buildRecordScheduleDisplay(cam.record_time, overrideState);
+    const recordStateView = buildRecordStateView(recordState, overrideState);
+    const startActionClass = overrideState === 'start' ? 'is-active' : '';
+    const stopActionClass = overrideState === 'stop' ? 'is-active' : '';
+    const autoActionClass = overrideState === 'auto' ? 'is-active' : '';
     let streamLight, streamText;
 
     if (streamState === 'online') {
@@ -1328,7 +1332,7 @@ function buildCameraCardView(id, cam) {
             </div>
             <div class="camera-node-card-actions grid shrink-0 grid-cols-3 overflow-hidden rounded-md border border-slate-200 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]">
                 <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'start')"
-                        class="camera-node-action-btn flex h-6 w-6 items-center justify-center border-r border-slate-200 text-emerald-600 transition-all hover:bg-emerald-500 hover:text-white active:scale-95"
+                        class="camera-node-action-btn camera-node-action-btn--start ${startActionClass} flex h-6 w-6 items-center justify-center border-r border-slate-200 text-emerald-600 transition-all hover:bg-emerald-500 hover:text-white active:scale-95"
                         title="强制录制"
                         aria-label="强制录制">
                     <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
@@ -1337,7 +1341,7 @@ function buildCameraCardView(id, cam) {
                     <span class="camera-node-action-label">强录</span>
                 </button>
                 <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'stop')"
-                        class="camera-node-action-btn flex h-6 w-6 items-center justify-center border-r border-slate-200 text-rose-600 transition-all hover:bg-rose-500 hover:text-white active:scale-95"
+                        class="camera-node-action-btn camera-node-action-btn--stop ${stopActionClass} flex h-6 w-6 items-center justify-center border-r border-slate-200 text-rose-600 transition-all hover:bg-rose-500 hover:text-white active:scale-95"
                         title="强制停止"
                         aria-label="强制停止">
                     <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
@@ -1346,7 +1350,7 @@ function buildCameraCardView(id, cam) {
                     <span class="camera-node-action-label">停录</span>
                 </button>
                 <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'auto')"
-                        class="camera-node-action-btn flex h-6 w-6 items-center justify-center text-indigo-600 transition-all hover:bg-indigo-500 hover:text-white active:scale-95"
+                        class="camera-node-action-btn camera-node-action-btn--auto ${autoActionClass} flex h-6 w-6 items-center justify-center text-indigo-600 transition-all hover:bg-indigo-500 hover:text-white active:scale-95"
                         title="恢复计划"
                         aria-label="恢复计划">
                     <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.3">
@@ -1359,14 +1363,14 @@ function buildCameraCardView(id, cam) {
         </div>
 
         <div class="camera-node-card-footer flex items-center gap-0.5 border-t border-gray-100 px-1 py-0.5">
-            <div class="camera-node-schedule-pill flex min-w-0 flex-1 items-center gap-0.5 rounded border px-1 py-0.5"
+            <div class="camera-node-schedule-pill ${recordSchedule.pillClass} flex min-w-0 flex-1 items-center gap-0.5 rounded border px-1 py-0.5"
                  title="${escapeHtml(recordSchedule.title)}">
-                    <svg class="h-2 w-2 shrink-0 ${recordSchedule.iconClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
+                    <svg class="camera-node-schedule-icon h-2 w-2 shrink-0 ${recordSchedule.iconClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2"></path>
                         <circle cx="12" cy="12" r="9"></circle>
                     </svg>
-                    <span class="shrink-0 text-[7px] font-bold leading-none ${recordSchedule.badgeClass}">${recordSchedule.badge}</span>
-                    <span class="min-w-0 flex-1 truncate font-mono text-[8px] font-semibold leading-none ${recordSchedule.textClass}">${escapeHtml(recordSchedule.text)}</span>
+                    <span class="camera-node-schedule-badge shrink-0 text-[7px] font-bold leading-none ${recordSchedule.badgeClass}">${recordSchedule.badge}</span>
+                    <span class="camera-node-schedule-text min-w-0 flex-1 truncate font-mono text-[8px] font-semibold leading-none ${recordSchedule.textClass}">${escapeHtml(recordSchedule.text)}</span>
             </div>
         </div>
     `;
@@ -1374,10 +1378,12 @@ function buildCameraCardView(id, cam) {
     return {className, html};
 }
 
-function buildRecordStateView(recordState) {
+function buildRecordStateView(recordState, overrideState) {
+    const overrideClass = buildRecordOverrideCardClass(overrideState);
+
     if (recordState === 'motion_recording') {
         return {
-            cardClass: 'is-motion-recording',
+            cardClass: `is-motion-recording ${overrideClass}`,
             chipClass: 'camera-node-record-chip--motion-recording',
             label: '动检录制',
             title: '动检录制中'
@@ -1386,7 +1392,7 @@ function buildRecordStateView(recordState) {
 
     if (recordState === 'motion_detecting') {
         return {
-            cardClass: 'is-motion-detecting',
+            cardClass: `is-motion-detecting ${overrideClass}`,
             chipClass: 'camera-node-record-chip--motion-detecting',
             label: '动检中',
             title: '动检中'
@@ -1395,7 +1401,7 @@ function buildRecordStateView(recordState) {
 
     if (recordState === 'recording') {
         return {
-            cardClass: 'is-recording',
+            cardClass: `is-recording ${overrideClass}`,
             chipClass: 'camera-node-record-chip--recording',
             label: '录制中',
             title: '录制中'
@@ -1403,11 +1409,17 @@ function buildRecordStateView(recordState) {
     }
 
     return {
-        cardClass: 'is-idle',
+        cardClass: `is-idle ${overrideClass}`,
         chipClass: 'camera-node-record-chip--idle',
         label: '未录像',
         title: '未录像'
     };
+}
+
+function buildRecordOverrideCardClass(overrideState) {
+    if (overrideState === 'start') return 'is-override-start';
+    if (overrideState === 'stop') return 'is-override-stop';
+    return 'is-override-auto';
 }
 
 // --- 状态加载 ---
@@ -1576,9 +1588,9 @@ function applyRecordOverrideDisplay(base, overrideState, scheduleState) {
     }
 
     return {
-        badge: '自动',
+        badge: '计划录',
         text: formatScheduleTextWithState(base),
-        title: `${base.title}。当前手动覆盖: 自动计划`,
+        title: `${base.title}。当前手动覆盖: 按计划录制`,
         ...recordScheduleClasses(scheduleState)
     };
 }
@@ -1591,8 +1603,7 @@ function formatScheduleTextWithState(base) {
 function recordScheduleClasses(state) {
     if (state === 'forced-start') {
         return {
-            bgClass: 'bg-emerald-50/80',
-            borderClass: 'border-emerald-200',
+            pillClass: 'camera-node-schedule-pill--forced-start',
             iconClass: 'text-emerald-600',
             badgeClass: 'text-emerald-700',
             textClass: 'text-slate-600'
@@ -1601,8 +1612,7 @@ function recordScheduleClasses(state) {
 
     if (state === 'forced-stop') {
         return {
-            bgClass: 'bg-rose-50/80',
-            borderClass: 'border-rose-200',
+            pillClass: 'camera-node-schedule-pill--forced-stop',
             iconClass: 'text-rose-500',
             badgeClass: 'text-rose-700',
             textClass: 'text-rose-700'
@@ -1611,8 +1621,7 @@ function recordScheduleClasses(state) {
 
     if (state === 'full' || state === 'active') {
         return {
-            bgClass: 'bg-emerald-50/70',
-            borderClass: 'border-emerald-100',
+            pillClass: 'camera-node-schedule-pill--active',
             iconClass: 'text-emerald-500',
             badgeClass: 'text-emerald-700',
             textClass: 'text-slate-600'
@@ -1621,8 +1630,7 @@ function recordScheduleClasses(state) {
 
     if (state === 'fallback') {
         return {
-            bgClass: 'bg-amber-50/70',
-            borderClass: 'border-amber-100',
+            pillClass: 'camera-node-schedule-pill--fallback',
             iconClass: 'text-amber-500',
             badgeClass: 'text-amber-700',
             textClass: 'text-amber-700'
@@ -1630,8 +1638,7 @@ function recordScheduleClasses(state) {
     }
 
     return {
-        bgClass: 'bg-slate-50',
-        borderClass: 'border-slate-200',
+        pillClass: 'camera-node-schedule-pill--inactive',
         iconClass: 'text-slate-400',
         badgeClass: 'text-slate-500',
         textClass: 'text-slate-500'

@@ -144,6 +144,11 @@
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72), 0 10px 22px -20px var(--camera-node-glow);
 }
 
+#camList {
+    padding-top: 1px;
+    scroll-padding-top: 1px;
+}
+
 .camera-node-card::before {
     position: absolute;
     top: 0;
@@ -169,23 +174,23 @@
 }
 
 .camera-node-card.is-recording {
-    --camera-node-status: #ef4444;
-    --camera-node-border: rgba(239, 68, 68, 0.52);
-    --camera-node-glow: rgba(239, 68, 68, 0.42);
-    --camera-node-pulse: rgba(239, 68, 68, 0.18);
-    --camera-node-chip-bg: rgba(254, 242, 242, 0.78);
-    --camera-node-chip-border: rgba(239, 68, 68, 0.24);
-    --camera-node-chip-text: #dc2626;
+    --camera-node-status: #10b981;
+    --camera-node-border: rgba(16, 185, 129, 0.48);
+    --camera-node-glow: rgba(5, 150, 105, 0.36);
+    --camera-node-pulse: rgba(16, 185, 129, 0.18);
+    --camera-node-chip-bg: rgba(236, 253, 245, 0.82);
+    --camera-node-chip-border: rgba(16, 185, 129, 0.26);
+    --camera-node-chip-text: #047857;
 }
 
 .camera-node-card.is-motion-recording {
-    --camera-node-status: #ef4444;
-    --camera-node-border: rgba(239, 68, 68, 0.52);
-    --camera-node-glow: rgba(239, 68, 68, 0.42);
-    --camera-node-pulse: rgba(239, 68, 68, 0.18);
-    --camera-node-chip-bg: rgba(254, 242, 242, 0.78);
-    --camera-node-chip-border: rgba(239, 68, 68, 0.24);
-    --camera-node-chip-text: #dc2626;
+    --camera-node-status: #f59e0b;
+    --camera-node-border: rgba(245, 158, 11, 0.5);
+    --camera-node-glow: rgba(217, 119, 6, 0.34);
+    --camera-node-pulse: rgba(245, 158, 11, 0.18);
+    --camera-node-chip-bg: rgba(255, 251, 235, 0.84);
+    --camera-node-chip-border: rgba(245, 158, 11, 0.28);
+    --camera-node-chip-text: #b45309;
 }
 
 .camera-node-card.is-motion-detecting {
@@ -202,9 +207,34 @@
     --camera-node-status: #cbd5e1;
 }
 
+.camera-node-card.is-override-start {
+    --camera-node-status: #10b981;
+    --camera-node-border: rgba(16, 185, 129, 0.54);
+    --camera-node-glow: rgba(5, 150, 105, 0.42);
+    --camera-node-pulse: rgba(16, 185, 129, 0.2);
+    --camera-node-chip-bg: rgba(236, 253, 245, 0.86);
+    --camera-node-chip-border: rgba(16, 185, 129, 0.32);
+    --camera-node-chip-text: #047857;
+}
+
+.camera-node-card.is-override-stop {
+    --camera-node-status: #f43f5e;
+    --camera-node-border: rgba(244, 63, 94, 0.56);
+    --camera-node-glow: rgba(225, 29, 72, 0.38);
+    --camera-node-pulse: rgba(244, 63, 94, 0.16);
+    --camera-node-chip-bg: rgba(255, 241, 242, 0.86);
+    --camera-node-chip-border: rgba(244, 63, 94, 0.3);
+    --camera-node-chip-text: #be123c;
+}
+
 .camera-node-card.is-recording::before,
-.camera-node-card.is-motion-recording::before {
+.camera-node-card.is-motion-recording::before,
+.camera-node-card.is-override-start::before {
     animation: camera-node-status-pulse 1.8s ease-in-out infinite;
+}
+
+.camera-node-card.is-override-stop::before {
+    animation: none;
 }
 
 .camera-node-record-chip {
@@ -238,8 +268,65 @@
 }
 
 .camera-node-schedule-pill {
-    border-color: rgba(203, 213, 225, 0.62);
-    background: rgba(255, 255, 255, 0.48);
+    --camera-node-schedule-bg: rgba(255, 255, 255, 0.5);
+    --camera-node-schedule-border: rgba(203, 213, 225, 0.62);
+    --camera-node-schedule-icon: #94a3b8;
+    --camera-node-schedule-badge: #64748b;
+    --camera-node-schedule-text: #64748b;
+    border-color: var(--camera-node-schedule-border) !important;
+    background: var(--camera-node-schedule-bg);
+}
+
+.camera-node-schedule-pill--forced-start {
+    --camera-node-schedule-bg: rgba(236, 253, 245, 0.84);
+    --camera-node-schedule-border: rgba(16, 185, 129, 0.28);
+    --camera-node-schedule-icon: #059669;
+    --camera-node-schedule-badge: #047857;
+    --camera-node-schedule-text: #475569;
+}
+
+.camera-node-schedule-pill--forced-stop {
+    --camera-node-schedule-bg: rgba(255, 241, 242, 0.86);
+    --camera-node-schedule-border: rgba(244, 63, 94, 0.28);
+    --camera-node-schedule-icon: #e11d48;
+    --camera-node-schedule-badge: #be123c;
+    --camera-node-schedule-text: #be123c;
+}
+
+.camera-node-schedule-pill--active {
+    --camera-node-schedule-bg: rgba(236, 253, 245, 0.76);
+    --camera-node-schedule-border: rgba(16, 185, 129, 0.2);
+    --camera-node-schedule-icon: #10b981;
+    --camera-node-schedule-badge: #047857;
+    --camera-node-schedule-text: #475569;
+}
+
+.camera-node-schedule-pill--fallback {
+    --camera-node-schedule-bg: rgba(255, 251, 235, 0.82);
+    --camera-node-schedule-border: rgba(245, 158, 11, 0.22);
+    --camera-node-schedule-icon: #f59e0b;
+    --camera-node-schedule-badge: #b45309;
+    --camera-node-schedule-text: #b45309;
+}
+
+.camera-node-schedule-pill--inactive {
+    --camera-node-schedule-bg: rgba(248, 250, 252, 0.78);
+    --camera-node-schedule-border: rgba(203, 213, 225, 0.68);
+    --camera-node-schedule-icon: #94a3b8;
+    --camera-node-schedule-badge: #64748b;
+    --camera-node-schedule-text: #64748b;
+}
+
+.camera-node-schedule-icon {
+    color: var(--camera-node-schedule-icon) !important;
+}
+
+.camera-node-schedule-badge {
+    color: var(--camera-node-schedule-badge) !important;
+}
+
+.camera-node-schedule-text {
+    color: var(--camera-node-schedule-text) !important;
 }
 
 .camera-node-cover {
@@ -272,16 +359,28 @@ html.dark .camera-node-card {
 }
 
 html.dark .camera-node-card.is-recording,
+html.dark .camera-node-card.is-override-start {
+    --camera-node-chip-bg: rgba(6, 78, 59, 0.42);
+    --camera-node-chip-border: rgba(52, 211, 153, 0.36);
+    --camera-node-chip-text: #6ee7b7;
+}
+
 html.dark .camera-node-card.is-motion-recording {
-    --camera-node-chip-bg: rgba(127, 29, 29, 0.3);
-    --camera-node-chip-border: rgba(248, 113, 113, 0.34);
-    --camera-node-chip-text: #fca5a5;
+    --camera-node-chip-bg: rgba(120, 53, 15, 0.38);
+    --camera-node-chip-border: rgba(251, 191, 36, 0.34);
+    --camera-node-chip-text: #fcd34d;
 }
 
 html.dark .camera-node-card.is-motion-detecting {
     --camera-node-chip-bg: rgba(12, 74, 110, 0.3);
     --camera-node-chip-border: rgba(56, 189, 248, 0.34);
     --camera-node-chip-text: #7dd3fc;
+}
+
+html.dark .camera-node-card.is-override-stop {
+    --camera-node-chip-bg: rgba(136, 19, 55, 0.38);
+    --camera-node-chip-border: rgba(251, 113, 133, 0.36);
+    --camera-node-chip-text: #fda4af;
 }
 
 html.dark .camera-node-card:hover {
@@ -298,8 +397,51 @@ html.dark .camera-node-card-footer {
 }
 
 html.dark .camera-node-schedule-pill {
-    border-color: rgba(71, 85, 105, 0.72);
-    background: rgba(15, 23, 42, 0.46);
+    --camera-node-schedule-bg: rgba(15, 23, 42, 0.46);
+    --camera-node-schedule-border: rgba(71, 85, 105, 0.72);
+    --camera-node-schedule-icon: #94a3b8;
+    --camera-node-schedule-badge: #cbd5e1;
+    --camera-node-schedule-text: #94a3b8;
+}
+
+html.dark .camera-node-schedule-pill--forced-start {
+    --camera-node-schedule-bg: rgba(6, 78, 59, 0.34);
+    --camera-node-schedule-border: rgba(52, 211, 153, 0.32);
+    --camera-node-schedule-icon: #34d399;
+    --camera-node-schedule-badge: #6ee7b7;
+    --camera-node-schedule-text: #cbd5e1;
+}
+
+html.dark .camera-node-schedule-pill--forced-stop {
+    --camera-node-schedule-bg: rgba(136, 19, 55, 0.34);
+    --camera-node-schedule-border: rgba(251, 113, 133, 0.34);
+    --camera-node-schedule-icon: #fb7185;
+    --camera-node-schedule-badge: #fda4af;
+    --camera-node-schedule-text: #fda4af;
+}
+
+html.dark .camera-node-schedule-pill--active {
+    --camera-node-schedule-bg: rgba(6, 78, 59, 0.28);
+    --camera-node-schedule-border: rgba(52, 211, 153, 0.24);
+    --camera-node-schedule-icon: #34d399;
+    --camera-node-schedule-badge: #6ee7b7;
+    --camera-node-schedule-text: #cbd5e1;
+}
+
+html.dark .camera-node-schedule-pill--fallback {
+    --camera-node-schedule-bg: rgba(120, 53, 15, 0.32);
+    --camera-node-schedule-border: rgba(251, 191, 36, 0.28);
+    --camera-node-schedule-icon: #fbbf24;
+    --camera-node-schedule-badge: #fcd34d;
+    --camera-node-schedule-text: #fcd34d;
+}
+
+html.dark .camera-node-schedule-pill--inactive {
+    --camera-node-schedule-bg: rgba(15, 23, 42, 0.5);
+    --camera-node-schedule-border: rgba(71, 85, 105, 0.76);
+    --camera-node-schedule-icon: #64748b;
+    --camera-node-schedule-badge: #94a3b8;
+    --camera-node-schedule-text: #94a3b8;
 }
 
 html.dark .record24h-dock .record24h {
@@ -328,6 +470,26 @@ html.dark .record24h-dock-action.is-active {
 
 .camera-node-action-btn {
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96));
+}
+
+.camera-node-action-btn.is-active {
+    color: #ffffff !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 10px 18px -14px var(--camera-node-action-glow, rgba(15, 23, 42, 0.35));
+}
+
+.camera-node-action-btn--start.is-active {
+    --camera-node-action-glow: rgba(5, 150, 105, 0.72);
+    background: linear-gradient(180deg, #10b981, #047857) !important;
+}
+
+.camera-node-action-btn--stop.is-active {
+    --camera-node-action-glow: rgba(225, 29, 72, 0.72);
+    background: linear-gradient(180deg, #fb7185, #be123c) !important;
+}
+
+.camera-node-action-btn--auto.is-active {
+    --camera-node-action-glow: rgba(79, 70, 229, 0.66);
+    background: linear-gradient(180deg, #6366f1, #4338ca) !important;
 }
 
 .camera-node-action-btn:last-child {
@@ -377,6 +539,22 @@ html.dark .camera-node-action-btn[class~="text-rose-600"]:hover {
 
 html.dark .camera-node-action-btn[class~="text-indigo-600"]:hover {
     color: #eef2ff !important;
+    background: linear-gradient(180deg, #6366f1, #4338ca) !important;
+}
+
+html.dark .camera-node-action-btn.is-active {
+    color: #ffffff !important;
+}
+
+html.dark .camera-node-action-btn--start.is-active {
+    background: linear-gradient(180deg, #10b981, #047857) !important;
+}
+
+html.dark .camera-node-action-btn--stop.is-active {
+    background: linear-gradient(180deg, #fb7185, #be123c) !important;
+}
+
+html.dark .camera-node-action-btn--auto.is-active {
     background: linear-gradient(180deg, #6366f1, #4338ca) !important;
 }
 
