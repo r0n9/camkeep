@@ -168,12 +168,14 @@
 }
 
 .record24h-stage.is-dragging,
-.record24h-stage.is-pinching {
+.record24h-stage.is-pinching,
+.record24h-stage.is-scrubbing {
     cursor: grabbing;
 }
 
 .record24h-stage.is-dragging .record24h-segment,
-.record24h-stage.is-pinching .record24h-segment {
+.record24h-stage.is-pinching .record24h-segment,
+.record24h-stage.is-scrubbing .record24h-segment {
     pointer-events: none;
 }
 
@@ -304,18 +306,42 @@
     pointer-events: none;
 }
 
-.record24h-pointer::before {
+.record24h-pointer-handle {
+    appearance: none;
     position: absolute;
     top: -5px;
     left: 50%;
     width: 12px;
     height: 12px;
-    content: "";
+    padding: 0;
     transform: translateX(-50%) rotate(45deg);
+    border: 0;
     border: 2px solid #ffffff;
     border-radius: 4px;
     background: var(--record24h-pointer);
     box-shadow: 0 4px 10px rgba(37, 99, 235, 0.24);
+    cursor: ew-resize;
+    pointer-events: auto;
+    touch-action: none;
+    transition: box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.record24h-pointer-handle::after {
+    position: absolute;
+    inset: -10px;
+    content: "";
+}
+
+.record24h-pointer-handle:hover,
+.record24h-pointer-handle:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.16), 0 8px 16px -10px rgba(37, 99, 235, 0.68);
+    transform: translateX(-50%) rotate(45deg) scale(1.08);
+}
+
+.record24h-stage.is-scrubbing .record24h-pointer-handle {
+    cursor: grabbing;
+    transform: translateX(-50%) rotate(45deg) scale(1.12);
 }
 
 .record24h-pointer-label {
@@ -486,7 +512,7 @@ html.dark .record24h-pointer-label {
     background: rgba(15, 23, 42, 0.96);
 }
 
-html.dark .record24h-pointer::before {
+html.dark .record24h-pointer-handle {
     border-color: #0f172a;
 }
 

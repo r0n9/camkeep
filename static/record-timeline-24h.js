@@ -225,7 +225,7 @@
 
         const hint = document.createElement('div');
         hint.className = 'record24h-hint';
-        hint.textContent = '拖动平移 · 滚轮缩放 · 点击定位播放 · 双指缩放';
+        hint.textContent = '拖动平移 · 点击定位播放 · 拖动指针精确定位 · 滚轮/双指缩放';
 
         el.appendChild(hit);
         el.appendChild(hint);
@@ -365,7 +365,16 @@
         const label = document.createElement('div');
         label.className = 'record24h-pointer-label';
         label.textContent = formatClock(seconds, true);
+
+        const handle = document.createElement('button');
+        handle.type = 'button';
+        handle.className = 'record24h-pointer-handle';
+        handle.dataset.record24hPointerHandle = 'true';
+        handle.title = '拖动播放指针';
+        handle.setAttribute('aria-label', '拖动播放指针');
+
         el.appendChild(label);
+        el.appendChild(handle);
         return {el, label};
     }
 
@@ -392,6 +401,11 @@
             state.scrollAnchorSeconds = Number.isFinite(seconds) ? seconds : viewportClientXToSeconds(clientX, viewport, zoom);
         };
 
+        const rememberViewportCenter = () => {
+            const rect = viewport.getBoundingClientRect();
+            rememberViewportAnchor(rect.left + rect.width / 2);
+        };
+
         const zoomAround = (clientX, direction) => {
             const anchorSeconds = viewportClientXToSeconds(clientX, viewport, zoom);
             rememberViewportAnchor(clientX, anchorSeconds);
@@ -408,6 +422,7 @@
                 event.preventDefault();
                 const panDelta = normalizeWheelDelta(event, event.deltaX || event.deltaY, viewport.clientWidth);
                 viewport.scrollLeft += panDelta;
+                rememberViewportCenter();
                 return;
             }
 
@@ -446,16 +461,15 @@
                 return;
             }
 
-            const seconds = eventSeconds(event, stage, zoom);
+            const pointerHandle = event.target.closest('[data-record24h-pointer-handle="true"]');
             drag = {
                 pointerId: event.pointerId,
+                mode: pointerHandle ? 'pointer' : 'pan',
                 startX: event.clientX,
                 startY: event.clientY,
                 startScrollLeft: viewport.scrollLeft,
-                active: false,
-                seconds
+                active: false
             };
-            updatePointer(seconds);
             event.preventDefault();
         });
 
@@ -480,10 +494,13 @@
             if (!drag.active) {
                 if (Math.hypot(deltaX, deltaY) < DRAG_START_THRESHOLD) return;
                 drag.active = true;
-                stage.classList.add('is-dragging');
+                stage.classList.add(drag.mode === 'pointer' ? 'is-scrubbing' : 'is-dragging');
             }
-            viewport.scrollLeft = drag.startScrollLeft - deltaX;
-            updatePointer(eventSeconds(event, stage, zoom));
+            if (drag.mode === 'pointer') {
+                updatePointer(eventSeconds(event, stage, zoom));
+            } else {
+                viewport.scrollLeft = drag.startScrollLeft - deltaX;
+            }
             event.preventDefault();
         });
 
@@ -517,12 +534,16 @@
 
             if (!wasDrag) return;
             drag = null;
-            stage.classList.remove('is-dragging');
+            stage.classList.remove('is-dragging', 'is-scrubbing');
             const seconds = eventSeconds(event, stage, zoom);
-            updatePointer(seconds);
-            if (!cancelled && !wasDrag.active) {
+            if (wasDrag.mode === 'pointer') {
+                if (wasDrag.active) updatePointer(seconds);
+                if (!cancelled && wasDrag.active) commitPointer(seconds);
+            } else if (!cancelled && !wasDrag.active) {
                 rememberViewportAnchor(event.clientX, seconds);
                 commitPointer(seconds);
+            } else if (!cancelled && wasDrag.active) {
+                rememberViewportCenter();
             }
             event.preventDefault();
         };
@@ -533,7 +554,7 @@
             activePointers.delete(event.pointerId);
             if (drag && drag.pointerId === event.pointerId) {
                 drag = null;
-                stage.classList.remove('is-dragging');
+                stage.classList.remove('is-dragging', 'is-scrubbing');
             }
             if (activePointers.size < 2) {
                 pinch = null;
