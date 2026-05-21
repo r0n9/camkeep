@@ -31,7 +31,8 @@
             entries,
             selectedRecordPath = '',
             initialViewportWidth = 0,
-            onPlayAtTime = () => {}
+            onPlayAtTime = () => {},
+            onClearPlayback = () => {}
         } = options || {};
 
         const wrapper = document.createElement('section');
@@ -92,7 +93,13 @@
                 const nextSeconds = clampSeconds(seconds);
                 updatePointer(nextSeconds);
                 const hit = findSegmentAt(segments, nextSeconds);
-                if (!hit) return;
+                if (!hit) {
+                    onClearPlayback({
+                        seconds: nextSeconds,
+                        timeLabel: formatClock(nextSeconds, true)
+                    });
+                    return;
+                }
                 const offsetSeconds = Math.max(0, Math.min(nextSeconds - hit.startSeconds, hit.durationSeconds));
                 onPlayAtTime({
                     entry: hit.entry,

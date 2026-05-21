@@ -1532,6 +1532,26 @@ function clearCell(index) {
     refreshPTZPanel();
 }
 
+function clearCurrentRecordPlayback() {
+    let targetCell = -1;
+    const activeData = cellData[activeCell];
+
+    if (activeData && !activeData.isLive) {
+        targetCell = activeCell;
+    } else if (selectedRecordPath) {
+        targetCell = cellData.findIndex(data => data && !data.isLive && data.recordPath === selectedRecordPath);
+    }
+
+    if (targetCell >= 0) {
+        clearCell(targetCell);
+        setSelectedRecordPath('');
+        return true;
+    }
+
+    setSelectedRecordPath('');
+    return false;
+}
+
 function stopCellPlayback(index) {
     const liveIframe = document.getElementById(`live-iframe-${index}`);
     const nativePlayer = document.getElementById(`native-player-${index}`);
@@ -1651,6 +1671,11 @@ function syncSelectedRecordFromActiveCell() {
     setSelectedRecordPath(path || '');
 }
 
+function isCurrentRecordPlaybackRequest(index, recordPath) {
+    const data = cellData[index];
+    return Boolean(data && !data.isLive && data.recordPath === recordPath);
+}
+
 function applySelectedRecordCardStyles() {
     document.querySelectorAll('[data-record-path]').forEach(item => {
         setRecordItemSelected(item, selectedRecordPath !== '' && item.dataset.recordPath === selectedRecordPath);
@@ -1698,6 +1723,7 @@ async function playRecord(file, title, options = {}) {
         // 2. 针对零散碎片进行探测
         const resp = await fetch(`/api/record/probe?path=${encodeURIComponent(file.path)}`);
         const probe = await resp.json();
+        if (!isCurrentRecordPlaybackRequest(targetCell, recordPath)) return;
 
         // 探测成功，且确实是 H.265 编码
         if (probe.can_probe && probe.is_h265) {
@@ -1750,6 +1776,7 @@ async function playRecord(file, title, options = {}) {
     } catch (e) {
         console.warn('编码探测失败，尝试直接播放:', e);
     }
+    if (!isCurrentRecordPlaybackRequest(targetCell, recordPath)) return;
 
     // 非 H.265 的 .ts 碎片，走默认播放逻辑 (HLS 或 mpegts)
     cellData[targetCell] = {source: file.url, isLive: false, title, recordPath, seekSeconds};
@@ -1933,14 +1960,14 @@ function executePlayInCell(index, source, isLive, title, forceNative = false, wa
         `;
         cell.appendChild(warningEl);
 
-        // 8 秒后自动触发淡出动画并移除，避免永久遮挡画面
+        // 3 秒后自动触发淡出动画并移除，避免永久遮挡画面
         setTimeout(() => {
             const el = document.getElementById(`cell-warning-${index}`);
             if (el) {
                 el.classList.add('opacity-0', '-translate-y-2');
                 setTimeout(() => el.remove(), 1000);
             }
-        }, 8000);
+        }, 3000);
     }
 
     stopCellPlayback(index);
@@ -2302,6 +2329,9 @@ function renderRecordTimeline24hDock(camId, date, entries, selectedRecordPath) {
         onPlayAtTime: ({entry, offsetSeconds, timeLabel}) => {
             if (!entry || !entry.file) return;
             playRecordAtTime(entry.file, `回放: ${camId} (${timeLabel || entry.meta.timeDisplay})`, offsetSeconds);
+        },
+        onClearPlayback: () => {
+            clearCurrentRecordPlayback();
         }
     }));
     activeRecordTimeline24hDockKey = groupKey;
