@@ -958,19 +958,21 @@ function buildCameraCoverMarkup(camId, cam, streamState) {
             </div>`;
 
     return `
-        <div class="camera-node-cover relative aspect-video w-[88px] shrink-0 overflow-hidden rounded-md border border-slate-200 bg-slate-100 ring-1 ring-white/70 sm:w-[96px] lg:w-[78px]">
+        <button type="button"
+                data-cam-id="${escapeHtml(camId)}"
+                onclick="event.stopPropagation(); previewLive(this.dataset.camId)"
+                class="camera-node-cover group/cover relative aspect-video w-[88px] shrink-0 overflow-hidden rounded-md border border-slate-200 bg-slate-100 text-white ring-1 ring-white/70 transition-all hover:border-blue-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:w-[96px] lg:w-[78px]"
+                title="点击预览直播"
+                aria-label="预览 ${escapeHtml(camId)} 直播">
             ${imageMarkup}
-            <button onclick="event.stopPropagation(); previewLive('${camId}')"
-                    class="camera-node-live-btn absolute left-1/2 top-1/2 flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-white/12 text-white shadow-[0_10px_28px_-14px_rgba(15,23,42,0.72)] backdrop-blur-md transition-all duration-200 hover:scale-105 hover:border-white/30 hover:bg-white/20 active:scale-95"
-                    title="主动拉流直播"
-                    aria-label="主动拉流直播">
-                <span class="flex h-6 w-6 items-center justify-center rounded-full bg-slate-950/45 ring-1 ring-white/15 shadow-inner">
+            <span class="camera-node-live-btn pointer-events-none absolute left-1/2 top-1/2 flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/14 bg-white/8 text-white shadow-[0_10px_26px_-18px_rgba(15,23,42,0.76)] backdrop-blur-[2px] transition-all duration-200 group-hover/cover:scale-105 group-hover/cover:border-white/24 group-hover/cover:bg-white/14 group-active/cover:scale-95">
+                <span class="flex h-6 w-6 items-center justify-center rounded-full bg-slate-950/22 ring-1 ring-white/10 shadow-inner">
                     <svg class="h-3.5 w-3.5 translate-x-[1px]" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M8 5.5v13l10-6.5-10-6.5z"></path>
                     </svg>
                 </span>
-            </button>
-        </div>
+            </span>
+        </button>
     `;
 }
 
