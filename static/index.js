@@ -14,6 +14,7 @@ const recordArchiveOpenDates = new Set();
 const recordArchiveViewModes = new Map();
 let activeRecordTimeline24hDockKey = '';
 let matrixToolbarTimer = null;
+let configPageVisible = false;
 const cameraCoverObjectURLs = new Map();
 const cameraCoverRequested = new Set();
 const cameraCoverFailed = new Set();
@@ -146,9 +147,11 @@ let configFormInitialCamerasLoaded = false;
 let go2rtcStreamInfoMap = new Map();
 
 async function openConfig() {
+    showConfigPage();
     go2rtcStreamInfoMap = new Map();
     configFormInitialCameras = [];
     configFormInitialCamerasLoaded = false;
+    renderConfigLoadingState();
     const yamlResp = await fetch('/api/config');
     const yamlText = await yamlResp.text();
     document.getElementById('configYaml').value = yamlText;
@@ -169,12 +172,46 @@ async function openConfig() {
         alert('表单配置读取失败，已切换到 YAML 高级模式: ' + e.message);
     }
 
-    document.getElementById('configModal').classList.remove('hidden');
     void scanUnmanagedStreams();
 }
 
 function closeConfig() {
-    document.getElementById('configModal').classList.add('hidden');
+    showDashboardPage();
+}
+
+function showConfigPage() {
+    configPageVisible = true;
+    document.getElementById('dashboardPage')?.classList.add('hidden');
+    document.getElementById('configPage')?.classList.remove('hidden');
+    const navBtn = document.getElementById('configNavBtn');
+    if (navBtn) {
+        navBtn.classList.add('bg-blue-50', 'text-blue-700');
+        navBtn.setAttribute('aria-current', 'page');
+    }
+    window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+function showDashboardPage() {
+    configPageVisible = false;
+    document.getElementById('configPage')?.classList.add('hidden');
+    document.getElementById('dashboardPage')?.classList.remove('hidden');
+    const navBtn = document.getElementById('configNavBtn');
+    if (navBtn) {
+        navBtn.classList.remove('bg-blue-50', 'text-blue-700');
+        navBtn.removeAttribute('aria-current');
+    }
+    window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+function renderConfigLoadingState() {
+    const list = document.getElementById('configCameraList');
+    const empty = document.getElementById('configCameraEmpty');
+    if (list) {
+        list.innerHTML = '<div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm font-bold text-slate-400">正在读取配置...</div>';
+    }
+    if (empty) empty.classList.add('hidden');
+    const restoreBtn = document.getElementById('restoreConfigCamerasBtn');
+    if (restoreBtn) restoreBtn.disabled = true;
 }
 
 async function saveConfig() {
@@ -244,11 +281,11 @@ async function switchConfigMode(mode, options = {}) {
     document.getElementById('configFormPanel').classList.toggle('hidden', mode !== 'form');
     document.getElementById('configYamlPanel').classList.toggle('hidden', mode !== 'yaml');
     document.getElementById('configFormTab').className = mode === 'form'
-        ? 'flex-1 rounded-lg px-4 py-2 text-sm font-extrabold text-slate-800 bg-white shadow-sm transition-all'
-        : 'flex-1 rounded-lg px-4 py-2 text-sm font-extrabold text-slate-500 hover:text-slate-800 transition-all';
+        ? 'config-tab-btn is-active'
+        : 'config-tab-btn';
     document.getElementById('configYamlTab').className = mode === 'yaml'
-        ? 'flex-1 rounded-lg px-4 py-2 text-sm font-extrabold text-slate-800 bg-white shadow-sm transition-all'
-        : 'flex-1 rounded-lg px-4 py-2 text-sm font-extrabold text-slate-500 hover:text-slate-800 transition-all';
+        ? 'config-tab-btn is-active'
+        : 'config-tab-btn';
 }
 
 async function validateConfigYaml(yamlText) {
@@ -265,7 +302,7 @@ async function validateConfigYaml(yamlText) {
 
 async function scanUnmanagedStreams() {
     const listDiv = document.getElementById('unmanagedList');
-    listDiv.innerHTML = '<span class="text-xs text-slate-500">正在与 go2rtc 通信并检索流...</span>';
+    listDiv.innerHTML = '<span class="config-import-result-message">正在扫描 go2rtc 中可导入的摄像头流...</span>';
     listDiv.classList.remove('hidden');
 
     try {
@@ -280,31 +317,35 @@ async function scanUnmanagedStreams() {
         rerenderConfigFormPreservingInput();
 
         if (!scan.unmanaged || scan.unmanaged.length === 0) {
-            listDiv.innerHTML = '<span class="text-xs text-emerald-600 font-bold">🎉 所有 go2rtc 流均已接入系统，暂无新发现。</span>';
+            listDiv.innerHTML = '<span class="config-import-result-message config-import-result-message--ok">go2rtc 中的流都已经加入 CamKeep 配置，当前没有可导入项。</span>';
             return;
         }
 
-        listDiv.innerHTML = '';
+        listDiv.innerHTML = `
+            <div class="config-import-result-head">
+                <span class="config-import-result-count">${scan.unmanaged.length} 个可导入流</span>
+            </div>
+        `;
         scan.unmanaged.forEach(stream => {
             const streamID = encodeURIComponent(stream.id);
             const streamArg = escapeHtml(JSON.stringify(stream));
             const sourceLabel = stream.source_label && stream.source_label !== '未知'
-                ? `<span class="mr-3 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-extrabold text-slate-500">${escapeHtml(stream.source_label)}</span>`
-                : '';
+                ? `<span class="config-import-source-type">${escapeHtml(stream.source_label)}</span>`
+                : '<span class="config-import-source-type">go2rtc</span>';
             const tag = document.createElement('div');
             tag.id = `unmanaged-${streamID}`;
-            tag.className = 'flex items-center bg-white border border-blue-200 pl-3 pr-1 py-1 rounded-md shadow-sm';
+            tag.className = 'config-import-result-item';
             tag.innerHTML = `
-                <span class="text-xs font-mono font-bold text-slate-700 mr-3">${escapeHtml(stream.id)}</span>
-                ${sourceLabel}
-                <button onclick="appendStreamToConfig(${streamArg})" class="text-[10px] bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white px-2 py-1 rounded transition-colors font-bold">
-                    ➕ 追加到配置
-                </button>
+                <div class="config-import-result-copy">
+                    <span class="config-import-stream-id">${escapeHtml(stream.id)}</span>
+                    ${sourceLabel}
+                </div>
+                <button onclick="appendStreamToConfig(${streamArg})" class="config-import-add-btn">导入</button>
             `;
             listDiv.appendChild(tag);
         });
     } catch (e) {
-        listDiv.innerHTML = `<span class="text-xs text-red-500 font-bold">扫描失败: ${e.message}</span>`;
+        listDiv.innerHTML = `<span class="config-import-result-message config-import-result-message--error">扫描失败: ${escapeHtml(e.message)}</span>`;
     }
 }
 
@@ -350,8 +391,7 @@ function normalizeGo2rtcStreamInfo(stream, fallbackID = '') {
 
 function rerenderConfigFormPreservingInput() {
     if (configEditMode !== 'form') return;
-    const modal = document.getElementById('configModal');
-    if (modal?.classList.contains('hidden')) return;
+    if (!configPageVisible) return;
 
     try {
         configFormState = collectConfigForm({allowEmptyID: true});

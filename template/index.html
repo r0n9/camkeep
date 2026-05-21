@@ -59,7 +59,7 @@
                     </svg>
                 </button>
                 <span class="h-4 w-px bg-gray-200"></span>
-                <button onclick="openConfig()" class="group flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold text-gray-700 transition-all hover:bg-gray-50 hover:text-gray-900 active:scale-95">
+                <button id="configNavBtn" onclick="openConfig()" class="group flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold text-gray-700 transition-all hover:bg-gray-50 hover:text-gray-900 active:scale-95">
                     <svg class="w-4 h-4 text-gray-500 group-hover:rotate-90 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
@@ -81,125 +81,173 @@
         </div>
     </div>
 
-    <div id="configModal" class="hidden fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center backdrop-blur-md transition-opacity duration-300">
-        <div class="config-modal-card bg-white rounded-2xl w-[92%] max-w-[1280px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] border border-white/50 transform transition-all flex flex-col overflow-hidden my-6 max-h-[90vh]">
-
-            <div class="px-6 py-5 border-b border-slate-100 flex justify-between items-start bg-slate-50/50">
-                <div>
-                    <h2 class="text-lg font-extrabold text-slate-800 tracking-tight flex items-center">
-                        <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                        系统配置
+    <section id="configPage" class="config-page hidden">
+        <div class="config-page-card">
+            <div class="config-page-hero">
+                <div class="config-page-hero-main">
+                    <div class="config-page-kicker">CONFIGURATION</div>
+                    <h2 class="config-page-title">
+                        <span class="config-page-title-icon">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        </span>
+                        配置管理
                     </h2>
-                    <p class="text-xs text-slate-500 mt-1.5 font-medium">修改保存后，系统将会自动热重启录像任务并应用新配置。</p>
-                </div>
-                <button onclick="closeConfig()" class="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/50 rounded-full transition-colors focus:outline-none">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
-            </div>
-
-            <div class="config-modal-body p-4 sm:p-5 overflow-y-auto custom-scrollbar">
-                <div class="mb-5 relative overflow-hidden rounded-xl bg-gradient-to-br from-slate-50 to-white border border-slate-200 shadow-sm transition-all duration-300 hover:shadow-md">
-                    <div class="absolute top-0 left-0 w-1 h-full bg-blue-500 rounded-l-xl"></div>
-                    <div class="p-4 sm:p-5 flex flex-col sm:flex-row justify-between gap-4 pl-5 sm:pl-6">
-                        <div class="flex items-start">
-                            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center mr-3.5 text-blue-600 shadow-sm mt-0.5">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                            </div>
-                            <div>
-                                <h3 class="text-sm font-bold text-slate-800 tracking-tight">发现未接入的摄像头源</h3>
-                                <p class="text-xs text-slate-500 mt-1 leading-relaxed">
-                                    点击“扫描设备”，快速检索并添加底层未接入的摄像头源。
-                                </p>
-                            </div>
-                        </div>
-                        <div class="flex items-center space-x-3 shrink-0">
-                            <button onclick="window.open(window.location.protocol + '//' + window.location.hostname + ':1984/add.html', '_blank')" class="group flex items-center px-4 py-2 bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50 text-xs font-semibold rounded-lg shadow-sm transition-all duration-200 active:scale-95" title="在新窗口打开 go2rtc 控制台">
-                                <svg class="w-3.5 h-3.5 mr-1.5 text-slate-400 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
-                                去 go2rtc 添加
-                            </button>
-                            <button onclick="scanUnmanagedStreams()" class="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-[0_2px_10px_-3px_rgba(37,99,235,0.4)] hover:shadow-[0_4px_14px_-4px_rgba(37,99,235,0.6)] transition-all duration-200 active:scale-95">
-                                扫描设备
-                            </button>
-                        </div>
+                    <p class="config-page-desc">集中管理摄像头接入源、录像策略、动检与延时任务。保存后会写入配置并热重启录像任务。</p>
+                    <div class="config-page-badges">
+                        <span>表单优先</span>
+                        <span>支持 YAML 高级编辑</span>
+                        <span>保存后自动应用</span>
                     </div>
-                    <div id="unmanagedList" class="hidden px-5 pb-4 pt-1 border-t border-slate-100 flex-wrap gap-2"></div>
                 </div>
-
-                <div class="config-tabs mb-4 flex rounded-xl border border-slate-200 bg-slate-100 p-1 shadow-inner">
-                    <button id="configFormTab" onclick="switchConfigMode('form')" class="flex-1 rounded-lg px-4 py-2 text-sm font-extrabold text-slate-800 bg-white shadow-sm transition-all">
-                        表单编辑
+                <div class="config-page-hero-actions">
+                    <button onclick="closeConfig()" class="config-page-secondary-btn" type="button">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M15 19l-7-7 7-7"></path></svg>
+                        <span>返回监控</span>
                     </button>
-                    <button id="configYamlTab" onclick="switchConfigMode('yaml')" class="flex-1 rounded-lg px-4 py-2 text-sm font-extrabold text-slate-500 hover:text-slate-800 transition-all">
-                        YAML 高级
-                    </button>
-                </div>
-
-                <div id="configFormPanel" class="space-y-4">
-                    <div class="config-daily-merge-card flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                        <div>
-                            <h3 class="text-sm font-bold text-slate-800 tracking-tight">每日按小时合并</h3>
-                            <p class="text-xs text-slate-500 mt-1">在低峰时段将前一天录像按自然小时合并为 MP4，成功后删除对应切片。</p>
-                        </div>
-                        <div class="flex items-center gap-3 shrink-0">
-                            <input id="dailyMergeTime" type="time" class="h-9 rounded-lg border border-slate-200 px-3 text-sm font-mono text-slate-700 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10">
-                            <label class="relative inline-flex cursor-pointer items-center">
-                                <input id="dailyMergeEnabled" type="checkbox" class="peer sr-only">
-                                <span class="h-6 w-11 rounded-full bg-slate-200 transition-colors peer-checked:bg-blue-600"></span>
-                                <span class="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5"></span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="config-section rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                        <div class="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                            <div>
-                                <h3 class="text-sm font-bold text-slate-800 tracking-tight">摄像头配置</h3>
-                                <p class="text-xs text-slate-500 mt-1">常用参数直接填写；动检流可单独配置低码率子码流。</p>
-                            </div>
-                            <div class="flex shrink-0 items-center gap-2">
-                                <button id="restoreConfigCamerasBtn" onclick="restoreConfigCameras()" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-extrabold text-slate-600 shadow-sm transition-all hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50">
-                                    还原
-                                </button>
-                                <button onclick="addConfigCamera()" class="config-add-camera-btn" type="button">
-                                    <svg aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M12 5v14M5 12h14"></path>
-                                    </svg>
-                                    <span>添加摄像头</span>
-                                </button>
-                            </div>
-                        </div>
-                        <div id="configCameraList" class="space-y-3 p-3"></div>
-                        <div id="configCameraEmpty" class="hidden px-4 pb-5 text-center text-sm font-bold text-slate-400">暂无摄像头配置，点击“添加摄像头”创建。</div>
-                    </div>
-                </div>
-
-                <div id="configYamlPanel" class="hidden group relative flex flex-col rounded-xl overflow-hidden border border-slate-200 shadow-sm focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-500/10 transition-all duration-300 bg-slate-50/50">
-                    <div class="flex items-center justify-between px-4 py-2 border-b border-slate-200 bg-white/60">
-                        <div class="flex items-center space-x-2">
-                            <div class="flex space-x-1.5 mr-3">
-                                <div class="w-2.5 h-2.5 rounded-full bg-slate-300 group-hover:bg-red-400 transition-colors"></div>
-                                <div class="w-2.5 h-2.5 rounded-full bg-slate-300 group-hover:bg-amber-400 transition-colors"></div>
-                                <div class="w-2.5 h-2.5 rounded-full bg-slate-300 group-hover:bg-emerald-400 transition-colors"></div>
-                            </div>
-                            <span class="text-[11px] font-mono text-slate-500 font-bold tracking-wider">conf.yaml</span>
-                        </div>
-                        <span class="text-[10px] text-slate-400 font-medium">YAML</span>
-                    </div>
-                    <textarea id="configYaml" class="w-full h-[350px] p-4 font-mono text-[13px] leading-relaxed text-slate-700 bg-transparent outline-none resize-none custom-scrollbar" spellcheck="false"></textarea>
                 </div>
             </div>
 
-            <div class="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex justify-end space-x-3 shrink-0">
-                <button onclick="closeConfig()" class="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 hover:text-slate-900 shadow-sm transition-all active:scale-95">
-                    取消
-                </button>
-                <button onclick="saveConfig()" class="px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-bold shadow-[0_4px_12px_rgba(37,99,235,0.3)] hover:shadow-[0_6px_16px_rgba(37,99,235,0.4)] hover:-translate-y-0.5 transition-all active:scale-95 flex items-center">
-                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
-                    保存并应用
-                </button>
+            <div class="config-page-body">
+                <details class="config-discovery-card">
+                    <summary class="config-discovery-summary">
+                        <div class="config-discovery-main">
+                            <div class="config-discovery-icon">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.3" d="M3 7h4l2-3h6l2 3h4v11a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.3" d="M12 11a3 3 0 100 6 3 3 0 000-6z"></path></svg>
+                            </div>
+                            <div class="config-discovery-copy">
+                                <h3>从 go2rtc 导入摄像头</h3>
+                                <p>已经在 go2rtc 添加了 RTSP、ONVIF 或 FFmpeg 流？展开后扫描可导入的流，再加入到 CamKeep 配置。</p>
+                            </div>
+                        </div>
+                        <span class="config-discovery-toggle">
+                            <span>展开导入</span>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M19 9l-7 7-7-7"></path></svg>
+                        </span>
+                    </summary>
+                    <div class="config-discovery-panel">
+                        <div class="config-import-flow">
+                            <div class="config-import-step">
+                                <span>1</span>
+                                <strong>先准备流</strong>
+                                <em>在 go2rtc 中添加或确认已有摄像头流。</em>
+                            </div>
+                            <div class="config-import-step">
+                                <span>2</span>
+                                <strong>扫描可导入</strong>
+                                <em>只显示还没有加入 CamKeep 的流。</em>
+                            </div>
+                            <div class="config-import-step">
+                                <span>3</span>
+                                <strong>加入后保存</strong>
+                                <em>加入配置不会立即生效，需要保存并应用。</em>
+                            </div>
+                        </div>
+                        <div class="config-import-toolbar">
+                            <div class="config-import-note">导入只会追加摄像头表单，检查参数无误后再保存。</div>
+                            <div class="config-discovery-actions">
+                                <button onclick="window.open(window.location.protocol + '//' + window.location.hostname + ':1984/add.html', '_blank')" class="config-page-secondary-btn config-page-secondary-btn--compact" type="button" title="在新窗口打开 go2rtc 控制台">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                    <span>打开 go2rtc</span>
+                                </button>
+                                <button onclick="scanUnmanagedStreams()" class="config-page-secondary-btn config-page-secondary-btn--compact" type="button">
+                                    <span>扫描可导入流</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="unmanagedList" class="hidden config-unmanaged-list"></div>
+                    </div>
+                </details>
+
+                <div class="config-workspace">
+                    <div class="config-tabs" role="tablist" aria-label="配置编辑模式">
+                        <button id="configFormTab" onclick="switchConfigMode('form')" class="config-tab-btn is-active" type="button">
+                            表单编辑
+                        </button>
+                        <button id="configYamlTab" onclick="switchConfigMode('yaml')" class="config-tab-btn" type="button">
+                            YAML 高级
+                        </button>
+                    </div>
+
+                    <div id="configFormPanel" class="space-y-4">
+                        <div class="config-daily-merge-card">
+                            <div class="config-setting-card-main">
+                                <div class="config-setting-card-icon config-setting-card-icon--merge">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M4 7h11m0 0l-3-3m3 3l-3 3M20 17H9m0 0l3 3m-3-3l3-3"></path></svg>
+                                </div>
+                                <div>
+                                    <h3>每日按小时合并</h3>
+                                    <p>在低峰时段将前一天录像按自然小时合并为 MP4，成功后删除对应切片。</p>
+                                </div>
+                            </div>
+                            <div class="config-setting-card-controls">
+                                <input id="dailyMergeTime" type="time" class="h-9 rounded-lg border border-slate-200 px-3 text-sm font-mono text-slate-700 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10">
+                                <label class="relative inline-flex cursor-pointer items-center">
+                                    <input id="dailyMergeEnabled" type="checkbox" class="peer sr-only">
+                                    <span class="h-6 w-11 rounded-full bg-slate-200 transition-colors peer-checked:bg-blue-600"></span>
+                                    <span class="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="config-section">
+                            <div class="config-section-head">
+                                <div class="config-section-title-group">
+                                    <div class="config-setting-card-icon config-setting-card-icon--camera">
+                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 6h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2z"></path></svg>
+                                    </div>
+                                    <div>
+                                        <h3>摄像头配置</h3>
+                                        <p>按 order 排序展示；常用参数直接填写，动检流可单独配置低码率子码流。</p>
+                                    </div>
+                                </div>
+                                <div class="config-section-actions">
+                                    <button id="restoreConfigCamerasBtn" onclick="restoreConfigCameras()" class="config-quiet-action" type="button">
+                                        还原
+                                    </button>
+                                    <button onclick="addConfigCamera()" class="config-add-camera-btn" type="button">
+                                        <svg aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M12 5v14M5 12h14"></path>
+                                        </svg>
+                                        <span>添加摄像头</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="configCameraList" class="space-y-3 p-3"></div>
+                            <div id="configCameraEmpty" class="hidden px-4 pb-5 text-center text-sm font-bold text-slate-400">暂无摄像头配置，点击“添加摄像头”创建。</div>
+                        </div>
+                    </div>
+
+                    <div id="configYamlPanel" class="hidden config-yaml-panel group">
+                        <div class="config-yaml-toolbar">
+                            <div class="config-yaml-file">
+                                <div class="config-yaml-dots">
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                </div>
+                                <span>conf.yaml</span>
+                            </div>
+                            <span>YAML 高级编辑</span>
+                        </div>
+                        <textarea id="configYaml" class="w-full h-[350px] p-4 font-mono text-[13px] leading-relaxed text-slate-700 bg-transparent outline-none resize-none custom-scrollbar" spellcheck="false"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="config-page-actionbar">
+                <div class="config-page-actionbar-note">
+                    <strong>未保存的修改只保留在当前页面。</strong>
+                    <span>保存并应用后会重新加载配置并热重启录像任务。</span>
+                </div>
+                <div class="config-page-actionbar-actions">
+                    <button onclick="saveConfig()" class="config-page-primary-btn" type="button">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                        <span>保存并应用</span>
+                    </button>
+                </div>
             </div>
         </div>
-    </div>
+    </section>
 
     <div id="confirmModal" class="hidden fixed inset-0 bg-black/60 z-[60] flex items-center justify-center backdrop-blur-sm transition-opacity duration-300">
         <div class="bg-white p-6 rounded-2xl w-[420px] max-w-[95%] shadow-2xl transform transition-all">
@@ -215,6 +263,7 @@
         </div>
     </div>
 
+    <main id="dashboardPage">
     <div class="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] gap-4 lg:gap-5 mb-5 md:mb-6">
 
         <div class="bg-white p-3 rounded-xl shadow-sm border-t-4 border-blue-500 flex flex-col h-[560px] lg:h-[560px]">
@@ -321,6 +370,7 @@
         </div>
         <div id="recordList" class="space-y-2"></div>
     </div>
+    </main>
 </div>
 
 <script src="/static/record-timeline.js"></script>

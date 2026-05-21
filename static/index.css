@@ -1464,8 +1464,742 @@ html.dark .record-timeline-card-action-delete:hover {
     background: rgba(127, 29, 29, 0.58);
 }
 
-.config-modal-card {
+.config-page {
+    margin-top: 6px;
+}
+
+.config-page-card {
+    position: relative;
+    overflow: clip;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    border-radius: 24px;
+    background:
+        radial-gradient(circle at 8% -10%, rgba(59, 130, 246, 0.14), transparent 34%),
+        linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    box-shadow: 0 26px 70px -42px rgba(15, 23, 42, 0.42);
+}
+
+.config-page-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 4px;
+    background: linear-gradient(90deg, #2563eb, #06b6d4, #10b981);
+    pointer-events: none;
+}
+
+.config-page-hero {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 22px;
+    padding: 24px;
+    border-bottom: 1px solid rgba(226, 232, 240, 0.86);
+    background:
+        linear-gradient(135deg, rgba(248, 250, 252, 0.96), rgba(255, 255, 255, 0.82)),
+        linear-gradient(90deg, rgba(37, 99, 235, 0.08), transparent);
+}
+
+.config-page-hero-main {
+    position: relative;
+    min-width: 0;
+    max-width: 760px;
+}
+
+.config-page-kicker {
+    margin-bottom: 8px;
+    color: #2563eb;
+    font-size: 10px;
+    font-weight: 950;
+    letter-spacing: 0.18em;
+}
+
+.config-page-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #0f172a;
+    font-size: 24px;
+    font-weight: 950;
+    letter-spacing: -0.04em;
+    line-height: 1.1;
+}
+
+.config-page-title-icon {
+    display: inline-flex;
+    width: 34px;
+    height: 34px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #2563eb, #0891b2);
+    color: #ffffff;
+    box-shadow: 0 16px 28px -18px rgba(37, 99, 235, 0.95);
+}
+
+.config-page-title-icon svg {
+    width: 18px;
+    height: 18px;
+}
+
+.config-page-desc {
+    margin-top: 9px;
+    max-width: 680px;
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.65;
+}
+
+.config-page-badges,
+.config-page-hints {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+
+.config-page-badges {
+    margin-top: 13px;
+}
+
+.config-page-badges span,
+.config-page-hints span {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid rgba(37, 99, 235, 0.13);
+    border-radius: 9999px;
+    background: rgba(239, 246, 255, 0.86);
+    color: #1d4ed8;
+    font-size: 10px;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.config-page-badges span {
+    padding: 5px 9px;
+}
+
+.config-page-hints {
+    margin-top: 10px;
+}
+
+.config-page-hints span {
+    padding: 4px 8px;
+}
+
+.config-page-hero-actions,
+.config-page-actionbar-actions,
+.config-discovery-actions,
+.config-section-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.config-page-hero-actions {
+    flex: 0 0 auto;
+}
+
+.config-page-primary-btn,
+.config-page-secondary-btn {
+    display: inline-flex;
+    min-height: 40px;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    border-radius: 12px;
+    padding: 0 15px;
+    font-size: 12px;
+    font-weight: 950;
+    letter-spacing: 0.01em;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.config-page-primary-btn svg,
+.config-page-secondary-btn svg {
+    width: 15px;
+    height: 15px;
+    flex: 0 0 auto;
+}
+
+.config-page-primary-btn {
+    border: 1px solid #1d4ed8;
+    background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+    color: #ffffff;
+    box-shadow: 0 15px 30px -18px rgba(37, 99, 235, 0.95);
+}
+
+.config-page-primary-btn:hover {
+    border-color: #1d4ed8;
+    background: linear-gradient(180deg, #60a5fa 0%, #2563eb 100%);
+    box-shadow: 0 18px 34px -20px rgba(37, 99, 235, 0.96);
+    transform: translateY(-1px);
+}
+
+.config-page-secondary-btn {
+    border: 1px solid #cbd5e1;
+    background: rgba(255, 255, 255, 0.9);
+    color: #475569;
+    box-shadow: 0 10px 24px -20px rgba(15, 23, 42, 0.46);
+}
+
+.config-page-secondary-btn:hover {
+    border-color: #93c5fd;
+    background: #eff6ff;
+    color: #1d4ed8;
+    transform: translateY(-1px);
+}
+
+.config-page-primary-btn:active,
+.config-page-secondary-btn:active {
+    transform: translateY(0) scale(0.98);
+}
+
+.config-page-secondary-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+    transform: none;
+}
+
+.config-page-primary-btn--compact,
+.config-page-secondary-btn--compact {
+    min-height: 36px;
+    border-radius: 10px;
+    padding-inline: 13px;
+    font-size: 11px;
+}
+
+.config-page-body {
+    padding: 18px;
+}
+
+.config-discovery-card {
+    position: relative;
+    margin-bottom: 18px;
+    overflow: hidden;
+    border: 1px solid rgba(191, 219, 254, 0.9);
+    border-radius: 16px;
+    background:
+        radial-gradient(circle at 96% 0%, rgba(14, 165, 233, 0.12), transparent 28%),
+        linear-gradient(135deg, rgba(239, 246, 255, 0.94), rgba(255, 255, 255, 0.98));
+    box-shadow: 0 14px 34px -30px rgba(37, 99, 235, 0.54);
+}
+
+.config-discovery-card[open] {
+    box-shadow: 0 18px 42px -34px rgba(37, 99, 235, 0.72);
+}
+
+.config-discovery-summary {
+    display: flex;
+    cursor: pointer;
+    list-style: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.config-discovery-summary::-webkit-details-marker {
+    display: none;
+}
+
+.config-discovery-main {
+    display: flex;
+    min-width: 0;
+    gap: 13px;
+    padding: 14px 16px;
+}
+
+.config-discovery-icon,
+.config-setting-card-icon {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border-radius: 13px;
+}
+
+.config-discovery-icon {
+    width: 38px;
+    height: 38px;
     background: #ffffff;
+    color: #2563eb;
+    box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.12), 0 12px 24px -18px rgba(37, 99, 235, 0.7);
+}
+
+.config-discovery-icon svg,
+.config-setting-card-icon svg {
+    width: 18px;
+    height: 18px;
+}
+
+.config-discovery-copy {
+    min-width: 0;
+}
+
+.config-discovery-copy h3,
+.config-daily-merge-card h3,
+.config-section-head h3 {
+    color: #0f172a;
+    font-size: 14px;
+    font-weight: 950;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+}
+
+.config-discovery-copy p,
+.config-daily-merge-card p,
+.config-section-head p {
+    margin-top: 5px;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 650;
+    line-height: 1.55;
+}
+
+.config-discovery-actions {
+    justify-content: flex-end;
+}
+
+.config-discovery-toggle {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 6px;
+    margin-right: 16px;
+    border-radius: 9999px;
+    color: #2563eb;
+    font-size: 11px;
+    font-weight: 950;
+}
+
+.config-discovery-toggle svg {
+    width: 14px;
+    height: 14px;
+    transition: transform 0.18s ease;
+}
+
+.config-discovery-card[open] .config-discovery-toggle svg {
+    transform: rotate(180deg);
+}
+
+.config-discovery-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    border-top: 1px solid rgba(191, 219, 254, 0.7);
+    padding: 14px 16px 16px;
+}
+
+.config-import-flow {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    position: relative;
+    padding-top: 2px;
+}
+
+.config-import-flow::before {
+    content: "";
+    position: absolute;
+    left: 16.666%;
+    right: 16.666%;
+    top: 21px;
+    height: 2px;
+    background: linear-gradient(90deg, rgba(37, 99, 235, 0.18), rgba(14, 165, 233, 0.38), rgba(16, 185, 129, 0.28));
+    pointer-events: none;
+}
+
+.config-import-step {
+    position: relative;
+    z-index: 1;
+    min-width: 0;
+    border: 1px solid rgba(191, 219, 254, 0.78);
+    border-radius: 16px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(248, 250, 252, 0.78));
+    padding: 44px 13px 13px;
+    text-align: center;
+    box-shadow: 0 12px 24px -22px rgba(37, 99, 235, 0.52);
+    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.config-import-step:hover {
+    border-color: rgba(96, 165, 250, 0.9);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(239, 246, 255, 0.92));
+    box-shadow: 0 18px 32px -24px rgba(37, 99, 235, 0.68);
+    transform: translateY(-1px);
+}
+
+.config-import-step span {
+    position: absolute;
+    left: 50%;
+    top: 10px;
+    display: inline-flex;
+    width: 30px;
+    height: 30px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    border: 3px solid #ffffff;
+    background: linear-gradient(135deg, #2563eb, #0891b2);
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 950;
+    line-height: 1;
+    box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.15), 0 10px 18px -14px rgba(37, 99, 235, 0.9);
+    transform: translateX(-50%);
+}
+
+.config-import-step strong {
+    display: block;
+    color: #0f172a;
+    font-size: 12px;
+    font-weight: 950;
+    line-height: 1.25;
+}
+
+.config-import-step em {
+    display: block;
+    margin-top: 4px;
+    color: #64748b;
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 1.45;
+}
+
+.config-import-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.config-import-note {
+    min-width: 0;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 750;
+    line-height: 1.45;
+}
+
+.config-import-result-message {
+    display: block;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 750;
+    line-height: 1.5;
+}
+
+.config-import-result-message--ok {
+    color: #059669;
+}
+
+.config-import-result-message--error {
+    color: #dc2626;
+}
+
+.config-import-result-head {
+    width: 100%;
+    display: flex;
+    align-items: center;
+}
+
+.config-import-result-count {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    background: #2563eb;
+    color: #ffffff;
+    padding: 4px 9px;
+    font-size: 10px;
+    font-weight: 950;
+    line-height: 1;
+}
+
+.config-import-result-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    overflow: hidden;
+    border: 1px solid rgba(96, 165, 250, 0.66);
+    border-radius: 15px;
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(239, 246, 255, 0.88));
+    padding: 12px;
+    box-shadow: 0 16px 28px -24px rgba(37, 99, 235, 0.62);
+}
+
+.config-import-result-item::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: linear-gradient(180deg, #f59e0b, #2563eb);
+}
+
+.config-import-result-copy {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.config-import-stream-id {
+    color: #0f172a;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 12px;
+    font-weight: 900;
+    overflow-wrap: anywhere;
+}
+
+.config-import-source-type {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    background: #eff6ff;
+    color: #2563eb;
+    padding: 3px 7px;
+    font-size: 10px;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.config-import-add-btn {
+    flex: 0 0 auto;
+    min-height: 34px;
+    border-radius: 10px;
+    border: 1px solid #1d4ed8;
+    background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+    color: #ffffff;
+    padding: 0 13px;
+    font-size: 11px;
+    font-weight: 950;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.config-import-add-btn:hover {
+    box-shadow: 0 12px 22px -18px rgba(37, 99, 235, 0.95);
+    transform: translateY(-1px);
+}
+
+.config-unmanaged-list {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    width: 100%;
+    border-top: 1px solid rgba(191, 219, 254, 0.7);
+    padding-top: 14px;
+}
+
+.config-unmanaged-list.hidden,
+.config-yaml-panel.hidden {
+    display: none !important;
+}
+
+.config-workspace {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.config-tabs {
+    display: flex;
+    gap: 4px;
+    border: 1px solid #dbeafe;
+    border-radius: 16px;
+    background: #eff6ff;
+    padding: 4px;
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+.config-tab-btn {
+    flex: 1 1 0;
+    min-height: 40px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 950;
+    transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.config-tab-btn:hover {
+    color: #0f172a;
+    background: rgba(255, 255, 255, 0.58);
+}
+
+.config-tab-btn.is-active {
+    border-color: rgba(191, 219, 254, 0.9);
+    background: #ffffff;
+    color: #0f172a;
+    box-shadow: 0 10px 24px -20px rgba(15, 23, 42, 0.5);
+}
+
+.config-daily-merge-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.92);
+    padding: 14px;
+    box-shadow: 0 14px 34px -30px rgba(15, 23, 42, 0.5);
+}
+
+.config-setting-card-main,
+.config-section-title-group {
+    display: flex;
+    min-width: 0;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.config-setting-card-controls {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 12px;
+}
+
+.config-setting-card-icon {
+    width: 36px;
+    height: 36px;
+    color: #ffffff;
+}
+
+.config-setting-card-icon--merge {
+    background: linear-gradient(135deg, #0891b2, #2563eb);
+}
+
+.config-setting-card-icon--camera {
+    background: linear-gradient(135deg, #0f172a, #2563eb);
+}
+
+.config-section {
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 18px 40px -34px rgba(15, 23, 42, 0.55);
+}
+
+.config-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    border-bottom: 1px solid #e2e8f0;
+    background:
+        linear-gradient(135deg, rgba(248, 250, 252, 0.98), rgba(239, 246, 255, 0.74));
+    padding: 14px;
+}
+
+.config-yaml-panel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid #dbeafe;
+    border-radius: 18px;
+    background: rgba(248, 250, 252, 0.92);
+    box-shadow: 0 18px 40px -34px rgba(15, 23, 42, 0.55);
+    transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.config-yaml-panel:focus-within {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1), 0 18px 40px -34px rgba(15, 23, 42, 0.55);
+}
+
+.config-yaml-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid #e2e8f0;
+    background: rgba(255, 255, 255, 0.78);
+    padding: 9px 13px;
+    color: #94a3b8;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+}
+
+.config-yaml-file,
+.config-yaml-dots {
+    display: flex;
+    align-items: center;
+}
+
+.config-yaml-file {
+    min-width: 0;
+    gap: 10px;
+    color: #64748b;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 11px;
+}
+
+.config-yaml-dots {
+    gap: 5px;
+}
+
+.config-yaml-dots span {
+    width: 9px;
+    height: 9px;
+    border-radius: 9999px;
+    background: #cbd5e1;
+}
+
+.config-yaml-panel:hover .config-yaml-dots span:nth-child(1) {
+    background: #fb7185;
+}
+
+.config-yaml-panel:hover .config-yaml-dots span:nth-child(2) {
+    background: #f59e0b;
+}
+
+.config-yaml-panel:hover .config-yaml-dots span:nth-child(3) {
+    background: #34d399;
+}
+
+.config-page-actionbar {
+    position: sticky;
+    bottom: 12px;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin: 0 18px 18px;
+    border: 1px solid rgba(203, 213, 225, 0.86);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.92);
+    padding: 12px;
+    box-shadow: 0 20px 46px -30px rgba(15, 23, 42, 0.48);
+    backdrop-filter: blur(14px);
+}
+
+.config-page-actionbar-note {
+    min-width: 0;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.45;
+}
+
+.config-page-actionbar-note strong {
+    display: block;
+    color: #0f172a;
+    font-size: 12px;
+    font-weight: 950;
 }
 
 .config-daily-merge-card,
@@ -1772,6 +2506,29 @@ html.dark .record-timeline-card-action-delete:hover {
     box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.18), 0 14px 24px -16px rgba(37, 99, 235, 0.95);
 }
 
+.config-quiet-action {
+    display: inline-flex;
+    min-height: 34px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    padding: 0 10px;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 900;
+    transition: background 0.18s ease, color 0.18s ease;
+}
+
+.config-quiet-action:hover {
+    background: #f1f5f9;
+    color: #1d4ed8;
+}
+
+.config-quiet-action:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
 .config-field-wide {
     grid-column: 1 / -1;
 }
@@ -1837,6 +2594,147 @@ html.dark .record-timeline-card-action-delete:hover {
 }
 
 @media (max-width: 640px) {
+    .config-page-card {
+        border-radius: 18px;
+    }
+
+    .config-page-hero,
+    .config-daily-merge-card,
+    .config-section-head,
+    .config-page-actionbar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .config-page-hero {
+        padding: 18px;
+    }
+
+    .config-page-title {
+        font-size: 21px;
+    }
+
+    .config-page-hero-actions,
+    .config-page-actionbar-actions,
+    .config-discovery-actions,
+    .config-section-actions {
+        width: 100%;
+    }
+
+    .config-page-hero-actions .config-page-primary-btn,
+    .config-page-hero-actions .config-page-secondary-btn,
+    .config-page-actionbar-actions .config-page-primary-btn,
+    .config-page-actionbar-actions .config-page-secondary-btn,
+    .config-discovery-actions .config-page-primary-btn,
+    .config-discovery-actions .config-page-secondary-btn {
+        flex: 1 1 0;
+    }
+
+    .config-page-body {
+        padding: 12px;
+    }
+
+    .config-discovery-card {
+        display: block;
+        gap: 0;
+    }
+
+    .config-discovery-summary {
+        align-items: flex-start;
+    }
+
+    .config-discovery-main {
+        padding: 15px;
+    }
+
+    .config-discovery-toggle {
+        margin: 16px 15px 0 0;
+    }
+
+    .config-discovery-panel {
+        align-items: stretch;
+        padding: 0 15px 15px;
+    }
+
+    .config-import-flow {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 10px;
+        padding-top: 0;
+    }
+
+    .config-import-flow::before {
+        left: 26px;
+        right: auto;
+        top: 18px;
+        bottom: 18px;
+        width: 2px;
+        height: auto;
+        background: linear-gradient(180deg, rgba(37, 99, 235, 0.18), rgba(14, 165, 233, 0.38), rgba(16, 185, 129, 0.28));
+    }
+
+    .config-import-step {
+        min-height: 72px;
+        padding: 12px 12px 12px 58px;
+        text-align: left;
+    }
+
+    .config-import-step span {
+        left: 13px;
+        top: 50%;
+        transform: translateY(-50%);
+    }
+
+    .config-import-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .config-import-toolbar .config-discovery-actions {
+        width: 100%;
+    }
+
+    .config-import-toolbar .config-discovery-actions .config-page-secondary-btn {
+        flex: 1 1 0;
+    }
+
+    .config-import-result-item {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .config-import-add-btn {
+        align-self: stretch;
+        width: 100%;
+    }
+
+    .config-discovery-actions {
+        justify-content: stretch;
+        padding: 0;
+    }
+
+    .config-setting-card-controls {
+        justify-content: space-between;
+        width: 100%;
+    }
+
+    .config-section-actions {
+        flex-direction: row;
+    }
+
+    .config-section-actions .config-page-secondary-btn,
+    .config-section-actions .config-add-camera-btn {
+        flex: 1 1 0;
+    }
+
+    .config-page-actionbar {
+        bottom: 8px;
+        margin: 0 12px 12px;
+    }
+
+    .config-page-actionbar-note span {
+        display: none;
+    }
+
     .config-camera-card-head {
         align-items: stretch;
     }
@@ -1846,15 +2744,206 @@ html.dark .record-timeline-card-action-delete:hover {
     }
 }
 
-html.dark .config-modal-card {
-    background: #0f172a !important;
+html.dark .config-page-card {
+    background:
+        radial-gradient(circle at 8% -10%, rgba(59, 130, 246, 0.18), transparent 34%),
+        linear-gradient(180deg, #0f172a 0%, #020617 100%) !important;
     border-color: #334155 !important;
     box-shadow: 0 24px 70px -28px rgba(0, 0, 0, 0.78);
+}
+
+html.dark .config-page-hero {
+    border-color: rgba(51, 65, 85, 0.9);
+    background:
+        linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(2, 6, 23, 0.88)),
+        linear-gradient(90deg, rgba(37, 99, 235, 0.16), transparent);
+}
+
+html.dark .config-page-kicker {
+    color: #93c5fd;
+}
+
+html.dark .config-page-title,
+html.dark .config-discovery-copy h3,
+html.dark .config-daily-merge-card h3,
+html.dark .config-section-head h3,
+html.dark .config-page-actionbar-note strong {
+    color: #e2e8f0;
+}
+
+html.dark .config-page-desc,
+html.dark .config-discovery-copy p,
+html.dark .config-daily-merge-card p,
+html.dark .config-section-head p,
+html.dark .config-page-actionbar-note {
+    color: #94a3b8;
+}
+
+html.dark .config-page-badges span,
+html.dark .config-page-hints span {
+    border-color: rgba(147, 197, 253, 0.16);
+    background: rgba(30, 58, 138, 0.36);
+    color: #bfdbfe;
+}
+
+html.dark .config-page-secondary-btn {
+    border-color: #334155;
+    background: rgba(15, 23, 42, 0.9);
+    color: #cbd5e1;
+    box-shadow: 0 12px 24px -20px rgba(0, 0, 0, 0.92);
+}
+
+html.dark .config-page-secondary-btn:hover {
+    border-color: rgba(147, 197, 253, 0.62);
+    background: rgba(30, 58, 138, 0.52);
+    color: #bfdbfe;
+}
+
+html.dark .config-discovery-card {
+    border-color: rgba(96, 165, 250, 0.36);
+    background:
+        radial-gradient(circle at 96% 0%, rgba(14, 165, 233, 0.16), transparent 28%),
+        linear-gradient(135deg, rgba(30, 58, 138, 0.22), rgba(15, 23, 42, 0.96));
+    box-shadow: 0 20px 42px -34px rgba(0, 0, 0, 0.95);
+}
+
+html.dark .config-discovery-icon {
+    background: rgba(15, 23, 42, 0.92);
+    color: #93c5fd;
+    box-shadow: inset 0 0 0 1px rgba(147, 197, 253, 0.15), 0 14px 28px -20px rgba(0, 0, 0, 0.94);
+}
+
+html.dark .config-unmanaged-list {
+    border-color: rgba(96, 165, 250, 0.24);
+}
+
+html.dark .config-import-step {
+    border-color: rgba(96, 165, 250, 0.22);
+    background:
+        linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(15, 23, 42, 0.72));
+    box-shadow: 0 14px 26px -22px rgba(0, 0, 0, 0.95);
+}
+
+html.dark .config-import-step:hover {
+    border-color: rgba(96, 165, 250, 0.5);
+    background:
+        linear-gradient(180deg, rgba(30, 58, 138, 0.34), rgba(15, 23, 42, 0.86));
+    box-shadow: 0 18px 34px -24px rgba(0, 0, 0, 0.98);
+}
+
+html.dark .config-import-step span {
+    border-color: #0f172a;
+    background: linear-gradient(135deg, #3b82f6, #06b6d4);
+}
+
+html.dark .config-import-step strong {
+    color: #e2e8f0;
+}
+
+html.dark .config-import-step em,
+html.dark .config-import-note {
+    color: #94a3b8;
+}
+
+html.dark .config-import-result-message {
+    color: #94a3b8;
+}
+
+html.dark .config-import-result-message--ok {
+    color: #34d399;
+}
+
+html.dark .config-import-result-message--error {
+    color: #f87171;
+}
+
+html.dark .config-import-result-head {
+    color: #bfdbfe;
+}
+
+html.dark .config-import-result-count {
+    background: rgba(59, 130, 246, 0.9);
+}
+
+html.dark .config-import-result-item {
+    border-color: rgba(96, 165, 250, 0.38);
+    background:
+        linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(30, 58, 138, 0.24));
+}
+
+html.dark .config-import-stream-id {
+    color: #e2e8f0;
+}
+
+html.dark .config-import-source-type {
+    background: rgba(30, 58, 138, 0.5);
+    color: #bfdbfe;
+}
+
+html.dark .config-discovery-toggle {
+    color: #93c5fd;
+}
+
+html.dark .config-discovery-panel {
+    border-color: rgba(96, 165, 250, 0.24);
 }
 
 html.dark .config-tabs {
     background: rgba(15, 23, 42, 0.92) !important;
     border-color: #334155 !important;
+}
+
+html.dark .config-tab-btn {
+    color: #94a3b8;
+}
+
+html.dark .config-tab-btn:hover {
+    background: rgba(30, 41, 59, 0.72);
+    color: #e2e8f0;
+}
+
+html.dark .config-tab-btn.is-active {
+    border-color: rgba(96, 165, 250, 0.42);
+    background: rgba(30, 58, 138, 0.48);
+    color: #e2e8f0;
+    box-shadow: 0 12px 26px -22px rgba(0, 0, 0, 0.98);
+}
+
+html.dark .config-daily-merge-card {
+    background: linear-gradient(135deg, rgba(17, 24, 39, 0.98), rgba(15, 23, 42, 0.98));
+    border-color: #334155;
+    box-shadow: 0 18px 38px -32px rgba(0, 0, 0, 0.95);
+}
+
+html.dark .config-section-head {
+    border-color: #334155;
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(30, 58, 138, 0.24));
+}
+
+html.dark .config-yaml-panel {
+    border-color: #334155;
+    background: rgba(15, 23, 42, 0.82);
+    box-shadow: 0 18px 38px -32px rgba(0, 0, 0, 0.95);
+}
+
+html.dark .config-yaml-toolbar {
+    border-color: #334155;
+    background: rgba(2, 6, 23, 0.52);
+    color: #64748b;
+}
+
+html.dark .config-yaml-file {
+    color: #94a3b8;
+}
+
+html.dark .config-yaml-dots span {
+    background: #475569;
+}
+
+html.dark .config-page-actionbar {
+    border-color: rgba(51, 65, 85, 0.92);
+    background: rgba(15, 23, 42, 0.9);
+    box-shadow: 0 24px 48px -28px rgba(0, 0, 0, 0.95);
 }
 
 html.dark .config-section,
@@ -2027,6 +3116,15 @@ html.dark .config-add-camera-btn:hover {
     border-color: rgba(147, 197, 253, 0.88);
     background: linear-gradient(180deg, rgba(96, 165, 250, 0.98) 0%, rgba(37, 99, 235, 1) 100%);
     box-shadow: 0 16px 28px -18px rgba(0, 0, 0, 0.96);
+}
+
+html.dark .config-quiet-action {
+    color: #94a3b8;
+}
+
+html.dark .config-quiet-action:hover {
+    background: rgba(30, 41, 59, 0.82);
+    color: #bfdbfe;
 }
 
 html.dark .config-field input::placeholder {
