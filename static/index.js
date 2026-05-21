@@ -2192,7 +2192,7 @@ function getRecordArchiveViewMode(camId, date) {
 }
 
 function setRecordArchiveViewMode(camId, date, mode) {
-    const nextMode = ['cards', 'timeline', 'timeline24h'].includes(mode) ? mode : 'cards';
+    const nextMode = ['cards', 'timeline'].includes(mode) ? mode : 'cards';
     recordArchiveViewModes.set(getRecordArchiveGroupKey(camId, date), nextMode);
 }
 
@@ -2203,8 +2203,7 @@ function createRecordViewSwitch(camId, date, onChange) {
 
     [
         {mode: 'cards', label: '卡片列表', title: '卡片列表'},
-        {mode: 'timeline', label: '时间轴列表', title: '时间轴列表'},
-        {mode: 'timeline24h', label: '24H回放', title: '24小时时间轴回放'}
+        {mode: 'timeline', label: '时间轴列表', title: '时间轴列表'}
     ].forEach(option => {
         const btn = document.createElement('button');
         btn.type = 'button';
@@ -2222,6 +2221,42 @@ function createRecordViewSwitch(camId, date, onChange) {
 
     updateRecordViewSwitchButtons(switcher, getRecordArchiveViewMode(camId, date));
     return switcher;
+}
+
+function createRecordTimeline24hAction(camId, date, entries) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'record24h-dock-action';
+    btn.dataset.record24hActionKey = getRecordArchiveGroupKey(camId, date);
+    btn.title = '将 24H 时间轴吸附到播放器下方';
+    btn.innerHTML = `
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M4 6h16M4 12h16M4 18h16"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M8 4v16"></path>
+        </svg>
+        <span>24H</span>
+    `;
+    const updateState = () => {
+        const active = activeRecordTimeline24hDockKey === getRecordArchiveGroupKey(camId, date);
+        btn.classList.toggle('is-active', active);
+        btn.title = active ? '24H 时间轴已吸附，点击查看' : '将 24H 时间轴吸附到播放器下方';
+        btn.querySelector('span').textContent = active ? '24H 已吸附' : '24H';
+    };
+    btn.onclick = (event) => {
+        event.stopPropagation();
+        if (!window.RecordTimeline24h) {
+            alert('24H 时间轴组件加载失败');
+            return;
+        }
+        if (activeRecordTimeline24hDockKey === getRecordArchiveGroupKey(camId, date)) {
+            snapRecordTimeline24hDockBelowPlayer();
+            return;
+        }
+        renderRecordTimeline24hDock(camId, date, entries, selectedRecordPath);
+        updateState();
+    };
+    updateState();
+    return btn;
 }
 
 function updateRecordViewSwitchButtons(switcher, activeMode) {
@@ -2248,6 +2283,7 @@ function clearRecordTimeline24hDock(groupKey = '') {
     dock.innerHTML = '';
     dock.classList.add('hidden');
     activeRecordTimeline24hDockKey = '';
+    refreshRecordTimeline24hActionStates();
 }
 
 function renderRecordTimeline24hDock(camId, date, entries, selectedRecordPath) {
@@ -2269,8 +2305,19 @@ function renderRecordTimeline24hDock(camId, date, entries, selectedRecordPath) {
         }
     }));
     activeRecordTimeline24hDockKey = groupKey;
+    refreshRecordTimeline24hActionStates();
     requestAnimationFrame(snapRecordTimeline24hDockBelowPlayer);
     return true;
+}
+
+function refreshRecordTimeline24hActionStates() {
+    document.querySelectorAll('[data-record24h-action-key]').forEach(btn => {
+        const active = btn.dataset.record24hActionKey === activeRecordTimeline24hDockKey;
+        btn.classList.toggle('is-active', active);
+        btn.title = active ? '24H 时间轴已吸附，点击查看' : '将 24H 时间轴吸附到播放器下方';
+        const label = btn.querySelector('span');
+        if (label) label.textContent = active ? '24H 已吸附' : '24H';
+    });
 }
 
 function snapRecordTimeline24hDockBelowPlayer() {
@@ -2289,29 +2336,9 @@ function snapRecordTimeline24hDockBelowPlayer() {
     });
 }
 
-function createRecordTimeline24hDockNotice(camId, date, mounted) {
-    const notice = document.createElement('div');
-    notice.className = 'record24h-dock-notice';
-    notice.innerHTML = `
-        <div>
-            <strong>24H 时间轴已吸附到播放器下方</strong>
-            <span>${escapeHtml(date)} · ${escapeHtml(camId)}</span>
-        </div>
-        <button type="button" data-record24h-scroll>查看时间轴</button>
-    `;
-    const btn = notice.querySelector('[data-record24h-scroll]');
-    btn.disabled = !mounted;
-    btn.onclick = (event) => {
-        event.stopPropagation();
-        snapRecordTimeline24hDockBelowPlayer();
-    };
-    return notice;
-}
-
 function renderRecordDateContent(content, camId, date, entries, viewMode, onUpdate = () => {}) {
     content.innerHTML = '';
     if (viewMode === 'timeline') {
-        clearRecordTimeline24hDock(getRecordArchiveGroupKey(camId, date));
         content.className = 'record-watermark-window bg-slate-50/70 p-2 custom-scrollbar';
         if (!window.RecordTimeline) {
             const error = document.createElement('div');
@@ -2319,6 +2346,9 @@ function renderRecordDateContent(content, camId, date, entries, viewMode, onUpda
             error.textContent = '时间轴组件加载失败';
             content.appendChild(error);
             return;
+        }
+        if (activeRecordTimeline24hDockKey === getRecordArchiveGroupKey(camId, date)) {
+            renderRecordTimeline24hDock(camId, date, entries, selectedRecordPath);
         }
         content.appendChild(window.RecordTimeline.create({
             camId,
@@ -2333,21 +2363,9 @@ function renderRecordDateContent(content, camId, date, entries, viewMode, onUpda
         }));
         return;
     }
-    if (viewMode === 'timeline24h') {
-        content.className = 'record-watermark-window bg-slate-50/70 p-2 custom-scrollbar';
-        if (!window.RecordTimeline24h) {
-            const error = document.createElement('div');
-            error.className = 'rounded-lg border border-red-100 bg-red-50 px-4 py-8 text-center text-sm font-bold text-red-400';
-            error.textContent = '24H 时间轴组件加载失败';
-            content.appendChild(error);
-            return;
-        }
-        const mounted = renderRecordTimeline24hDock(camId, date, entries, selectedRecordPath);
-        content.appendChild(createRecordTimeline24hDockNotice(camId, date, mounted));
-        return;
+    if (activeRecordTimeline24hDockKey === getRecordArchiveGroupKey(camId, date)) {
+        renderRecordTimeline24hDock(camId, date, entries, selectedRecordPath);
     }
-
-    clearRecordTimeline24hDock(getRecordArchiveGroupKey(camId, date));
     content.className = 'record-watermark-window max-h-[360px] overflow-y-auto bg-slate-50/60 p-2 custom-scrollbar sm:max-h-[460px]';
     const fileGrid = document.createElement('div');
     fileGrid.className = 'relative z-[1] grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5';
@@ -2464,6 +2482,7 @@ async function loadRecords(camId) {
             };
 
             viewSwitch = createRecordViewSwitch(camId, date, redrawDateContent);
+            const timeline24hAction = createRecordTimeline24hAction(camId, date, entries);
 
             const collapseBtn = document.createElement('button');
             collapseBtn.type = 'button';
@@ -2478,6 +2497,7 @@ async function loadRecords(camId) {
             const rightTools = document.createElement('div');
             rightTools.className = 'flex shrink-0 items-center gap-1 pr-2';
             rightTools.appendChild(viewSwitch);
+            rightTools.appendChild(timeline24hAction);
             rightTools.appendChild(collapseBtn);
 
             const setOpen = (nextOpen) => {
