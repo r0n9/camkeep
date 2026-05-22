@@ -2048,7 +2048,7 @@ async function playRecord(file, title, options = {}) {
                     targetCell,
                     title,
                     recordPath,
-                    '当前设备或浏览器不支持 H.265 录像片段播放。自动合并后的录像也许不受此影响。'
+                    '当前设备或浏览器不支持 H.265 录像片段播放。'
                 );
                 return;
             }
