@@ -37,7 +37,7 @@ func loadOrInitConfig() constant.Config {
 						MotionURL:                  "",
 						RetentionDays:              7,
 						SegmentDuration:            600,
-						Format:                     "ts",
+						Format:                     constant.DefaultRecordFormat,
 						MinSizeKb:                  1024,
 						RecordTime:                 "00:00-23:59",
 						Mode:                       "normal",
@@ -100,6 +100,7 @@ func parseConfigYAML(yamlBytes []byte) (constant.Config, error) {
 	if err := validateConfig(cfg); err != nil {
 		return cfg, err
 	}
+	applyRecordFormatDefaults(&cfg)
 	return cfg, nil
 }
 
@@ -163,6 +164,20 @@ func validateCameraConfig(cam constant.Camera) error {
 	return nil
 }
 
+func applyRecordFormatDefaults(cfg *constant.Config) {
+	for i := range cfg.Cameras {
+		cfg.Cameras[i].Format = normalizedRecordFormat(cfg.Cameras[i].Format)
+	}
+}
+
+func normalizedRecordFormat(format string) string {
+	format = strings.TrimSpace(format)
+	if format == "" {
+		return constant.DefaultRecordFormat
+	}
+	return format
+}
+
 // validateAndFixConfig 修复文件读取时的配置 (用于启动时静默去重防崩溃)
 func validateAndFixConfig(cfg constant.Config) constant.Config {
 	if cfg.DailyMerge.Time == "" {
@@ -194,9 +209,7 @@ func validateAndFixConfig(cfg constant.Config) constant.Config {
 		if cam.SegmentDuration == 0 {
 			cam.SegmentDuration = 600
 		}
-		if cam.Format == "" {
-			cam.Format = "ts"
-		}
+		cam.Format = normalizedRecordFormat(cam.Format)
 		if cam.MinSizeKb == 0 {
 			cam.MinSizeKb = 1024
 		}

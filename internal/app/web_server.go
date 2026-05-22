@@ -15,11 +15,6 @@ func startWebServer() {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 	webAuth = loadAuthConfigFromEnv()
-	if webAuth.Enabled {
-		log.Printf("Web 登录鉴权已启用，管理员用户: %s", webAuth.Username)
-	} else {
-		log.Println("Web 登录鉴权未启用；设置 CAMKEEP_AUTH_PASSWORD 后启用")
-	}
 
 	r.Static("/static", "./static")
 
@@ -34,36 +29,45 @@ func startWebServer() {
 	protected.Use(authRequired(webAuth))
 
 	protected.GET("/", handleIndex)
-	protected.GET("/config-usage", handleConfigUsagePage)
+	protected.GET("/api/me", handleMe(webAuth))
 	protected.GET("/api/status", handleStatus)
-	protected.GET("/api/update/check", handleUpdateCheck)
 	protected.GET("/api/camera/:id/cover", handleCameraCover)
-	protected.GET("/api/config", handleGetConfig)
-	protected.GET("/api/config/form", handleGetConfigForm)
-	protected.POST("/api/config/form/parse", handleParseConfigForm)
-	protected.POST("/api/config/form", handleSaveConfigForm)
-	protected.POST("/api/config/validate", handleValidateConfig)
-	protected.POST("/api/config", handleSaveConfig)
-	protected.POST("/api/camera/:id/start", handleCameraActionFor("start"))
-	protected.POST("/api/camera/:id/stop", handleCameraActionFor("stop"))
-	protected.POST("/api/camera/:id/auto", handleCameraActionFor("auto"))
-	protected.GET("/api/onvif/status", handleOnvifStatus)
-	protected.GET("/api/camera/:id/onvif", handleCameraOnvifStatus)
-	protected.GET("/api/camera/:id/ptz/status", handlePTZStatus)
-	protected.POST("/api/camera/:id/ptz/move", handlePTZMove)
-	protected.POST("/api/camera/:id/ptz/stop", handlePTZStop)
-	protected.POST("/api/camera/:id/ptz/focus", handlePTZFocus)
-	protected.POST("/api/camera/:id/ptz/iris", handlePTZIris)
 	protected.GET("/api/records/:id", handleRecords)
 	protected.GET("/api/record/probe", handleProbeRecord)
 	protected.GET("/api/record/download", handleDownloadRecord)
-	protected.DELETE("/api/record", handleDeleteRecord)
-	protected.GET("/api/go2rtc/unmanaged", handleUnmanagedStreams)
 
 	protected.StaticFS("/play", http.Dir(constant.DefaultRecordBaseDir))
 	protected.GET("/play_hls/*filepath", handlePlayHLS)
 	protected.GET("/play_transcode/*filepath", handlePlayTranscode)
 	protected.GET("/play_remux/*filepath", handlePlayRemux)
+
+	admin := protected.Group("/")
+	admin.Use(adminRequired(webAuth))
+	admin.GET("/config-usage", handleConfigUsagePage)
+	admin.GET("/api/update/check", handleUpdateCheck)
+	admin.GET("/api/config", handleGetConfig)
+	admin.GET("/api/config/form", handleGetConfigForm)
+	admin.POST("/api/config/form/parse", handleParseConfigForm)
+	admin.POST("/api/config/form", handleSaveConfigForm)
+	admin.POST("/api/config/validate", handleValidateConfig)
+	admin.POST("/api/config", handleSaveConfig)
+	admin.POST("/api/camera/:id/start", handleCameraActionFor("start"))
+	admin.POST("/api/camera/:id/stop", handleCameraActionFor("stop"))
+	admin.POST("/api/camera/:id/auto", handleCameraActionFor("auto"))
+	admin.GET("/api/onvif/status", handleOnvifStatus)
+	admin.GET("/api/camera/:id/onvif", handleCameraOnvifStatus)
+	admin.GET("/api/camera/:id/ptz/status", handlePTZStatus)
+	admin.POST("/api/camera/:id/ptz/move", handlePTZMove)
+	admin.POST("/api/camera/:id/ptz/stop", handlePTZStop)
+	admin.POST("/api/camera/:id/ptz/focus", handlePTZFocus)
+	admin.POST("/api/camera/:id/ptz/iris", handlePTZIris)
+	admin.DELETE("/api/record", handleDeleteRecord)
+	admin.GET("/api/go2rtc/unmanaged", handleUnmanagedStreams)
+	admin.GET("/api/users", handleListUsers(webAuth))
+	admin.POST("/api/users", handleCreateUser(webAuth))
+	admin.PATCH("/api/users/:id", handleUpdateUser(webAuth))
+	admin.POST("/api/users/:id/password", handleResetUserPassword(webAuth))
+	admin.DELETE("/api/users/:id", handleDeleteUser(webAuth))
 
 	// 让 CamKeep 作为统一网关，直接代理 go2rtc 的全能自适应直播功能
 	go2rtcURL, _ := url.Parse(fmt.Sprintf("http://%s:%d", constant.DefaultGo2rtcHost, constant.DefaultGo2rtcApiPort))
@@ -84,6 +88,11 @@ func startWebServer() {
 	// 5. 【全新】WebRTC 代理接口 (替代原来的 FLV 转码)
 	protected.POST("/webrtc/:id", handleWebRTCProxy)
 
+	if webAuth.isEnabled() {
+		log.Printf("Web 登录鉴权已启用，用户文件: %s", constantUsersFilePath)
+	} else {
+		log.Println("Web 登录鉴权未启用；创建本地用户后启用")
+	}
 	log.Println("Web 管理后台已启动: http://localhost:9110")
 	r.Run(":9110")
 }

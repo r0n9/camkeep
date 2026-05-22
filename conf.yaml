@@ -14,7 +14,7 @@ cameras:
     motion_url: ""        # 可选，仅动检识别使用；留空则使用默认 go2rtc 流
     retention_days: 7     # 保留 7 天；-1 表示不按天数自动清理
     segment_duration: 300 # 每段 300 秒
-    format: "ts"          # ts 更适合边写边播；mp4 手机浏览器兼容性更好
+    format: "mp4"         # 新建摄像头默认 mp4，浏览器点播兼容性更好；需要边写边播可改 ts
     min_size_kb: 1024     # 小于 1MB 的已完成碎片自动删除
     record_time: "00:00-23:59"
     mode: "normal"        # 配置态仅支持 normal 或 timelapse
@@ -28,7 +28,7 @@ cameras:
     motion_url: ""
     retention_days: 7
     segment_duration: 300
-    format: "ts"
+    format: "mp4"
     min_size_kb: 1024
     record_time: "00:00-23:59"
     mode: "normal"
@@ -55,7 +55,7 @@ cameras:
 #    auto_discovered: true
 #    retention_days: 7
 #    segment_duration: 300
-#    format: "ts"
+#    format: "mp4"
 #    min_size_kb: 1024
 #    record_time: "00:00-23:59"
 #    mode: "normal"

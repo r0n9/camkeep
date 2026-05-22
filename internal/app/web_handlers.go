@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io"
 	"log"
 	"net/http"
@@ -109,9 +110,24 @@ const (
 var recordDatePattern = regexp.MustCompile(`\d{4}-\d{2}-\d{2}`)
 
 func handleIndex(c *gin.Context) {
+	user, _ := getCurrentUser(c)
+	authEnabled := webAuth.isEnabled()
+	authPayload := meResponse{
+		AuthEnabled: authEnabled,
+		User:        user,
+		CanAdmin:    user.Role == userRoleAdmin,
+		Permissions: permissionsForUser(user),
+	}
+	authJSON, err := json.Marshal(authPayload)
+	if err != nil {
+		authJSON = []byte(`{"auth_enabled":false,"can_admin":true,"permissions":["view","admin"]}`)
+	}
 	c.HTML(http.StatusOK, "index.html", gin.H{
 		"Version":     version,
-		"AuthEnabled": webAuth.Enabled,
+		"AuthEnabled": authEnabled,
+		"CurrentUser": user,
+		"CanAdmin":    user.Role == userRoleAdmin,
+		"AuthJSON":    template.JS(string(authJSON)),
 	})
 }
 
@@ -334,6 +350,7 @@ func handleSaveConfigForm(c *gin.Context) {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
+	applyRecordFormatDefaults(&newConfig)
 	markGo2rtcManagedCameras(&newConfig)
 
 	yamlBytes, err := yaml.Marshal(newConfig)

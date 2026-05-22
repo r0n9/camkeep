@@ -25,6 +25,9 @@
     <link rel="stylesheet" href="/static/index.css">
     <link rel="stylesheet" href="/static/record-timeline-24h.css">
     <link rel="stylesheet" href="/static/ptz.css">
+    <script>
+        window.CAMKEEP_AUTH = {{ .AuthJSON }};
+    </script>
 </head>
 <body class="bg-gray-100 p-3 sm:p-4 md:p-5 min-h-screen transition-colors duration-200">
 <div class="max-w-[1400px] mx-auto">
@@ -61,6 +64,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12.79A8.5 8.5 0 1111.21 3 6.5 6.5 0 0021 12.79z"></path>
                     </svg>
                 </button>
+                {{ if .CanAdmin }}
                 <span class="h-4 w-px bg-gray-200"></span>
                 <button id="configNavBtn" onclick="openConfig()" class="group flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold text-gray-700 transition-all hover:bg-gray-50 hover:text-gray-900 active:scale-95">
                     <svg class="w-4 h-4 text-gray-500 group-hover:rotate-90 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -69,6 +73,15 @@
                     </svg>
                     <span>配置管理</span>
                 </button>
+                <span class="h-4 w-px bg-gray-200"></span>
+                <button id="userNavBtn" onclick="openUsers()" class="group flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold text-gray-700 transition-all hover:bg-gray-50 hover:text-gray-900 active:scale-95">
+                    <svg class="w-4 h-4 text-gray-500 transition-colors group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11a4 4 0 10-8 0 4 4 0 008 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 21a8 8 0 0116 0"></path>
+                    </svg>
+                    <span>用户管理</span>
+                </button>
+                {{ end }}
                 {{ if .AuthEnabled }}
                 <span class="h-4 w-px bg-gray-200"></span>
                 <form method="post" action="/logout" class="m-0">
@@ -249,6 +262,7 @@
                                         <div id="batchCameraSummary" class="config-batch-camera-summary">粘贴多行接入源后会在这里预览。</div>
                                         <div class="config-batch-camera-defaults">
                                             <span>默认 normal</span>
+                                            <span>默认 MP4</span>
                                             <span>全天录像</span>
                                             <span>保留 7 天</span>
                                         </div>
@@ -290,6 +304,61 @@
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
                         <span>保存并应用</span>
                     </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="userPage" class="config-page hidden">
+        <div class="config-page-card">
+            <div class="config-page-hero">
+                <div class="config-page-hero-main">
+                    <div class="config-page-kicker">ACCESS CONTROL</div>
+                    <h2 class="config-page-title">
+                        <span class="config-page-title-icon config-page-title-icon--users">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11a4 4 0 10-8 0 4 4 0 008 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 21a8 8 0 0116 0"></path></svg>
+                        </span>
+                        用户管理
+                    </h2>
+                    <p class="config-page-desc">管理可登录 CamKeep 的账号与访问权限。普通用户只能查看直播、录像和下载，管理员可修改配置与执行控制操作。</p>
+                    <div class="config-page-badges">
+                        <span>环境变量密码仅用于首次初始化</span>
+                        <span>用户文件统一认证</span>
+                        <span>本地用户独立存储</span>
+                    </div>
+                </div>
+                <div class="config-page-hero-actions">
+                    <button onclick="showCreateUserForm()" class="config-page-primary-btn" type="button">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 5v14M5 12h14"></path></svg>
+                        <span>新增用户</span>
+                    </button>
+                    <button onclick="closeUsers()" class="config-page-secondary-btn" type="button">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M15 19l-7-7 7-7"></path></svg>
+                        <span>返回监控</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="config-page-body">
+                <div class="user-management-layout">
+                    <aside class="user-list-panel">
+                        <div class="user-list-head">
+                            <div>
+                                <h3>账号列表</h3>
+                                <p id="userListSummary">正在读取用户...</p>
+                            </div>
+                        </div>
+                        <div id="userList" class="user-list"></div>
+                    </aside>
+                    <section id="userEditor" class="user-editor-panel">
+                        <div class="user-editor-empty">
+                            <div class="user-editor-empty-icon">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 12a4 4 0 100-8 4 4 0 000 8z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 21a8 8 0 0116 0"></path></svg>
+                            </div>
+                            <h3>选择一个用户</h3>
+                            <p>查看账号状态、调整角色或重置密码。</p>
+                        </div>
+                    </section>
                 </div>
             </div>
         </div>

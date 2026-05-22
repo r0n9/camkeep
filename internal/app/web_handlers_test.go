@@ -270,6 +270,9 @@ cameras:
 	if cfg.Cameras[0].EffectiveStreamURL() != "rtsp://example/live" {
 		t.Fatalf("expected stream_url to be parsed, got %q", cfg.Cameras[0].EffectiveStreamURL())
 	}
+	if cfg.Cameras[0].Format != constant.DefaultRecordFormat {
+		t.Fatalf("expected default format %q, got %q", constant.DefaultRecordFormat, cfg.Cameras[0].Format)
+	}
 }
 
 func TestParseConfigYAMLSupportsLegacyRTSPURL(t *testing.T) {
@@ -298,6 +301,20 @@ cameras:
 	}
 	if got := cfg.Cameras[0].EffectiveStreamURL(); got != "rtsp://new.example/live" {
 		t.Fatalf("expected stream_url to win, got %q", got)
+	}
+}
+
+func TestValidateAndFixConfigDefaultsRecordFormatToMP4(t *testing.T) {
+	cfg := validateAndFixConfig(constant.Config{
+		Cameras: []constant.Camera{
+			{ID: "cam_01", StreamURL: "rtsp://example/live"},
+		},
+	})
+	if len(cfg.Cameras) != 1 {
+		t.Fatalf("expected one camera, got %+v", cfg.Cameras)
+	}
+	if got := cfg.Cameras[0].Format; got != constant.DefaultRecordFormat {
+		t.Fatalf("expected default format %q, got %q", constant.DefaultRecordFormat, got)
 	}
 }
 

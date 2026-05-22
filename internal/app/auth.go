@@ -7,6 +7,7 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"net/url"
@@ -15,60 +16,100 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/r0n9/camkeep/constant"
 )
 
 const (
-	envAuthUser         = "CAMKEEP_AUTH_USER"
 	envAuthPassword     = "CAMKEEP_AUTH_PASSWORD"
 	envSessionSecret    = "CAMKEEP_SESSION_SECRET"
 	envAuthCookieSecure = "CAMKEEP_AUTH_COOKIE_SECURE"
 
 	authCookieName = "camkeep_session"
+	authContextKey = "camkeep_user"
 )
 
-var webAuth authConfig
+var (
+	webAuth               authConfig
+	constantUsersFilePath = constant.UsersFilePath
+)
 
 type authConfig struct {
-	Enabled       bool
 	Username      string
-	Password      string
 	SessionSecret []byte
 	CookieSecure  bool
 	SessionTTL    time.Duration
+	UserStore     *userStore
 }
 
 type sessionClaims struct {
-	User      string `json:"u"`
-	ExpiresAt int64  `json:"exp"`
-	Nonce     string `json:"n"`
+	UID            string `json:"uid"`
+	User           string `json:"u"`
+	Role           string `json:"r"`
+	Source         string `json:"src"`
+	SessionVersion int64  `json:"ver"`
+	ExpiresAt      int64  `json:"exp"`
+	Nonce          string `json:"n"`
 }
 
 func loadAuthConfigFromEnv() authConfig {
-	username := strings.TrimSpace(os.Getenv(envAuthUser))
-	if username == "" {
-		username = "admin"
+	usersFileExists, err := fileExists(constantUsersFilePath)
+	if err != nil {
+		log.Fatalf("检查用户文件失败: %v", err)
 	}
 
+	store, err := newUserStore(constantUsersFilePath)
+	if err != nil {
+		log.Fatalf("加载用户文件失败: %v", err)
+	}
+
+	username := "admin"
 	password := os.Getenv(envAuthPassword)
+	if password != "" {
+		user, created, err := store.ensureBootstrapAdmin(username, password)
+		if err != nil {
+			log.Fatalf("初始化本地管理员用户失败: %v", err)
+		}
+		if created {
+			if usersFileExists {
+				log.Printf("检测到 %s 且 %s 缺少 admin 用户，已追加本地管理员用户: %s；后续登录以用户文件为准", envAuthPassword, constantUsersFilePath, user.Username)
+			} else {
+				log.Printf("检测到 %s 且 %s 不存在，已初始化本地管理员用户: %s；后续登录以用户文件为准", envAuthPassword, constantUsersFilePath, user.Username)
+			}
+		}
+	}
+
 	cfg := authConfig{
-		Enabled:      password != "",
 		Username:     username,
-		Password:     password,
 		CookieSecure: parseBoolEnv(os.Getenv(envAuthCookieSecure)),
 		SessionTTL:   7 * 24 * time.Hour,
-	}
-	if !cfg.Enabled {
-		return cfg
+		UserStore:    store,
 	}
 
 	secret := os.Getenv(envSessionSecret)
 	if secret == "" {
 		cfg.SessionSecret = randomSessionSecret()
-		log.Printf("登录鉴权已启用，但 %s 未设置；本次启动将使用临时会话密钥，重启后需要重新登录", envSessionSecret)
+		if cfg.isEnabled() {
+			log.Printf("登录鉴权已启用，但 %s 未设置；本次启动将使用临时会话密钥，重启后需要重新登录", envSessionSecret)
+		}
 	} else {
 		cfg.SessionSecret = []byte(secret)
 	}
 	return cfg
+}
+
+func (auth authConfig) isEnabled() bool {
+	return auth.UserStore != nil && auth.UserStore.hasUsers()
+}
+
+func fileExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	return false, err
 }
 
 func parseBoolEnv(value string) bool {
@@ -92,7 +133,7 @@ func randomSessionSecret() []byte {
 
 func handleLoginPage(auth authConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if !auth.Enabled {
+		if !auth.isEnabled() {
 			c.Redirect(http.StatusFound, "/")
 			return
 		}
@@ -113,7 +154,7 @@ func handleLoginPage(auth authConfig) gin.HandlerFunc {
 
 func handleLoginPost(auth authConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if !auth.Enabled {
+		if !auth.isEnabled() {
 			c.Redirect(http.StatusFound, "/")
 			return
 		}
@@ -129,7 +170,8 @@ func handleLoginPost(auth authConfig) gin.HandlerFunc {
 			return
 		}
 
-		token, err := auth.newSessionToken(time.Now())
+		user, _ := auth.authenticateUser(c.PostForm("username"), c.PostForm("password"))
+		token, err := auth.newSessionTokenForUser(user, time.Now())
 		if err != nil {
 			c.HTML(http.StatusInternalServerError, "login.html", gin.H{
 				"Version": version,
@@ -147,7 +189,7 @@ func handleLoginPost(auth authConfig) gin.HandlerFunc {
 func handleLogout(auth authConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		auth.clearSessionCookie(c)
-		if auth.Enabled {
+		if auth.isEnabled() {
 			c.Redirect(http.StatusFound, "/login")
 			return
 		}
@@ -157,7 +199,14 @@ func handleLogout(auth authConfig) gin.HandlerFunc {
 
 func authRequired(auth authConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if !auth.Enabled || auth.isRequestAuthenticated(c) {
+		if !auth.isEnabled() {
+			setCurrentUser(c, disabledAdminUser())
+			c.Next()
+			return
+		}
+
+		if user, ok := auth.currentUserFromRequest(c); ok {
+			setCurrentUser(c, user)
 			c.Next()
 			return
 		}
@@ -196,36 +245,52 @@ func sanitizeLoginNext(next string) string {
 }
 
 func (auth authConfig) credentialsValid(username, password string) bool {
-	if !auth.Enabled {
-		return true
-	}
-	if subtle.ConstantTimeCompare([]byte(username), []byte(auth.Username)) != 1 {
-		return false
+	_, ok := auth.authenticateUser(username, password)
+	return ok
+}
+
+func (auth authConfig) authenticateUser(username, password string) (currentUser, bool) {
+	if !auth.isEnabled() {
+		return disabledAdminUser(), true
 	}
 
-	got := sha256.Sum256([]byte(password))
-	want := sha256.Sum256([]byte(auth.Password))
-	return subtle.ConstantTimeCompare(got[:], want[:]) == 1
+	if auth.UserStore == nil {
+		return currentUser{}, false
+	}
+	return auth.UserStore.authenticate(username, password)
 }
 
 func (auth authConfig) isRequestAuthenticated(c *gin.Context) bool {
+	_, ok := auth.currentUserFromRequest(c)
+	return ok
+}
+
+func (auth authConfig) currentUserFromRequest(c *gin.Context) (currentUser, bool) {
 	token, err := c.Cookie(authCookieName)
 	if err != nil {
-		return false
+		return currentUser{}, false
 	}
-	return auth.validateSessionToken(token, time.Now())
+	return auth.validateSessionTokenUser(token, time.Now())
 }
 
 func (auth authConfig) newSessionToken(now time.Time) (string, error) {
+	return auth.newSessionTokenForUser(disabledAdminUser(), now)
+}
+
+func (auth authConfig) newSessionTokenForUser(user currentUser, now time.Time) (string, error) {
 	nonce := make([]byte, 16)
 	if _, err := rand.Read(nonce); err != nil {
 		return "", err
 	}
 
 	claims := sessionClaims{
-		User:      auth.Username,
-		ExpiresAt: now.Add(auth.SessionTTL).Unix(),
-		Nonce:     base64.RawURLEncoding.EncodeToString(nonce),
+		UID:            user.ID,
+		User:           user.Username,
+		Role:           user.Role,
+		Source:         user.Source,
+		SessionVersion: user.SessionVersion,
+		ExpiresAt:      now.Add(auth.SessionTTL).Unix(),
+		Nonce:          base64.RawURLEncoding.EncodeToString(nonce),
 	}
 	payloadBytes, err := json.Marshal(claims)
 	if err != nil {
@@ -237,28 +302,41 @@ func (auth authConfig) newSessionToken(now time.Time) (string, error) {
 }
 
 func (auth authConfig) validateSessionToken(token string, now time.Time) bool {
+	_, ok := auth.validateSessionTokenUser(token, now)
+	return ok
+}
+
+func (auth authConfig) validateSessionTokenUser(token string, now time.Time) (currentUser, bool) {
 	payload, signature, ok := strings.Cut(token, ".")
 	if !ok || payload == "" || signature == "" {
-		return false
+		return currentUser{}, false
 	}
 
 	if subtle.ConstantTimeCompare([]byte(signature), []byte(auth.signPayload(payload))) != 1 {
-		return false
+		return currentUser{}, false
 	}
 
 	payloadBytes, err := base64.RawURLEncoding.DecodeString(payload)
 	if err != nil {
-		return false
+		return currentUser{}, false
 	}
 
 	var claims sessionClaims
 	if err := json.Unmarshal(payloadBytes, &claims); err != nil {
-		return false
+		return currentUser{}, false
 	}
-	if claims.User != auth.Username || claims.ExpiresAt <= now.Unix() {
-		return false
+	if claims.ExpiresAt <= now.Unix() {
+		return currentUser{}, false
 	}
-	return true
+
+	if claims.Source != userSourceLocal || auth.UserStore == nil || claims.UID == "" {
+		return currentUser{}, false
+	}
+	user, ok := auth.UserStore.userByID(claims.UID)
+	if !ok || !user.Enabled || user.Username != claims.User || user.SessionVersion != claims.SessionVersion {
+		return currentUser{}, false
+	}
+	return currentUserFromStored(user), true
 }
 
 func (auth authConfig) signPayload(payload string) string {
@@ -291,4 +369,43 @@ func (auth authConfig) clearSessionCookie(c *gin.Context) {
 		SameSite: http.SameSiteLaxMode,
 		Secure:   auth.CookieSecure || c.Request.TLS != nil,
 	})
+}
+
+func disabledAdminUser() currentUser {
+	return currentUser{
+		ID:             "auth-disabled",
+		Username:       "admin",
+		DisplayName:    "Admin",
+		Role:           userRoleAdmin,
+		Source:         "disabled",
+		SessionVersion: 1,
+	}
+}
+
+func setCurrentUser(c *gin.Context, user currentUser) {
+	c.Set(authContextKey, user)
+}
+
+func getCurrentUser(c *gin.Context) (currentUser, bool) {
+	value, ok := c.Get(authContextKey)
+	if !ok {
+		return currentUser{}, false
+	}
+	user, ok := value.(currentUser)
+	return user, ok
+}
+
+func currentUserCanAdmin(c *gin.Context) bool {
+	user, ok := getCurrentUser(c)
+	return ok && user.Role == userRoleAdmin
+}
+
+func adminRequired(auth authConfig) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !auth.isEnabled() || currentUserCanAdmin(c) {
+			c.Next()
+			return
+		}
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "需要管理员权限"})
+	}
 }
