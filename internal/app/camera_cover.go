@@ -501,6 +501,9 @@ func cameraCoverRetryDelay(streamState string) time.Duration {
 
 func handleCameraCover(c *gin.Context) {
 	camID := c.Param("id")
+	if !requireCameraAccess(c, camID) {
+		return
+	}
 	content, contentType, ok := cameraCovers.image(camID)
 	if !ok {
 		c.Status(http.StatusNotFound)

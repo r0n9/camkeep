@@ -168,6 +168,71 @@ func TestHandleStatusOrdersByCameraOrder(t *testing.T) {
 	}
 }
 
+func TestHandleStatusFiltersViewerCameraScope(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	service.ReplaceOnvifCandidates(nil)
+	swapCameraCoverStoreForTest(t, newDisabledCameraCoverStore())
+	deleteStatusForAppTest(t, "cam-allowed")
+	deleteStatusForAppTest(t, "cam-denied")
+	setCurrentConfigForAppTest(t, constant.Config{Cameras: []constant.Camera{
+		{ID: "cam-allowed", Order: 1},
+		{ID: "cam-denied", Order: 2},
+	}})
+	service.UpdateStatus("cam-allowed", false, "normal", "00:00-23:59")
+	service.UpdateStatus("cam-denied", false, "normal", "00:00-23:59")
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setCurrentUser(c, currentUser{Username: "viewer", Role: userRoleViewer, Source: userSourceLocal, CameraIDs: []string{"cam-allowed"}})
+	handleStatus(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	var payload map[string]statusResponseEntry
+	if err := json.Unmarshal(w.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := payload["cam-allowed"]; !ok {
+		t.Fatalf("expected allowed camera in response, got %+v", payload)
+	}
+	if _, ok := payload["cam-denied"]; ok {
+		t.Fatalf("expected denied camera to be hidden, got %+v", payload)
+	}
+}
+
+func TestHandleStatusLegacyViewerWithoutScopeSeesAllCameras(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	service.ReplaceOnvifCandidates(nil)
+	swapCameraCoverStoreForTest(t, newDisabledCameraCoverStore())
+	deleteStatusForAppTest(t, "cam-a")
+	deleteStatusForAppTest(t, "cam-b")
+	setCurrentConfigForAppTest(t, constant.Config{Cameras: []constant.Camera{
+		{ID: "cam-a", Order: 1},
+		{ID: "cam-b", Order: 2},
+	}})
+	service.UpdateStatus("cam-a", false, "normal", "00:00-23:59")
+	service.UpdateStatus("cam-b", false, "normal", "00:00-23:59")
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setCurrentUser(c, currentUser{Username: "viewer", Role: userRoleViewer, Source: userSourceLocal, CameraIDs: nil})
+	handleStatus(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	var payload map[string]statusResponseEntry
+	if err := json.Unmarshal(w.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if len(payload) != 2 {
+		t.Fatalf("expected legacy viewer to see all cameras, got %+v", payload)
+	}
+}
+
 func TestFilterRecordEntriesDefaultKeepsLatestSevenAvailableDates(t *testing.T) {
 	entries := []recordEntry{
 		testRecordEntry(t, "2026-05-03"),
@@ -303,6 +368,52 @@ func TestHandleDownloadRecordRejectsSymlinkOutsideRecordDir(t *testing.T) {
 	}
 }
 
+func TestHandleRecordsRejectsViewerWithoutCameraAccess(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	setCurrentConfigForAppTest(t, constant.Config{Cameras: []constant.Camera{
+		{ID: "cam-allowed", Order: 1},
+		{ID: "cam-denied", Order: 2},
+	}})
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Params = gin.Params{{Key: "id", Value: "cam-denied"}}
+	setCurrentUser(c, currentUser{Username: "viewer", Role: userRoleViewer, Source: userSourceLocal, CameraIDs: []string{"cam-allowed"}})
+
+	handleRecords(c)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("expected denied records request to be rejected, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestHandleDownloadRecordRejectsViewerWithoutCameraAccess(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Chdir(t.TempDir())
+	setCurrentConfigForAppTest(t, constant.Config{Cameras: []constant.Camera{
+		{ID: "cam-allowed", Order: 1},
+		{ID: "cam-denied", Order: 2},
+	}})
+	if err := os.MkdirAll("records/cam-denied/2026-05-12", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("records/cam-denied/2026-05-12/clip.mp4", []byte("video"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	req := httptest.NewRequest(http.MethodGet, "/api/record/download?path=cam-denied/2026-05-12/clip.mp4", nil)
+	c.Request = req
+	setCurrentUser(c, currentUser{Username: "viewer", Role: userRoleViewer, Source: userSourceLocal, CameraIDs: []string{"cam-allowed"}})
+
+	handleDownloadRecord(c)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("expected denied download request to be rejected, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
 func TestHandlePlayRecordUsesSafeRecordPath(t *testing.T) {
 	t.Chdir(t.TempDir())
 	if err := os.MkdirAll("config", 0755); err != nil {
@@ -328,6 +439,34 @@ func TestHandlePlayRecordUsesSafeRecordPath(t *testing.T) {
 
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("expected play symlink outside record dir to be rejected, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestHandlePlayRecordRejectsViewerWithoutCameraAccess(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Chdir(t.TempDir())
+	setCurrentConfigForAppTest(t, constant.Config{Cameras: []constant.Camera{
+		{ID: "cam-allowed", Order: 1},
+		{ID: "cam-denied", Order: 2},
+	}})
+	if err := os.MkdirAll("records/cam-denied/2026-05-12", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("records/cam-denied/2026-05-12/clip.mp4", []byte("video"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	req := httptest.NewRequest(http.MethodGet, "/play/cam-denied/2026-05-12/clip.mp4", nil)
+	c.Request = req
+	c.Params = gin.Params{{Key: "filepath", Value: "/cam-denied/2026-05-12/clip.mp4"}}
+	setCurrentUser(c, currentUser{Username: "viewer", Role: userRoleViewer, Source: userSourceLocal, CameraIDs: []string{"cam-allowed"}})
+
+	handlePlayRecord(c)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("expected denied play request to be rejected, got %d: %s", w.Code, w.Body.String())
 	}
 }
 

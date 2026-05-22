@@ -6,11 +6,13 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/r0n9/camkeep/constant"
 )
 
 func TestAuthDisabledAllowsRequests(t *testing.T) {
@@ -242,6 +244,96 @@ func TestBootstrapCreateUserWithoutEnvPasswordCreatesAdminSession(t *testing.T) 
 	}
 	if !auth.validateSessionToken(cookie[0].Value, time.Now()) {
 		t.Fatal("expected bootstrap session cookie to validate")
+	}
+}
+
+func TestCreateAndUpdateUserCameraScope(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	setCurrentConfigForAppTest(t, constant.Config{Cameras: []constant.Camera{
+		{ID: "cam-a", Order: 1},
+		{ID: "cam-b", Order: 2},
+	}})
+	auth := testAuthConfig(t)
+
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		setCurrentUser(c, currentUser{ID: "admin", Username: "admin", Role: userRoleAdmin, Source: userSourceLocal})
+		c.Next()
+	})
+	r.POST("/api/users", handleCreateUser(auth))
+	r.PATCH("/api/users/:id", handleUpdateUser(auth))
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/users", strings.NewReader(`{
+		"username": "viewer2",
+		"password": "viewer-secret",
+		"role": "viewer",
+		"enabled": true,
+		"camera_access_all": false,
+		"camera_ids": ["cam-b", "missing", "cam-a", "cam-b"]
+	}`))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", w.Code, w.Body.String())
+	}
+	var created userView
+	if err := json.NewDecoder(w.Body).Decode(&created); err != nil {
+		t.Fatal(err)
+	}
+	if created.CameraAccessAll || !reflect.DeepEqual(created.CameraIDs, []string{"cam-a", "cam-b"}) {
+		t.Fatalf("expected normalized camera scope, got %+v", created)
+	}
+
+	w = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPatch, "/api/users/"+created.ID, strings.NewReader(`{
+		"role": "viewer",
+		"camera_access_all": true
+	}`))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var updated userView
+	if err := json.NewDecoder(w.Body).Decode(&updated); err != nil {
+		t.Fatal(err)
+	}
+	if !updated.CameraAccessAll || updated.CameraIDs != nil {
+		t.Fatalf("expected all camera access after update, got %+v", updated)
+	}
+}
+
+func TestUserStorePersistsEmptyCameraScope(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "users.json")
+	store := testUserStoreAt(t, path)
+	accessAll := false
+	user, err := store.createUser(createUserRequest{
+		Username:        "viewer-empty",
+		Password:        "viewer-secret",
+		Role:            userRoleViewer,
+		CameraAccessAll: &accessAll,
+		CameraIDs:       []string{},
+	}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if user.CameraIDs == nil || len(user.CameraIDs) != 0 {
+		t.Fatalf("expected explicit empty camera scope before reload, got %+v", user.CameraIDs)
+	}
+
+	reloaded, err := newUserStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, ok := reloaded.userByID(user.ID)
+	if !ok {
+		t.Fatal("expected user after reload")
+	}
+	if got.CameraIDs == nil || len(got.CameraIDs) != 0 {
+		t.Fatalf("expected explicit empty camera scope after reload, got %+v", got.CameraIDs)
 	}
 }
 

@@ -16,7 +16,8 @@ type meResponse struct {
 }
 
 type usersResponse struct {
-	Users []userView `json:"users"`
+	Users         []userView     `json:"users"`
+	CameraOptions []cameraOption `json:"camera_options"`
 }
 
 func handleMe(auth authConfig) gin.HandlerFunc {
@@ -36,7 +37,10 @@ func handleMe(auth authConfig) gin.HandlerFunc {
 
 func handleListUsers(auth authConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, usersResponse{Users: auth.userViews(c)})
+		c.JSON(http.StatusOK, usersResponse{
+			Users:         auth.userViews(c),
+			CameraOptions: currentCameraOptions(),
+		})
 	}
 }
 
@@ -62,7 +66,10 @@ func handleCreateUser(auth authConfig) gin.HandlerFunc {
 			}
 			req.Role = userRoleAdmin
 			req.Enabled = &enabled
+			req.CameraAccessAll = &enabled
+			req.CameraIDs = nil
 		}
+		req.CameraIDs = normalizeCameraScopeFromRequest(req.Role, req.CameraIDs, req.CameraAccessAll)
 		user, err := auth.UserStore.createUser(req, "")
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -110,6 +117,11 @@ func handleUpdateUser(auth authConfig) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+		nextRole := existing.Role
+		if req.Role != nil {
+			nextRole = normalizeUserRole(*req.Role)
+		}
+		req.CameraIDs = normalizeCameraScopeFromRequest(nextRole, req.CameraIDs, req.CameraAccessAll)
 
 		user, err := auth.UserStore.updateUser(id, req)
 		if err != nil {

@@ -422,6 +422,7 @@ func disabledAdminUser() currentUser {
 		Role:           userRoleAdmin,
 		Source:         "disabled",
 		SessionVersion: 1,
+		CameraIDs:      nil,
 	}
 }
 

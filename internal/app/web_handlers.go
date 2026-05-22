@@ -39,6 +39,12 @@ type recordEntry struct {
 	dateKey string
 }
 
+type recordPathInfo struct {
+	FullPath string
+	RelPath  string
+	CameraID string
+}
+
 type recordDateRange struct {
 	start    time.Time
 	end      time.Time
@@ -199,6 +205,7 @@ func handleStatus(c *gin.Context) {
 		}
 		snapshot[id] = entry
 	}
+	filterStatusSnapshotForUser(c, snapshot)
 
 	body, err := marshalOrderedStatusResponse(snapshot)
 	if err != nil {
@@ -693,6 +700,9 @@ func contextWithHTTPTimeout(parent context.Context, timeout time.Duration) (cont
 
 func handleRecords(c *gin.Context) {
 	camID := c.Param("id")
+	if !requireCameraAccess(c, camID) {
+		return
+	}
 	dateRange, err := parseRecordDateRange(c.Query("start"), c.Query("end"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -865,13 +875,13 @@ func latestRecordDateKeys(entries []recordEntry, limit int) map[string]bool {
 }
 
 func handleDeleteRecord(c *gin.Context) {
-	fullPath, ok := safeRecordPath(c)
+	pathInfo, ok := safeRecordPathInfo(c)
 	if !ok {
 		c.JSON(400, gin.H{"error": "非法的路径参数"})
 		return
 	}
 
-	if err := os.Remove(fullPath); err != nil {
+	if err := os.Remove(pathInfo.FullPath); err != nil {
 		c.JSON(500, gin.H{"error": "删除失败，文件可能已被清理"})
 		return
 	}
@@ -880,28 +890,34 @@ func handleDeleteRecord(c *gin.Context) {
 }
 
 func handleDownloadRecord(c *gin.Context) {
-	fullPath, ok := safeRecordPath(c)
+	pathInfo, ok := safeRecordPathInfo(c)
 	if !ok {
 		c.JSON(400, gin.H{"error": "非法的路径参数"})
 		return
 	}
+	if !requireCameraAccess(c, pathInfo.CameraID) {
+		return
+	}
 
-	if _, err := os.Stat(fullPath); err != nil {
+	if _, err := os.Stat(pathInfo.FullPath); err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "录像文件不存在"})
 		return
 	}
 
-	c.FileAttachment(fullPath, filepath.Base(fullPath))
+	c.FileAttachment(pathInfo.FullPath, filepath.Base(pathInfo.FullPath))
 }
 
 func handleProbeRecord(c *gin.Context) {
-	fullPath, ok := safeRecordPath(c)
+	pathInfo, ok := safeRecordPathInfo(c)
 	if !ok {
 		c.JSON(400, gin.H{"error": "非法的路径参数"})
 		return
 	}
+	if !requireCameraAccess(c, pathInfo.CameraID) {
+		return
+	}
 
-	codec, err := probeVideoCodec(fullPath)
+	codec, err := probeVideoCodec(pathInfo.FullPath)
 	if err != nil {
 		c.JSON(http.StatusOK, probeResult{
 			CanProbe:  false,
@@ -1108,17 +1124,20 @@ func appendUniqueString(values []string, value string) []string {
 }
 
 func handlePlayRecord(c *gin.Context) {
-	fullPath, ok := safeRecordPathFromParam(c.Param("filepath"))
+	pathInfo, ok := safeRecordPathInfoFromParam(c.Param("filepath"))
 	if !ok {
 		c.String(http.StatusBadRequest, "非法的路径参数")
 		return
 	}
-	if _, err := os.Stat(fullPath); err != nil {
+	if !requireCameraAccess(c, pathInfo.CameraID) {
+		return
+	}
+	if _, err := os.Stat(pathInfo.FullPath); err != nil {
 		c.String(http.StatusNotFound, "录像文件不存在")
 		return
 	}
 
-	c.File(fullPath)
+	c.File(pathInfo.FullPath)
 }
 
 func handlePlayHLS(c *gin.Context) {
@@ -1127,8 +1146,12 @@ func handlePlayHLS(c *gin.Context) {
 		c.String(400, "仅支持 ts 格式转换为 HLS")
 		return
 	}
-	if _, ok := safeRecordPathFromParam(tsPath); !ok {
+	pathInfo, ok := safeRecordPathInfoFromParam(tsPath)
+	if !ok {
 		c.String(http.StatusBadRequest, "非法的路径参数")
+		return
+	}
+	if !requireCameraAccess(c, pathInfo.CameraID) {
 		return
 	}
 
@@ -1142,9 +1165,12 @@ func handlePlayHLS(c *gin.Context) {
 
 // handlePlayRemux 实时重封装：零损耗、零转码、极低CPU，用于浏览器直接硬解 H.265
 func handlePlayRemux(c *gin.Context) {
-	fullPath, ok := safeRecordPathFromParam(c.Param("filepath"))
+	pathInfo, ok := safeRecordPathInfoFromParam(c.Param("filepath"))
 	if !ok {
 		c.String(http.StatusBadRequest, "非法的路径参数")
+		return
+	}
+	if !requireCameraAccess(c, pathInfo.CameraID) {
 		return
 	}
 
@@ -1152,7 +1178,7 @@ func handlePlayRemux(c *gin.Context) {
 	args := []string{
 		"-hide_banner",
 		"-loglevel", "error",
-		"-i", fullPath,
+		"-i", pathInfo.FullPath,
 		"-map", "0:v:0", // 显式映射第一个视频流
 		"-map", "0:a?", // 显式映射音频流（如果有的话）
 		"-c:v", "copy", // 直接复制 H.265 原始数据
@@ -1190,16 +1216,19 @@ func handlePlayRemux(c *gin.Context) {
 }
 
 func handlePlayTranscode(c *gin.Context) {
-	fullPath, ok := safeRecordPathFromParam(c.Param("filepath"))
+	pathInfo, ok := safeRecordPathInfoFromParam(c.Param("filepath"))
 	if !ok {
 		c.String(http.StatusBadRequest, "非法的路径参数")
+		return
+	}
+	if !requireCameraAccess(c, pathInfo.CameraID) {
 		return
 	}
 
 	args := []string{
 		"-hide_banner",
 		"-loglevel", "error",
-		"-i", fullPath,
+		"-i", pathInfo.FullPath,
 		"-map", "0:v:0",
 		"-map", "0:a?",
 		"-c:v", "libx264",
@@ -1235,6 +1264,9 @@ func handlePlayTranscode(c *gin.Context) {
 
 func handleWebRTCProxy(c *gin.Context) {
 	camID := c.Param("id")
+	if !requireCameraAccess(c, camID) {
+		return
+	}
 
 	constant.ConfigMux.RLock()
 	var targetCam *constant.Camera
@@ -1285,64 +1317,79 @@ func handleWebRTCProxy(c *gin.Context) {
 }
 
 func safeRecordPath(c *gin.Context) (string, bool) {
-	return safeRecordPathFromParam(c.Query("path"))
+	pathInfo, ok := safeRecordPathInfo(c)
+	return pathInfo.FullPath, ok
+}
+
+func safeRecordPathInfo(c *gin.Context) (recordPathInfo, bool) {
+	return safeRecordPathInfoFromParam(c.Query("path"))
 }
 
 func safeRecordPathFromParam(targetPath string) (string, bool) {
+	pathInfo, ok := safeRecordPathInfoFromParam(targetPath)
+	return pathInfo.FullPath, ok
+}
+
+func safeRecordPathInfoFromParam(targetPath string) (recordPathInfo, bool) {
 	targetPath = strings.TrimSpace(targetPath)
 	targetPath = strings.ReplaceAll(targetPath, "\\", "/")
 	targetPath = strings.TrimLeft(targetPath, "/")
 	if targetPath == "" {
-		return "", false
+		return recordPathInfo{}, false
 	}
 
 	cleanTarget := filepath.Clean(filepath.FromSlash(targetPath))
 	if cleanTarget == "." || cleanTarget == ".." || strings.HasPrefix(cleanTarget, ".."+string(os.PathSeparator)) || filepath.IsAbs(cleanTarget) || filepath.VolumeName(cleanTarget) != "" {
-		return "", false
+		return recordPathInfo{}, false
 	}
 	ext := strings.ToLower(filepath.Ext(cleanTarget))
 	if ext != ".ts" && ext != ".mp4" {
-		return "", false
+		return recordPathInfo{}, false
+	}
+	relPath := filepath.ToSlash(cleanTarget)
+	cameraID, ok := cameraIDFromRecordPath(relPath)
+	if !ok {
+		return recordPathInfo{}, false
 	}
 
 	baseDir, err := filepath.Abs(constant.DefaultRecordBaseDir)
 	if err != nil {
-		return "", false
+		return recordPathInfo{}, false
 	}
 	baseReal, err := filepath.EvalSymlinks(baseDir)
 	if err != nil {
-		return "", false
+		return recordPathInfo{}, false
 	}
 	baseReal, err = filepath.Abs(baseReal)
 	if err != nil {
-		return "", false
+		return recordPathInfo{}, false
 	}
 
 	fullPath := filepath.Join(baseDir, cleanTarget)
 	fullPath, err = filepath.Abs(fullPath)
 	if err != nil || !pathWithinBase(fullPath, baseDir) {
-		return "", false
+		return recordPathInfo{}, false
 	}
 
 	info, err := os.Stat(fullPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return fullPath, true
+			return recordPathInfo{FullPath: fullPath, RelPath: relPath, CameraID: cameraID}, true
 		}
-		return "", false
+		return recordPathInfo{}, false
 	}
 	if !info.Mode().IsRegular() {
-		return "", false
+		return recordPathInfo{}, false
 	}
 	realPath, err := filepath.EvalSymlinks(fullPath)
 	if err != nil {
-		return "", false
+		return recordPathInfo{}, false
 	}
 	realPath, err = filepath.Abs(realPath)
 	if err != nil || !pathWithinBase(realPath, baseReal) {
-		return "", false
+		return recordPathInfo{}, false
 	}
-	return fullPath, true
+	return recordPathInfo{FullPath: fullPath, RelPath: relPath, CameraID: cameraID}, true
 }
 
 func pathWithinBase(path, base string) bool {

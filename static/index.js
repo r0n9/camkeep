@@ -26,6 +26,7 @@ const authState = window.CAMKEEP_AUTH || {
     user: {role: 'admin', username: 'admin'},
     permissions: ['view', 'admin']
 };
+let userCameraOptions = [];
 
 window.cameraCapabilityCache = window.cameraCapabilityCache || new Map();
 
@@ -381,6 +382,7 @@ async function loadUsers(options = {}) {
         }
         const payload = await resp.json();
         userListState = payload.users || [];
+        userCameraOptions = payload.camera_options || [];
         renderUserList();
         const preferred = options.selectId || selectedUserId;
         if (preferred && userListState.some(user => user.id === preferred)) {
@@ -436,6 +438,7 @@ function renderUserListItem(user) {
             </span>
             <span class="user-list-badges">
                 <span class="user-role-badge user-role-badge--${escapeHtml(user.role)}">${userRoleLabel(user.role)}</span>
+                <span class="user-camera-scope-badge">${escapeHtml(userCameraScopeLabel(user))}</span>
                 <span class="user-status-badge ${user.enabled ? 'is-enabled' : 'is-disabled'}">${user.enabled ? '启用' : '停用'}</span>
                 <span class="user-session-badge ${user.online ? 'is-online' : 'is-offline'}">${user.online ? '在线' : '离线'}</span>
                 ${user.is_current ? '<span class="user-current-badge">当前登录</span>' : ''}
@@ -491,6 +494,7 @@ function renderUserEditor() {
             ${userRoleField(user.role, !editable)}
             ${userEnabledField(user.enabled, !editable)}
         </div>
+        ${userCameraScopePanel(user.role, user.camera_access_all, user.camera_ids || [], !editable)}
         ${editable ? `
             <div class="user-editor-actions">
                 <button id="saveSelectedUserBtn" onclick="saveSelectedUser()" class="config-page-primary-btn config-page-primary-btn--compact" type="button">保存修改</button>
@@ -536,6 +540,7 @@ function renderCreateUserForm() {
             ${userPasswordField('密码', 'password')}
             ${userPasswordField('确认密码', 'password_confirm')}
         </div>
+        ${bootstrap ? '' : userCameraScopePanel('viewer', true, [], false)}
         <div class="user-editor-actions">
             <button onclick="createUser()" class="config-page-primary-btn config-page-primary-btn--compact" type="button">${bootstrap ? '创建管理员' : '创建用户'}</button>
             <button onclick="renderUserEditor()" class="config-page-secondary-btn config-page-secondary-btn--compact" type="button">取消</button>
@@ -577,12 +582,58 @@ function userRoleField(value, disabled) {
     return `
         <label class="user-form-field">
             <span>角色</span>
-            <select data-user-field="role" ${disabled ? 'disabled' : ''}>
+            <select data-user-field="role" onchange="syncUserCameraScopeVisibility()" ${disabled ? 'disabled' : ''}>
                 <option value="viewer" ${value === 'viewer' ? 'selected' : ''}>只读用户</option>
                 <option value="admin" ${value === 'admin' ? 'selected' : ''}>管理员</option>
             </select>
         </label>
     `;
+}
+
+function userCameraScopePanel(role, accessAll, cameraIds, disabled) {
+    const isViewer = role !== 'admin';
+    const selected = new Set(cameraIds || []);
+    const allChecked = accessAll !== false;
+    const optionMarkup = userCameraOptions.length > 0
+        ? userCameraOptions.map(option => {
+            const id = option.id || option;
+            return `
+                <label class="user-camera-option">
+                    <input data-user-camera-id="${escapeHtml(id)}" type="checkbox" ${selected.has(id) ? 'checked' : ''} ${disabled || allChecked ? 'disabled' : ''}>
+                    <span>${escapeHtml(id)}</span>
+                </label>
+            `;
+        }).join('')
+        : '<div class="user-camera-empty">当前配置里没有可分配的摄像头。</div>';
+
+    return `
+        <div class="user-camera-scope-panel ${isViewer ? '' : 'hidden'}" data-user-camera-scope>
+            <div class="user-camera-scope-head">
+                <strong>可访问摄像头</strong>
+                <label class="user-camera-all-toggle">
+                    <input data-user-camera-all type="checkbox" onchange="syncUserCameraScopeVisibility()" ${allChecked ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
+                    <span>全部摄像头</span>
+                </label>
+            </div>
+            <div class="user-camera-option-list">
+                ${optionMarkup}
+            </div>
+        </div>
+    `;
+}
+
+function syncUserCameraScopeVisibility() {
+    const role = readUserField('role') || 'viewer';
+    const panel = document.querySelector('[data-user-camera-scope]');
+    if (!panel) return;
+    const isViewer = role !== 'admin';
+    panel.classList.toggle('hidden', !isViewer);
+
+    const allToggle = panel.querySelector('[data-user-camera-all]');
+    const accessAll = allToggle ? allToggle.checked : true;
+    panel.querySelectorAll('[data-user-camera-id]').forEach(input => {
+        input.disabled = !isViewer || accessAll || Boolean(allToggle?.disabled);
+    });
 }
 
 function userEnabledField(checked, disabled) {
@@ -607,6 +658,21 @@ function readUserField(field) {
 
 function readUserChecked(field) {
     return Boolean(document.querySelector(`[data-user-field="${field}"]`)?.checked);
+}
+
+function readUserCameraScope(role) {
+    if (role === 'admin') {
+        return {camera_access_all: true, camera_ids: []};
+    }
+    const allToggle = document.querySelector('[data-user-camera-all]');
+    const accessAll = allToggle ? allToggle.checked : true;
+    if (accessAll) {
+        return {camera_access_all: true, camera_ids: []};
+    }
+    const cameraIds = Array.from(document.querySelectorAll('[data-user-camera-id]:checked'))
+        .map(input => input.dataset.userCameraId)
+        .filter(Boolean);
+    return {camera_access_all: false, camera_ids: cameraIds};
 }
 
 function clearUserEditorFeedbackTimer() {
@@ -639,12 +705,14 @@ async function createUser() {
         alert('两次输入的密码不一致');
         return;
     }
+    const role = bootstrap ? 'admin' : (readUserField('role') || 'viewer');
     const payload = {
         username: bootstrap ? 'admin' : readUserField('username').trim(),
         display_name: bootstrap ? (readUserField('display_name').trim() || 'admin') : readUserField('display_name').trim(),
-        role: bootstrap ? 'admin' : (readUserField('role') || 'viewer'),
+        role,
         password,
-        enabled: bootstrap ? true : readUserChecked('enabled')
+        enabled: bootstrap ? true : readUserChecked('enabled'),
+        ...readUserCameraScope(role)
     };
     const created = await sendUserRequest('/api/users', {
         method: 'POST',
@@ -674,13 +742,15 @@ async function saveSelectedUser() {
     }
     setUserEditorFeedback('正在保存...', 'info');
 
+    const role = readUserField('role') || 'viewer';
     const updated = await sendUserRequest(`/api/users/${encodeURIComponent(user.id)}`, {
         method: 'PATCH',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
             display_name: readUserField('display_name').trim(),
-            role: readUserField('role') || 'viewer',
-            enabled: readUserChecked('enabled')
+            role,
+            enabled: readUserChecked('enabled'),
+            ...readUserCameraScope(role)
         })
     });
     if (updated) {
@@ -751,6 +821,13 @@ function userRoleLabel(role) {
     return role === 'admin' ? '管理员' : '只读用户';
 }
 
+function userCameraScopeLabel(user) {
+    if (user.role === 'admin' || user.camera_access_all !== false) return '全部摄像头';
+    const count = Array.isArray(user.camera_ids) ? user.camera_ids.length : 0;
+    if (count === 0) return '无摄像头';
+    return `${count} 个摄像头`;
+}
+
 function userInitials(user) {
     const text = String(user.display_name || user.username || '?').trim();
     return (text[0] || '?').toUpperCase();
@@ -784,6 +861,7 @@ function renderUserDetailMeta(user) {
     const parts = [
         user.username,
         userRoleLabel(user.role),
+        userCameraScopeLabel(user),
         user.enabled ? '已启用' : '已停用'
     ];
     const loginMeta = renderUserLoginMeta(user, false);
@@ -1974,13 +2052,20 @@ async function loadStatus() {
         const list = document.getElementById('camList');
         const cameras = Object.entries(data || {});
         updateCameraStats(cameras);
+        const visibleCamIds = new Set(cameras.map(([id]) => id));
+        if (currentSelectedCam && !visibleCamIds.has(currentSelectedCam)) {
+            currentSelectedCam = null;
+            setSelectedRecordPath('');
+            renderRecordSelectionPrompt('当前账号不可访问原选中的摄像头');
+        }
 
         if (cameras.length === 0) {
             list.innerHTML = `
                 <div class="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-8 text-center text-sm font-bold text-slate-400">
-                    暂无实时节点
+                    暂无可访问的实时节点
                 </div>
             `;
+            if (!currentSelectedCam) renderRecordSelectionPrompt('当前账号暂无可访问摄像头');
             return;
         }
 

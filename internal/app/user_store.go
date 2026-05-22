@@ -27,12 +27,13 @@ const (
 var usernamePattern = regexp.MustCompile(`^[A-Za-z0-9_.-]{3,32}$`)
 
 type currentUser struct {
-	ID             string `json:"id"`
-	Username       string `json:"username"`
-	DisplayName    string `json:"display_name"`
-	Role           string `json:"role"`
-	Source         string `json:"source"`
-	SessionVersion int64  `json:"session_version"`
+	ID             string   `json:"id"`
+	Username       string   `json:"username"`
+	DisplayName    string   `json:"display_name"`
+	Role           string   `json:"role"`
+	Source         string   `json:"source"`
+	SessionVersion int64    `json:"session_version"`
+	CameraIDs      []string `json:"camera_ids"`
 }
 
 type userView struct {
@@ -50,6 +51,8 @@ type userView struct {
 	Online          bool              `json:"online"`
 	IsCurrent       bool              `json:"is_current"`
 	ActiveSessions  []userSessionView `json:"active_sessions,omitempty"`
+	CameraIDs       []string          `json:"camera_ids"`
+	CameraAccessAll bool              `json:"camera_access_all"`
 	Editable        bool              `json:"editable"`
 	CanDelete       bool              `json:"can_delete"`
 	PasswordManaged bool              `json:"password_managed"`
@@ -67,6 +70,7 @@ type storedUser struct {
 	UpdatedAt      time.Time  `json:"updated_at"`
 	LastLoginAt    *time.Time `json:"last_login_at,omitempty"`
 	LastLoginIP    string     `json:"last_login_ip,omitempty"`
+	CameraIDs      []string   `json:"camera_ids"`
 }
 
 type usersFile struct {
@@ -81,17 +85,21 @@ type userStore struct {
 }
 
 type createUserRequest struct {
-	Username    string `json:"username"`
-	DisplayName string `json:"display_name"`
-	Role        string `json:"role"`
-	Password    string `json:"password"`
-	Enabled     *bool  `json:"enabled"`
+	Username        string   `json:"username"`
+	DisplayName     string   `json:"display_name"`
+	Role            string   `json:"role"`
+	Password        string   `json:"password"`
+	Enabled         *bool    `json:"enabled"`
+	CameraIDs       []string `json:"camera_ids"`
+	CameraAccessAll *bool    `json:"camera_access_all"`
 }
 
 type updateUserRequest struct {
-	DisplayName *string `json:"display_name"`
-	Role        *string `json:"role"`
-	Enabled     *bool   `json:"enabled"`
+	DisplayName     *string  `json:"display_name"`
+	Role            *string  `json:"role"`
+	Enabled         *bool    `json:"enabled"`
+	CameraIDs       []string `json:"camera_ids"`
+	CameraAccessAll *bool    `json:"camera_access_all"`
 }
 
 type updatePasswordRequest struct {
@@ -233,6 +241,7 @@ func (s *userStore) createUser(req createUserRequest, reservedUsername string) (
 		SessionVersion: 1,
 		CreatedAt:      now,
 		UpdatedAt:      now,
+		CameraIDs:      normalizeStoredCameraIDsForRole(role, req.CameraIDs),
 	}
 
 	s.mux.Lock()
@@ -324,6 +333,13 @@ func (s *userStore) updateUser(id string, req updateUserRequest) (storedUser, er
 	}
 	if req.Enabled != nil {
 		next.Enabled = *req.Enabled
+	}
+	if next.Role == userRoleAdmin {
+		next.CameraIDs = nil
+	} else if req.CameraAccessAll != nil && *req.CameraAccessAll {
+		next.CameraIDs = nil
+	} else if req.CameraAccessAll != nil || req.CameraIDs != nil {
+		next.CameraIDs = normalizeStoredCameraIDs(req.CameraIDs)
 	}
 	if next.Role != user.Role || next.Enabled != user.Enabled {
 		next.SessionVersion++
@@ -472,6 +488,7 @@ func currentUserFromStored(user storedUser) currentUser {
 		Role:           user.Role,
 		Source:         userSourceLocal,
 		SessionVersion: user.SessionVersion,
+		CameraIDs:      cloneStringSlice(user.CameraIDs),
 	}
 }
 
@@ -518,10 +535,47 @@ func userViewFromStored(user storedUser) userView {
 		UpdatedAt:       user.UpdatedAt,
 		LastLoginAt:     user.LastLoginAt,
 		LastLoginIP:     user.LastLoginIP,
+		CameraIDs:       cloneStringSlice(user.CameraIDs),
+		CameraAccessAll: storedUserCanAccessAllCameras(user),
 		Editable:        true,
 		CanDelete:       true,
 		PasswordManaged: true,
 	}
+}
+
+func normalizeStoredCameraIDsForRole(role string, cameraIDs []string) []string {
+	if role == userRoleAdmin {
+		return nil
+	}
+	return normalizeStoredCameraIDs(cameraIDs)
+}
+
+func normalizeStoredCameraIDs(cameraIDs []string) []string {
+	if cameraIDs == nil {
+		return nil
+	}
+	seen := make(map[string]bool, len(cameraIDs))
+	result := make([]string, 0, len(cameraIDs))
+	for _, id := range cameraIDs {
+		id = strings.TrimSpace(id)
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		result = append(result, id)
+	}
+	return result
+}
+
+func cloneStringSlice(values []string) []string {
+	if values == nil {
+		return nil
+	}
+	return append([]string(nil), values...)
+}
+
+func storedUserCanAccessAllCameras(user storedUser) bool {
+	return user.Role == userRoleAdmin || user.CameraIDs == nil
 }
 
 func isNotFound(err error) bool {

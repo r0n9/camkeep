@@ -71,18 +71,19 @@ func startWebServer() {
 	// 让 CamKeep 作为统一网关，直接代理 go2rtc 的全能自适应直播功能
 	go2rtcURL, _ := url.Parse(fmt.Sprintf("http://%s:%d", constant.DefaultGo2rtcHost, constant.DefaultGo2rtcApiPort))
 	go2rtcProxy := httputil.NewSingleHostReverseProxy(go2rtcURL)
+	go2rtcProxyHandler := gin.WrapH(go2rtcProxy)
 
 	// 1. 代理 go2rtc 的自适应播放器页面及内部依赖的 JS (解决跨域和单端口问题)
-	protected.GET("/stream.html", gin.WrapH(go2rtcProxy))
-	protected.GET("/video-stream.js", gin.WrapH(go2rtcProxy))
-	protected.GET("/video-rtc.js", gin.WrapH(go2rtcProxy))
-	protected.GET("/webrtc.html", gin.WrapH(go2rtcProxy))
+	protected.GET("/stream.html", requireQueryCameraAccess("src"), go2rtcProxyHandler)
+	protected.GET("/video-stream.js", go2rtcProxyHandler)
+	protected.GET("/video-rtc.js", go2rtcProxyHandler)
+	protected.GET("/webrtc.html", go2rtcProxyHandler)
 
 	// 2. 代理流媒体协商相关的 API (含 WebSocket 支持，自动兼容不同浏览器的降级)
-	protected.Any("/api/ws", gin.WrapH(go2rtcProxy))
-	protected.Any("/api/webrtc", gin.WrapH(go2rtcProxy))
-	protected.Any("/api/stream.mp4", gin.WrapH(go2rtcProxy))
-	protected.Any("/api/stream.m3u8", gin.WrapH(go2rtcProxy))
+	protected.Any("/api/ws", requireQueryCameraAccess("src"), go2rtcProxyHandler)
+	protected.Any("/api/webrtc", requireQueryCameraAccess("src"), go2rtcProxyHandler)
+	protected.Any("/api/stream.mp4", requireQueryCameraAccess("src"), go2rtcProxyHandler)
+	protected.Any("/api/stream.m3u8", requireQueryCameraAccess("src"), go2rtcProxyHandler)
 
 	// 5. 【全新】WebRTC 代理接口 (替代原来的 FLV 转码)
 	protected.POST("/webrtc/:id", handleWebRTCProxy)

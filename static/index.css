@@ -2941,6 +2941,7 @@ html.dark .record-timeline-card-action-delete:hover {
 .user-status-badge,
 .user-session-badge,
 .user-current-badge,
+.user-camera-scope-badge,
 .user-source-badge {
     display: inline-flex;
     align-items: center;
@@ -2984,6 +2985,11 @@ html.dark .record-timeline-card-action-delete:hover {
 .user-current-badge {
     background: #fef3c7;
     color: #b45309;
+}
+
+.user-camera-scope-badge {
+    background: #f0f9ff;
+    color: #0369a1;
 }
 
 .user-list-login-meta {
@@ -3145,6 +3151,83 @@ html.dark .record-timeline-card-action-delete:hover {
     border-radius: 16px;
     background: #f8fafc;
     padding: 14px;
+}
+
+.user-camera-scope-panel {
+    margin-top: 14px;
+    border: 1px solid #dbeafe;
+    border-radius: 16px;
+    background: #f8fafc;
+    padding: 14px;
+}
+
+.user-camera-scope-panel.hidden {
+    display: none;
+}
+
+.user-camera-scope-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.user-camera-scope-head strong {
+    color: #0f172a;
+    font-size: 12px;
+    font-weight: 950;
+}
+
+.user-camera-all-toggle,
+.user-camera-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: #334155;
+    font-size: 11px;
+    font-weight: 850;
+}
+
+.user-camera-all-toggle input,
+.user-camera-option input {
+    width: 14px;
+    height: 14px;
+    accent-color: #2563eb;
+}
+
+.user-camera-option-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 8px;
+}
+
+.user-camera-option {
+    min-width: 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #ffffff;
+    padding: 8px 9px;
+}
+
+.user-camera-option span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.user-camera-option input:disabled + span {
+    color: #94a3b8;
+}
+
+.user-camera-empty {
+    border: 1px dashed #cbd5e1;
+    border-radius: 10px;
+    color: #64748b;
+    padding: 10px;
+    font-size: 11px;
+    font-weight: 800;
 }
 
 .user-password-panel .config-page-secondary-btn {
@@ -4442,6 +4525,11 @@ html.dark .user-current-badge {
     color: #fcd34d;
 }
 
+html.dark .user-camera-scope-badge {
+    background: rgba(14, 116, 144, 0.22);
+    color: #67e8f9;
+}
+
 html.dark .user-source-badge {
     border-color: rgba(51, 65, 85, 0.9);
     background: rgba(30, 41, 59, 0.72);
@@ -4482,6 +4570,31 @@ html.dark .user-form-field--switch .config-toggle-control {
 
 html.dark .user-form-field--switch .config-toggle-control > span:first-child {
     color: #cbd5e1;
+}
+
+html.dark .user-camera-scope-panel {
+    border-color: rgba(51, 65, 85, 0.9);
+    background: rgba(15, 23, 42, 0.74);
+}
+
+html.dark .user-camera-scope-head strong,
+html.dark .user-camera-all-toggle,
+html.dark .user-camera-option {
+    color: #cbd5e1;
+}
+
+html.dark .user-camera-option {
+    border-color: rgba(51, 65, 85, 0.9);
+    background: rgba(2, 6, 23, 0.42);
+}
+
+html.dark .user-camera-option input:disabled + span {
+    color: #64748b;
+}
+
+html.dark .user-camera-empty {
+    border-color: rgba(71, 85, 105, 0.9);
+    color: #94a3b8;
 }
 
 html.dark .user-danger-btn {
