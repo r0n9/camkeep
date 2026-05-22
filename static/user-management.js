@@ -273,9 +273,10 @@ function userCameraScopePanel(role, accessAll, cameraIds, disabled) {
     const optionMarkup = userCameraOptions.length > 0
         ? userCameraOptions.map(option => {
             const id = option.id || option;
+            const optionChecked = allChecked || selected.has(id);
             return `
                 <label class="user-camera-option">
-                    <input data-user-camera-id="${escapeHtml(id)}" type="checkbox" ${selected.has(id) ? 'checked' : ''} ${disabled || allChecked ? 'disabled' : ''}>
+                    <input data-user-camera-id="${escapeHtml(id)}" type="checkbox" ${optionChecked ? 'checked' : ''} ${disabled || allChecked ? 'disabled' : ''}>
                     <span>${escapeHtml(id)}</span>
                 </label>
             `;
@@ -308,6 +309,9 @@ function syncUserCameraScopeVisibility() {
     const allToggle = panel.querySelector('[data-user-camera-all]');
     const accessAll = allToggle ? allToggle.checked : true;
     panel.querySelectorAll('[data-user-camera-id]').forEach(input => {
+        if (accessAll) {
+            input.checked = true;
+        }
         input.disabled = !isViewer || accessAll || Boolean(allToggle?.disabled);
     });
 }
