@@ -151,6 +151,39 @@
     filter: drop-shadow(0 1px 1px rgba(2, 6, 23, 0.4));
 }
 
+.ptz-action-icon {
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    background-image: url("/static/ptz-icons.png");
+    background-repeat: no-repeat;
+    filter: drop-shadow(0 1px 1px rgba(2, 6, 23, 0.4));
+}
+
+.ptz-icon-zoom-in {
+    background-position: -90px 0;
+}
+
+.ptz-icon-zoom-out {
+    background-position: -126px 0;
+}
+
+.ptz-icon-focus-near {
+    background-position: -90px -30px;
+}
+
+.ptz-icon-focus-far {
+    background-position: -126px -30px;
+}
+
+.ptz-icon-iris-open {
+    background-position: -90px -60px;
+}
+
+.ptz-icon-iris-close {
+    background-position: -126px -60px;
+}
+
 .ptz-action-btn span {
     min-width: 0;
 }

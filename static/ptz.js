@@ -156,13 +156,16 @@
     `;
     }
 
-    function controlButton(title, variantClass, path, disabled = '', pointerDownAction = null, pointerUpAction = null, clickAction = null) {
+    function controlButton(title, variantClass, path, disabled = '', pointerDownAction = null, pointerUpAction = null, clickAction = null, iconClass = '') {
         const pointerAttrs = pointerDownAction ? `
                 onpointerdown="${pointerDownAction}"
                 onpointerup="${pointerUpAction || ''}"
                 onpointercancel="${pointerUpAction || ''}"
                 onlostpointercapture="${pointerUpAction || ''}"` : '';
         const clickAttr = clickAction ? ` onclick="${clickAction}"` : '';
+        const iconMarkup = iconClass
+            ? `<span class="ptz-action-icon ${iconClass}" aria-hidden="true"></span>`
+            : `<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">${path}</svg>`;
         return `
         <button class="ptz-action-btn px-2 ${variantClass}"
                 title="${title}"
@@ -170,7 +173,7 @@
                 ${clickAttr}${pointerAttrs}
                 oncontextmenu="window.PTZ.suppressGesture(event)"
                 ${disabled}>
-            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">${path}</svg>
+            ${iconMarkup}
             <span class="truncate">${title}</span>
         </button>
     `;
@@ -234,22 +237,22 @@
 
             <div class="ptz-tool-panel mt-2 p-1.5${disabledClass}">
                 <div class="ptz-control-grid">
-                    ${controlButton('拉近', 'ptz-zoom', '<path d="M12 5v14M5 12h14" />', disabled, 'window.PTZ.startMove(event, 0, 0, 1)', 'window.PTZ.stopMove(event)')}
-                    ${controlButton('拉远', 'ptz-zoom', '<path d="M5 12h14" />', disabled, 'window.PTZ.startMove(event, 0, 0, -1)', 'window.PTZ.stopMove(event)')}
+                    ${controlButton('拉近', 'ptz-zoom', '', disabled, 'window.PTZ.startMove(event, 0, 0, 1)', 'window.PTZ.stopMove(event)', null, 'ptz-icon-zoom-in')}
+                    ${controlButton('拉远', 'ptz-zoom', '', disabled, 'window.PTZ.startMove(event, 0, 0, -1)', 'window.PTZ.stopMove(event)', null, 'ptz-icon-zoom-out')}
                 </div>
             </div>
 
             <div class="ptz-tool-panel mt-1.5 p-1.5${imagingDisabledClass}">
                 <div class="ptz-control-grid">
-                    ${controlButton('近焦', 'ptz-focus', '<path d="M12 5v14M5 12h14" /><circle cx="12" cy="12" r="6" />', imagingDisabled, null, null, 'window.PTZ.adjustFocus(event, -1)')}
-                    ${controlButton('远焦', 'ptz-focus', '<circle cx="12" cy="12" r="7" /><path d="M7 12h10" />', imagingDisabled, null, null, 'window.PTZ.adjustFocus(event, 1)')}
+                    ${controlButton('近焦', 'ptz-focus', '', imagingDisabled, null, null, 'window.PTZ.adjustFocus(event, -1)', 'ptz-icon-focus-near')}
+                    ${controlButton('远焦', 'ptz-focus', '', imagingDisabled, null, null, 'window.PTZ.adjustFocus(event, 1)', 'ptz-icon-focus-far')}
                 </div>
             </div>
 
             <div class="ptz-tool-panel mt-1.5 p-1.5${imagingDisabledClass}">
                 <div class="ptz-control-grid">
-                    ${controlButton('开大', 'ptz-iris', '<circle cx="12" cy="12" r="7" /><path d="M12 8v8M8 12h8" />', imagingDisabled, null, null, 'window.PTZ.adjustIris(event, 1)')}
-                    ${controlButton('收小', 'ptz-iris', '<circle cx="12" cy="12" r="7" /><path d="M8 12h8" />', imagingDisabled, null, null, 'window.PTZ.adjustIris(event, -1)')}
+                    ${controlButton('开大', 'ptz-iris', '', imagingDisabled, null, null, 'window.PTZ.adjustIris(event, 1)', 'ptz-icon-iris-open')}
+                    ${controlButton('收小', 'ptz-iris', '', imagingDisabled, null, null, 'window.PTZ.adjustIris(event, -1)', 'ptz-icon-iris-close')}
                 </div>
             </div>
 

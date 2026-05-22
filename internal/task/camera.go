@@ -405,9 +405,10 @@ func startFFmpeg(ctx context.Context, cam constant.Camera, camDir string) *exec.
 			"-strftime", "1",
 		}
 
-		// 如果普通模式是 mp4，加上 fMP4 标记，让浏览器可以流式播放
+		// 普通模式的 MP4 碎片落盘后作为点播文件使用，优先生成标准 faststart MP4，
+		// 让浏览器原生播放器更容易秒开、识别时长和拖拽。
 		if cam.Format == "mp4" {
-			args = append(args, "-segment_format_options", "movflags=frag_keyframe+empty_moov")
+			args = append(args, "-segment_format_options", "movflags=+faststart")
 		}
 
 		// 最后统一追加文件名

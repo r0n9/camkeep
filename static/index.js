@@ -1994,7 +1994,9 @@ async function playRecord(file, title, options = {}) {
     const targetCell = activeCell;
     const recordPath = getRecordPath(file);
     const seekSeconds = normalizeSeekSeconds(options.seekSeconds);
-    const isMergedMP4 = file.name.toLowerCase().endsWith('.mp4') && file.name.includes('_merged');
+    const lowerFileName = file.name.toLowerCase();
+    const isMP4Record = lowerFileName.endsWith('.mp4');
+    const isMergedMP4 = isMP4Record && file.name.includes('_merged');
     setSelectedRecordPath(recordPath);
     showProbeLoadingInCell(targetCell, title, recordPath);
 
@@ -2019,7 +2021,23 @@ async function playRecord(file, title, options = {}) {
             return;
         }
 
-        // 2. 零散 H.265 碎片需要重封装或拦截
+        // 2. 普通 MP4 碎片已经按 faststart 点播文件输出，支持 HEVC 时直接交给原生播放器。
+        if (probe.can_probe && probe.is_h265 && isMP4Record) {
+            if (!browserSupportsHEVC()) {
+                showRecordPlaybackRestricted(
+                    targetCell,
+                    title,
+                    recordPath,
+                    '当前设备或浏览器不支持 H.265 MP4 录像播放。'
+                );
+                return;
+            }
+
+            playRecordNative(targetCell, file.url, title, recordPath, seekSeconds);
+            return;
+        }
+
+        // 3. H.265 TS/其他碎片需要重封装或拦截
         if (probe.can_probe && probe.is_h265) {
             const isAppleNative = isAppleNativePlayback();
             const supportHEVC = browserSupportsHEVC();
@@ -2063,8 +2081,12 @@ async function playRecord(file, title, options = {}) {
 }
 
 function playMergedRecordNative(targetCell, file, title, recordPath, seekSeconds) {
-    cellData[targetCell] = {source: file.url, isLive: false, title, recordPath, seekSeconds, forceNative: true};
-    executePlayInCell(targetCell, file.url, false, title, true, null, {seekSeconds});
+    playRecordNative(targetCell, file.url, title, recordPath, seekSeconds);
+}
+
+function playRecordNative(targetCell, source, title, recordPath, seekSeconds) {
+    cellData[targetCell] = {source, isLive: false, title, recordPath, seekSeconds, forceNative: true};
+    executePlayInCell(targetCell, source, false, title, true, null, {seekSeconds});
     updateFocusUI();
 }
 
