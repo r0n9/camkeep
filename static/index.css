@@ -3147,6 +3147,10 @@ html.dark .record-timeline-card-action-delete:hover {
     padding: 14px;
 }
 
+.user-password-panel .config-page-secondary-btn {
+    margin-top: 12px;
+}
+
 .user-editor-note,
 .user-list-loading,
 .user-list-empty,
