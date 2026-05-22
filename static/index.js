@@ -3030,35 +3030,19 @@ function parseRecordMeta(file) {
     const date = dateMatch ? dateMatch[0] : '其他归档';
     const timeParts = parseRecordTimeParts(name, path);
     const ext = (name.split('.').pop() || '').toUpperCase();
-    const isMotion = /_motion(?:\.|_merged)/i.test(name);
-    const isMerged = /_merged\./i.test(name);
-    const isTimelapse = /_timelapse\./i.test(name);
-    const timeDisplay = timeParts && timeParts.start ? `${timeParts.start.hourText}:${timeParts.start.minuteText}:${timeParts.start.secondText}` : (isMerged ? name : '整段录像');
+    const kindInfo = classifyRecordKindByName(name);
+    const timeDisplay = timeParts && timeParts.start ? `${timeParts.start.hourText}:${timeParts.start.minuteText}:${timeParts.start.secondText}` : (kindInfo.merged ? name : '整段录像');
     const sortKey = timeParts && timeParts.start ? `${timeParts.start.hourText}${timeParts.start.minuteText}${timeParts.start.secondText}_${name}` : name;
-    const kind = isMotion ? '动检' : isTimelapse ? '延时' : isMerged ? '合并' : '切片';
-    const kindClass = isMotion
-        ? 'bg-amber-50 text-amber-700 ring-amber-100'
-        : isTimelapse
-            ? 'bg-purple-50 text-purple-700 ring-purple-100'
-            : isMerged
-                ? 'bg-emerald-50 text-emerald-700 ring-emerald-100'
-                : 'bg-slate-100 text-slate-500 ring-slate-200';
-    const iconClass = isMotion
-        ? 'bg-amber-50 text-amber-600 ring-amber-100'
-        : isTimelapse
-            ? 'bg-purple-50 text-purple-600 ring-purple-100'
-            : isMerged
-                ? 'bg-emerald-50 text-emerald-600 ring-emerald-100'
-                : 'bg-blue-50 text-blue-600 ring-blue-100';
 
     return {
         date,
         timeDisplay,
         sortKey,
         ext,
-        kind,
-        kindClass,
-        iconClass,
+        kind: kindInfo.label,
+        kindKey: kindInfo.key,
+        kindClass: kindInfo.kindClass,
+        iconClass: kindInfo.iconClass,
         hasStartTime: Boolean(timeParts && timeParts.start),
         startSeconds: timeParts && timeParts.start ? timeParts.start.startSeconds : null,
         hasEndTime: Boolean(timeParts && timeParts.end),
@@ -3066,6 +3050,61 @@ function parseRecordMeta(file) {
         timelineEndSeconds: timeParts ? timeParts.timelineEndSeconds : null,
         estimatedEndSeconds: timeParts ? timeParts.estimatedEndSeconds : null
     };
+}
+
+function classifyRecordKindByName(name) {
+    const lower = String(name || '').toLowerCase();
+    if (/_timelapse\./.test(lower)) return recordKindPresentation('timelapse');
+    if (/_motion_merged\./.test(lower)) return recordKindPresentation('motion_merged');
+    if (/_motion\./.test(lower)) return recordKindPresentation('motion_fragment');
+    if (/_merged\./.test(lower)) return recordKindPresentation('normal_merged');
+    return recordKindPresentation('normal_fragment');
+}
+
+function recordKindPresentation(key) {
+    switch (key) {
+        case 'motion_merged':
+            return {
+                key,
+                label: '动检合并',
+                merged: true,
+                kindClass: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
+                iconClass: 'bg-emerald-50 text-emerald-600 ring-emerald-100'
+            };
+        case 'motion_fragment':
+            return {
+                key,
+                label: '动检碎片',
+                merged: false,
+                kindClass: 'bg-amber-50 text-amber-700 ring-amber-100',
+                iconClass: 'bg-amber-50 text-amber-600 ring-amber-100'
+            };
+        case 'normal_merged':
+            return {
+                key,
+                label: '普通合并',
+                merged: true,
+                kindClass: 'bg-blue-50 text-blue-700 ring-blue-100',
+                iconClass: 'bg-blue-50 text-blue-600 ring-blue-100'
+            };
+        case 'timelapse':
+            return {
+                key,
+                label: '延时录像',
+                merged: false,
+                kindClass: 'bg-purple-50 text-purple-700 ring-purple-100',
+                iconClass: 'bg-purple-50 text-purple-600 ring-purple-100'
+            };
+        case 'normal_fragment':
+        default:
+            return {
+                key: 'normal_fragment',
+                label: '普通碎片',
+                merged: false,
+                kindClass: 'bg-slate-100 text-slate-500 ring-slate-200',
+                iconClass: 'bg-slate-50 text-slate-500 ring-slate-200'
+            };
+    }
 }
 
 function parseRecordTimeParts(name, path) {
@@ -3166,6 +3205,7 @@ function createRecordItem(camId, file, meta, options = {}) {
         ? `group record-timeline-card ${cursorClass} rounded-lg border border-slate-200 bg-white shadow-sm transition-all hover:border-blue-300 hover:shadow active:scale-[0.99]`
         : `group flex ${cursorClass} items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5 shadow-sm transition-all hover:border-blue-300 hover:shadow active:scale-[0.99]`;
     item.dataset.recordPath = recordPath;
+    item.dataset.recordKind = meta.kindKey || '';
     item.onclick = () => {
         if (!clickPlaysRecord) {
             setSelectedRecordPath(recordPath);
