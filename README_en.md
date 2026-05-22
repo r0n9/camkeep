@@ -23,7 +23,7 @@ CamKeep is not intended to replace large enterprise video security platforms. It
 
 * **Minimal**: Single-container deployment, small configuration surface, and common operations available in the Web console instead of forcing users into complex video engineering details.
 * **Low power**: Reuse go2rtc stream proxying, use stream copy by default for recording, and keep cover/status refresh frequency and concurrency under control for long-running NAS or ARM devices.
-* **LAN-safe**: Local-first by default, no cloud dependency, and no video or device upload. Deploy it inside a trusted LAN, and enable built-in authentication or a reverse proxy when needed.
+* **LAN-safe**: Local-first by default, no cloud dependency, and no video or device upload. Deploy it inside a trusted LAN, and enable local user authentication or a reverse proxy when needed.
 
 ## ✨ Feature Highlights
 
@@ -36,7 +36,7 @@ CamKeep is not intended to replace large enterprise video security platforms. It
 * 🎥 **Practical recording modes**: Scheduled recording, manual start/stop, motion recording, timelapse, TS/MP4 segments, historical playback, download, and deletion.
 * 🧠 **Efficient motion recording**: In normal mode, `motion_detect` uses low-resolution frame differencing and a Time-Shift cache to save event clips only when the scene changes.
 * 🧹 **Automatic storage management**: Retention cleanup, minimum-size filtering, and optional daily hourly merge keep long-running NAS deployments manageable.
-* 🔒 **Local-first by default**: No cloud dependency, no required account, and no camera data upload. Optional login authentication is enabled through environment variables.
+* 🔒 **Local users and access control**: No cloud dependency, no required account, and no camera data upload. CamKeep supports local admin/viewer users, online session status, and per-camera visibility for viewers.
 
 ## Status And Modes
 
@@ -61,9 +61,11 @@ stream_url: "managed_by_go2rtc"
 
 The Docker image includes go2rtc and FFmpeg. Host networking is recommended, especially for low-latency WebRTC live view.
 
-### 1. Prepare Directory And Config
+### 1. Prepare Directory And Optional Config
 
-Create a base directory on your NAS or server, for example `/vol1/CamKeep`, and prepare `config/conf.yaml`. See [Configuration Usage](./conf_usage.md) for all fields.
+Create a base directory on your NAS or server, for example `/vol1/CamKeep`. For first-time deployment, you only need the `config/` and `records/` directories; if `config/conf.yaml` is missing, CamKeep will generate a default template on first start. You can still pre-create the file if you want a custom starting config. See [Configuration Usage](./conf_usage.md) for all fields.
+
+The snippet below is only an optional starting example. You can also start the service first and then edit the generated template in Web Configuration.
 
 ```yaml
 daily_merge:
@@ -89,7 +91,9 @@ The `records` directory stores video files and the latest persisted cover image 
 
 ### 2. Start The Service
 
-`CAMKEEP_AUTH_PASSWORD` enables login authentication. If it is not set, authentication remains disabled, and `CAMKEEP_AUTH_USER` / `CAMKEEP_SESSION_SECRET` are unnecessary.
+Login authentication is controlled by the local user file `config/users.json`. `CAMKEEP_AUTH_PASSWORD` is only used to bootstrap or add the built-in `admin` account; after the user file exists, login uses `users.json`, and changing the environment variable will not overwrite existing user passwords.
+
+If `CAMKEEP_AUTH_PASSWORD` is not set and `users.json` is empty, the Web console starts with authentication disabled. You can create the first `admin` user from User Management, which enables login protection. `CAMKEEP_SESSION_SECRET` is an optional session signing key; if it is left empty, CamKeep generates a temporary key and users must log in again after restart. Set it only when you want sessions to survive restarts. When serving CamKeep through an HTTPS reverse proxy, you can set `CAMKEEP_AUTH_COOKIE_SECURE=true`.
 
 #### Docker Run
 
@@ -99,9 +103,7 @@ docker run -d \
   --restart unless-stopped \
   --network host \
   -e TZ=Asia/Shanghai \
-  -e CAMKEEP_AUTH_USER=admin \
   -e CAMKEEP_AUTH_PASSWORD=admin \
-  -e CAMKEEP_SESSION_SECRET=B1JM12wvPLHL9bturc2DfiFFvHjtntl2+OG+V/2yXjg= \
   -v ${PWD}/config:/app/config \
   -v ${PWD}/records:/app/records \
   ghcr.io/r0n9/camkeep:latest
@@ -118,9 +120,7 @@ services:
     network_mode: "host" # Recommended for WebRTC
     environment:
       - TZ=Asia/Shanghai
-      - CAMKEEP_AUTH_USER=admin
       - CAMKEEP_AUTH_PASSWORD=admin
-      - CAMKEEP_SESSION_SECRET=B1JM12wvPLHL9bturc2DfiFFvHjtntl2+OG+V/2yXjg=
     volumes:
       - ./config:/app/config
       - ./records:/app/records
@@ -138,15 +138,18 @@ Then run:
 docker-compose up -d
 ```
 
+To keep existing login sessions after service restarts, optionally set a fixed `CAMKEEP_SESSION_SECRET`.
+
 ### 3. Open The Console
 
-Visit `http://<Your-NAS-IP>:9110` in your browser. If authentication is enabled, log in with the configured environment variables.
+Visit `http://<Your-NAS-IP>:9110` in your browser. If `CAMKEEP_AUTH_PASSWORD` bootstrapped the admin account, log in as `admin` with that password. Manage later users, passwords, and permissions in Web User Management.
 
 ## Web Console
 
 * **Live dashboard**: Cover image, online state, recording state, manual recording controls, and live preview.
 * **History playback**: Camera/date based browsing with card list, classic timeline, and 24H timeline playback.
 * **Configuration**: Form and YAML editors, batch camera add, and importing unmanaged go2rtc streams.
+* **User management**: Local users, admin/viewer roles, enable/disable accounts, password resets, online session status, and per-camera access scope for viewers.
 * **ONVIF controls**: PTZ, zoom, focus, and iris controls for supported devices.
 * **Update check**: CamKeep checks GitHub Releases asynchronously after startup and then periodically. Stable builds show an update entry when a newer stable release exists. `dev`, `test`, and custom versions are not marked as stable upgrades.
 
