@@ -1994,59 +1994,44 @@ async function playRecord(file, title, options = {}) {
     const targetCell = activeCell;
     const recordPath = getRecordPath(file);
     const seekSeconds = normalizeSeekSeconds(options.seekSeconds);
+    const isMergedMP4 = file.name.toLowerCase().endsWith('.mp4') && file.name.includes('_merged');
     setSelectedRecordPath(recordPath);
     showProbeLoadingInCell(targetCell, title, recordPath);
 
     try {
-        // 1. 合并后的完美大 MP4：所有设备直接走原生秒开播放
-        if (file.name.toLowerCase().endsWith('.mp4') && file.name.includes('_merged')) {
-            cellData[targetCell] = {source: file.url, isLive: false, title, recordPath, seekSeconds, forceNative: true};
-            // 传入 true，强制使用原生的 <video> 标签播放 mp4
-            executePlayInCell(targetCell, file.url, false, title, true, null, {seekSeconds});
-            updateFocusUI();
-            return;
-        }
-
-        // 2. 针对零散碎片进行探测
+        // 1. 先探测编码。合并 MP4 也可能是 H.265，不能无条件走原生播放。
         const resp = await fetch(`/api/record/probe?path=${encodeURIComponent(file.path)}`);
         const probe = await resp.json();
         if (!isCurrentRecordPlaybackRequest(targetCell, recordPath)) return;
 
-        // 探测成功，且确实是 H.265 编码
+        if (isMergedMP4) {
+            if (probe.can_probe && probe.is_h265 && !browserSupportsHEVC()) {
+                showRecordPlaybackRestricted(
+                    targetCell,
+                    title,
+                    recordPath,
+                    '当前设备或浏览器不支持 H.265 合并录像播放。'
+                );
+                return;
+            }
+
+            playMergedRecordNative(targetCell, file, title, recordPath, seekSeconds);
+            return;
+        }
+
+        // 2. 零散 H.265 碎片需要重封装或拦截
         if (probe.can_probe && probe.is_h265) {
             const isAppleNative = isAppleNativePlayback();
             const supportHEVC = browserSupportsHEVC();
 
             if (isAppleNative || !supportHEVC) {
                 // 直接拦截并抛出不支持的 UI 提示，不再走转码逻辑
-                stopCellPlayback(targetCell);
-                cellData[targetCell] = {source: '', isLive: false, title: `${title} · 播放受限`, recordPath};
-
-                const emptyState = document.getElementById(`empty-state-${targetCell}`);
-                const label = document.getElementById(`label-${targetCell}`);
-                const closeBtn = document.getElementById(`close-cell-${targetCell}`);
-
-                if (label) {
-                    label.classList.remove('hidden');
-                    label.innerText = `${title} · 限制`;
-                }
-                if (closeBtn) {
-                    closeBtn.classList.remove('hidden');
-                    closeBtn.classList.add('flex');
-                }
-                if (emptyState) {
-                    emptyState.classList.remove('hidden');
-                    emptyState.classList.remove('pointer-events-none');
-                    emptyState.innerHTML = `
-                        <div class="max-w-[86%] rounded-lg border border-red-500/30 bg-black/70 px-4 py-3 text-center text-white shadow-xl backdrop-blur-md">
-                            <div class="text-sm font-bold mb-1 text-red-400">⚠️ 播放受限</div>
-                            <div class="text-xs leading-relaxed text-white/80">
-                                当前设备或浏览器不支持 H.265 录像片段播放。自动合并后的录像也许不受此影响。
-                            </div>
-                        </div>
-                    `;
-                }
-                updateFocusUI();
+                showRecordPlaybackRestricted(
+                    targetCell,
+                    title,
+                    recordPath,
+                    '当前设备或浏览器不支持 H.265 录像片段播放。自动合并后的录像也许不受此影响。'
+                );
                 return;
             }
 
@@ -2065,10 +2050,52 @@ async function playRecord(file, title, options = {}) {
     }
     if (!isCurrentRecordPlaybackRequest(targetCell, recordPath)) return;
 
+    if (isMergedMP4) {
+        playMergedRecordNative(targetCell, file, title, recordPath, seekSeconds);
+        return;
+    }
+
     // 非 H.265 的 .ts 碎片，走默认播放逻辑 (HLS 或 mpegts)
     cellData[targetCell] = {source: file.url, isLive: false, title, recordPath, seekSeconds};
     // 不强制使用原生播放器
     executePlayInCell(targetCell, file.url, false, title, false, null, {seekSeconds});
+    updateFocusUI();
+}
+
+function playMergedRecordNative(targetCell, file, title, recordPath, seekSeconds) {
+    cellData[targetCell] = {source: file.url, isLive: false, title, recordPath, seekSeconds, forceNative: true};
+    executePlayInCell(targetCell, file.url, false, title, true, null, {seekSeconds});
+    updateFocusUI();
+}
+
+function showRecordPlaybackRestricted(targetCell, title, recordPath, message) {
+    stopCellPlayback(targetCell);
+    cellData[targetCell] = {source: '', isLive: false, title: `${title} · 播放受限`, recordPath};
+
+    const emptyState = document.getElementById(`empty-state-${targetCell}`);
+    const label = document.getElementById(`label-${targetCell}`);
+    const closeBtn = document.getElementById(`close-cell-${targetCell}`);
+
+    if (label) {
+        label.classList.remove('hidden');
+        label.innerText = `${title} · 限制`;
+    }
+    if (closeBtn) {
+        closeBtn.classList.remove('hidden');
+        closeBtn.classList.add('flex');
+    }
+    if (emptyState) {
+        emptyState.classList.remove('hidden');
+        emptyState.classList.remove('pointer-events-none');
+        emptyState.innerHTML = `
+            <div class="max-w-[86%] rounded-lg border border-red-500/30 bg-black/70 px-4 py-3 text-center text-white shadow-xl backdrop-blur-md">
+                <div class="text-sm font-bold mb-1 text-red-400">⚠️ 播放受限</div>
+                <div class="text-xs leading-relaxed text-white/80">
+                    ${message}
+                </div>
+            </div>
+        `;
+    }
     updateFocusUI();
 }
 
