@@ -1510,6 +1510,7 @@ async function loadStatus() {
         if (currentSelectedCam && !visibleCamIds.has(currentSelectedCam)) {
             currentSelectedCam = null;
             setSelectedRecordPath('');
+            updateSelectedRecordCameraBadge('');
             renderRecordSelectionPrompt('当前账号不可访问原选中的摄像头');
         }
 
@@ -1991,12 +1992,14 @@ function updateFocusUI() {
 
 function selectCamera(camId) {
     currentSelectedCam = camId;
+    updateSelectedRecordCameraBadge(camId);
     loadStatus();
     loadRecords(camId);
 }
 
 function previewLive(camId) {
     currentSelectedCam = camId;
+    updateSelectedRecordCameraBadge(camId);
     loadStatus();
     playVideo(camId, true, `🟢 直播: ${camId}`);
     loadRecords(camId);
@@ -2586,6 +2589,7 @@ function resetRecordRange() {
 function renderRecordSelectionPrompt(message = '请先选择一个实时节点') {
     const list = document.getElementById('recordList');
     const countBadge = document.getElementById('recordCount');
+    updateSelectedRecordCameraBadge('');
     if (countBadge) countBadge.innerText = '未选择设备';
     if (!list) return;
 
@@ -2601,6 +2605,16 @@ function renderRecordSelectionPrompt(message = '请先选择一个实时节点')
             <div class="mt-1 text-xs font-medium text-slate-400">选中左侧设备后，这里会显示对应的历史录像档案。</div>
         </div>
     `;
+}
+
+function updateSelectedRecordCameraBadge(camId = currentSelectedCam) {
+    const badge = document.getElementById('recordSelectedCam');
+    if (!badge) return;
+
+    const normalizedCamId = String(camId || '').trim();
+    badge.classList.toggle('hidden', normalizedCamId === '');
+    badge.textContent = normalizedCamId ? `当前: ${normalizedCamId}` : '';
+    badge.title = normalizedCamId ? `当前摄像头: ${normalizedCamId}` : '';
 }
 
 function validateRecordRange(start, end) {
@@ -2858,6 +2872,7 @@ function dateKeyToUTC(dateKey) {
 async function loadRecords(camId) {
     const list = document.getElementById('recordList');
     const countBadge = document.getElementById('recordCount');
+    updateSelectedRecordCameraBadge(camId);
     clearRecordTimeline24hDock();
     updateRecordRangeStatus();
     list.className = 'space-y-2';
