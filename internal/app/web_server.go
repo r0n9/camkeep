@@ -13,7 +13,7 @@ import (
 func startWebServer() {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
-	webAuth = loadAuthConfigFromEnv()
+	ensureWebAuthInitialized()
 
 	r.Static("/static", "./static")
 
@@ -95,4 +95,11 @@ func startWebServer() {
 	}
 	log.Println("Web 管理后台已启动: http://localhost:9110")
 	r.Run(":9110")
+}
+
+func ensureWebAuthInitialized() {
+	if webAuth.UserStore != nil {
+		return
+	}
+	webAuth = loadAuthConfigFromEnv()
 }

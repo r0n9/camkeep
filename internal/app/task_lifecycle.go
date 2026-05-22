@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"log"
+	"strings"
 
 	"github.com/r0n9/camkeep/constant"
 	"github.com/r0n9/camkeep/internal/service"
@@ -61,6 +62,7 @@ func restartTasks(newConfig constant.Config) {
 	constant.ConfigMux.Lock()
 	currentConfig = newConfig
 	constant.ConfigMux.Unlock()
+	pruneUserCameraScopesForConfig(newConfig)
 	syncOnvifCandidates(ctxGlobal, newConfig)
 
 	// 4. 【新增】清理内存中被删除的“幽灵”摄像头状态
@@ -70,6 +72,27 @@ func restartTasks(newConfig constant.Config) {
 	// 5. 启动新任务
 	startTasks()
 	log.Println("任务热重启完成！")
+}
+
+func pruneUserCameraScopesForConfig(cfg constant.Config) {
+	if webAuth.UserStore == nil {
+		return
+	}
+
+	validCameraIDs := make([]string, 0, len(cfg.Cameras))
+	for _, cam := range cfg.Cameras {
+		if id := strings.TrimSpace(cam.ID); id != "" {
+			validCameraIDs = append(validCameraIDs, id)
+		}
+	}
+	changed, err := webAuth.UserStore.pruneCameraScopes(validCameraIDs)
+	if err != nil {
+		log.Printf("同步用户可访问摄像头失败: %v", err)
+		return
+	}
+	if changed {
+		log.Println("已同步用户可访问摄像头，清理了不存在的摄像头 ID")
+	}
 }
 
 // cleanGhostStatus 清理掉已经被移出配置的摄像头状态

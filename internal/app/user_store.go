@@ -419,6 +419,53 @@ func (s *userStore) deleteUser(id string) error {
 	return nil
 }
 
+func (s *userStore) pruneCameraScopes(validCameraIDs []string) (bool, error) {
+	valid := make(map[string]bool, len(validCameraIDs))
+	for _, id := range validCameraIDs {
+		id = strings.TrimSpace(id)
+		if id != "" {
+			valid[id] = true
+		}
+	}
+
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	changed := false
+	previous := make(map[string]storedUser)
+	now := time.Now()
+	for id, user := range s.users {
+		if user.CameraIDs == nil {
+			continue
+		}
+		nextCameraIDs := make([]string, 0, len(user.CameraIDs))
+		for _, cameraID := range user.CameraIDs {
+			if valid[strings.TrimSpace(cameraID)] {
+				nextCameraIDs = append(nextCameraIDs, cameraID)
+			}
+		}
+		if stringSlicesEqual(user.CameraIDs, nextCameraIDs) {
+			continue
+		}
+
+		previous[id] = user
+		user.CameraIDs = nextCameraIDs
+		user.UpdatedAt = now
+		s.users[id] = user
+		changed = true
+	}
+	if !changed {
+		return false, nil
+	}
+	if err := s.saveLocked(); err != nil {
+		for id, user := range previous {
+			s.users[id] = user
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 func (s *userStore) enabledAdminCountLocked() int {
 	count := 0
 	for _, user := range s.users {
@@ -572,6 +619,18 @@ func cloneStringSlice(values []string) []string {
 		return nil
 	}
 	return append([]string(nil), values...)
+}
+
+func stringSlicesEqual(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for i := range left {
+		if left[i] != right[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func storedUserCanAccessAllCameras(user storedUser) bool {

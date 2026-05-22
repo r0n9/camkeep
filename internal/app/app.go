@@ -52,6 +52,8 @@ func Run(appVersion string) {
 
 	// 1. 读取或初始化配置 (如果不存在则创建空配置)
 	currentConfig = loadOrInitConfig()
+	ensureWebAuthInitialized()
+	pruneUserCameraScopesForConfig(currentConfig)
 
 	err := os.MkdirAll(constant.DefaultRecordBaseDir, 0755)
 	if err != nil {

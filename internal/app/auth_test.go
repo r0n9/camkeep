@@ -337,6 +337,70 @@ func TestUserStorePersistsEmptyCameraScope(t *testing.T) {
 	}
 }
 
+func TestUserStorePrunesMissingCameraScopeIDs(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "users.json")
+	store := testUserStoreAt(t, path)
+	accessAll := false
+	scoped, err := store.createUser(createUserRequest{
+		Username:        "viewer-scoped",
+		Password:        "viewer-secret",
+		Role:            userRoleViewer,
+		CameraAccessAll: &accessAll,
+		CameraIDs:       []string{"cam-a", "cam-b", "cam-missing"},
+	}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	all, err := store.createUser(createUserRequest{
+		Username: "viewer-all",
+		Password: "viewer-secret",
+		Role:     userRoleViewer,
+	}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	empty, err := store.createUser(createUserRequest{
+		Username:        "viewer-empty",
+		Password:        "viewer-secret",
+		Role:            userRoleViewer,
+		CameraAccessAll: &accessAll,
+		CameraIDs:       []string{},
+	}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	changed, err := store.pruneCameraScopes([]string{"cam-b", "cam-c"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !changed {
+		t.Fatal("expected camera scope pruning to report changes")
+	}
+
+	gotScoped, _ := store.userByID(scoped.ID)
+	if !reflect.DeepEqual(gotScoped.CameraIDs, []string{"cam-b"}) {
+		t.Fatalf("expected missing camera IDs to be removed, got %+v", gotScoped.CameraIDs)
+	}
+	gotAll, _ := store.userByID(all.ID)
+	if gotAll.CameraIDs != nil {
+		t.Fatalf("expected all-camera access to stay nil, got %+v", gotAll.CameraIDs)
+	}
+	gotEmpty, _ := store.userByID(empty.ID)
+	if gotEmpty.CameraIDs == nil || len(gotEmpty.CameraIDs) != 0 {
+		t.Fatalf("expected explicit empty scope to stay empty, got %+v", gotEmpty.CameraIDs)
+	}
+
+	reloaded, err := newUserStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	persisted, _ := reloaded.userByID(scoped.ID)
+	if !reflect.DeepEqual(persisted.CameraIDs, []string{"cam-b"}) {
+		t.Fatalf("expected pruned camera scope to persist, got %+v", persisted.CameraIDs)
+	}
+}
+
 func TestLoginRecordsForwardedIPAndListsActiveSession(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	auth := testAuthConfig(t)
