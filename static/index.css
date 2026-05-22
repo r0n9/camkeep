@@ -361,6 +361,7 @@
 }
 
 .camera-node-record-chip {
+    --camera-node-chip-heartbeat-ring: var(--camera-node-pulse);
     display: inline-flex;
     height: 14px;
     flex: 0 0 auto;
@@ -385,9 +386,24 @@
     content: "";
 }
 
+.camera-node-record-chip--recording,
+.camera-node-record-chip--motion-recording,
+.camera-node-record-chip--motion-detecting {
+    animation: camera-node-chip-heartbeat 1.55s ease-in-out infinite;
+}
+
+.camera-node-record-chip--recording::before,
+.camera-node-record-chip--motion-recording::before,
+.camera-node-record-chip--motion-detecting::before {
+    animation: camera-node-chip-dot-heartbeat 1.55s ease-in-out infinite;
+}
+
 .camera-node-card-footer {
-    border-color: rgba(226, 232, 240, 0.68) !important;
-    background: rgba(248, 250, 252, 0.46);
+    min-height: 24px;
+    border-color: var(--camera-node-schedule-border, rgba(226, 232, 240, 0.68)) !important;
+    background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.16), transparent 42%),
+        var(--camera-node-schedule-bg, rgba(248, 250, 252, 0.46));
 }
 
 .camera-node-schedule-pill {
@@ -397,7 +413,6 @@
     --camera-node-schedule-badge: #64748b;
     --camera-node-schedule-text: #64748b;
     border-color: var(--camera-node-schedule-border) !important;
-    background: var(--camera-node-schedule-bg);
 }
 
 .camera-node-schedule-pill--forced-start {
@@ -453,6 +468,7 @@
 }
 
 .camera-node-cover {
+    background-color: rgba(241, 245, 249, 0.82) !important;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
@@ -469,6 +485,25 @@ html.dark .camera-node-live-btn {
     border-color: rgba(226, 232, 240, 0.18) !important;
     background: rgba(15, 23, 42, 0.22) !important;
     box-shadow: 0 12px 30px -22px rgba(0, 0, 0, 0.96) !important;
+}
+
+html.dark .camera-node-cover {
+    border-color: rgba(71, 85, 105, 0.5) !important;
+    background-color: rgba(15, 23, 42, 0.58) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.04),
+        0 8px 16px -14px rgba(0, 0, 0, 0.76);
+    --tw-ring-color: rgba(148, 163, 184, 0.14) !important;
+}
+
+html.dark .camera-node-cover:hover,
+html.dark .camera-node-cover:focus-visible {
+    border-color: rgba(96, 165, 250, 0.34) !important;
+    background-color: rgba(15, 23, 42, 0.72) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        0 10px 18px -15px rgba(37, 99, 235, 0.38);
+    --tw-ring-color: rgba(96, 165, 250, 0.18) !important;
 }
 
 html.dark .camera-node-card {
@@ -515,8 +550,10 @@ html.dark .camera-node-card.is-selected {
 }
 
 html.dark .camera-node-card-footer {
-    border-color: rgba(51, 65, 85, 0.82) !important;
-    background: rgba(15, 23, 42, 0.42);
+    border-color: var(--camera-node-schedule-border, rgba(51, 65, 85, 0.82)) !important;
+    background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.04), transparent 42%),
+        var(--camera-node-schedule-bg, rgba(15, 23, 42, 0.42));
 }
 
 html.dark .camera-node-schedule-pill {
@@ -691,6 +728,38 @@ html.dark .camera-node-action-btn--auto.is-active {
     50% {
         opacity: 1;
         box-shadow: 0 0 0 3px var(--camera-node-pulse);
+    }
+}
+
+@keyframes camera-node-chip-heartbeat {
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    38% {
+        transform: scale(1.045);
+    }
+
+    52% {
+        transform: scale(0.99);
+    }
+
+    68% {
+        transform: scale(1.025);
+    }
+}
+
+@keyframes camera-node-chip-dot-heartbeat {
+    0%,
+    100% {
+        opacity: 0.75;
+        box-shadow: 0 0 0 0 currentColor;
+    }
+
+    45% {
+        opacity: 1;
+        box-shadow: 0 0 0 3px var(--camera-node-chip-heartbeat-ring);
     }
 }
 

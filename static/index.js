@@ -1427,16 +1427,14 @@ function buildCameraCardView(id, cam) {
             ${adminActions}
         </div>
 
-        <div class="camera-node-card-footer flex items-center gap-0.5 border-t border-gray-100 px-1 py-0.5">
-            <div class="camera-node-schedule-pill ${recordSchedule.pillClass} flex min-w-0 flex-1 items-center gap-0.5 rounded border px-1 py-0.5"
-                 title="${escapeHtml(recordSchedule.title)}">
-                    <svg class="camera-node-schedule-icon h-2 w-2 shrink-0 ${recordSchedule.iconClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2"></path>
-                        <circle cx="12" cy="12" r="9"></circle>
-                    </svg>
-                    <span class="camera-node-schedule-badge shrink-0 text-[7px] font-bold leading-none ${recordSchedule.badgeClass}">${recordSchedule.badge}</span>
-                    <span class="camera-node-schedule-text min-w-0 flex-1 truncate font-mono text-[8px] font-semibold leading-none ${recordSchedule.textClass}">${escapeHtml(recordSchedule.text)}</span>
-            </div>
+        <div class="camera-node-card-footer camera-node-schedule-pill ${recordSchedule.pillClass} flex min-w-0 items-center gap-1 border-t px-2 py-1"
+             title="${escapeHtml(recordSchedule.title)}">
+                <svg class="camera-node-schedule-icon h-2.5 w-2.5 shrink-0 ${recordSchedule.iconClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2"></path>
+                    <circle cx="12" cy="12" r="9"></circle>
+                </svg>
+                <span class="camera-node-schedule-badge shrink-0 text-[7px] font-bold leading-none ${recordSchedule.badgeClass}">${recordSchedule.badge}</span>
+                <span class="camera-node-schedule-text min-w-0 flex-1 truncate font-mono text-[8px] font-semibold leading-none ${recordSchedule.textClass}">${escapeHtml(recordSchedule.text)}</span>
         </div>
     `;
 
