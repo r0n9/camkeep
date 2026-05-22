@@ -1107,10 +1107,28 @@ func appendUniqueString(values []string, value string) []string {
 	return append(values, value)
 }
 
+func handlePlayRecord(c *gin.Context) {
+	fullPath, ok := safeRecordPathFromParam(c.Param("filepath"))
+	if !ok {
+		c.String(http.StatusBadRequest, "非法的路径参数")
+		return
+	}
+	if _, err := os.Stat(fullPath); err != nil {
+		c.String(http.StatusNotFound, "录像文件不存在")
+		return
+	}
+
+	c.File(fullPath)
+}
+
 func handlePlayHLS(c *gin.Context) {
 	tsPath := c.Param("filepath") // 获取路径，例如: /front-door/2026-04-27/12-00-00.ts
-	if !strings.HasSuffix(tsPath, ".ts") {
+	if strings.ToLower(filepath.Ext(tsPath)) != ".ts" {
 		c.String(400, "仅支持 ts 格式转换为 HLS")
+		return
+	}
+	if _, ok := safeRecordPathFromParam(tsPath); !ok {
+		c.String(http.StatusBadRequest, "非法的路径参数")
 		return
 	}
 
@@ -1271,14 +1289,68 @@ func safeRecordPath(c *gin.Context) (string, bool) {
 }
 
 func safeRecordPathFromParam(targetPath string) (string, bool) {
-	targetPath = strings.TrimPrefix(targetPath, "/")
-	if targetPath == "" || strings.Contains(targetPath, "..") {
+	targetPath = strings.TrimSpace(targetPath)
+	targetPath = strings.ReplaceAll(targetPath, "\\", "/")
+	targetPath = strings.TrimLeft(targetPath, "/")
+	if targetPath == "" {
 		return "", false
 	}
-	if !strings.HasSuffix(targetPath, ".ts") && !strings.HasSuffix(targetPath, ".mp4") {
+
+	cleanTarget := filepath.Clean(filepath.FromSlash(targetPath))
+	if cleanTarget == "." || cleanTarget == ".." || strings.HasPrefix(cleanTarget, ".."+string(os.PathSeparator)) || filepath.IsAbs(cleanTarget) || filepath.VolumeName(cleanTarget) != "" {
 		return "", false
 	}
-	return filepath.Join(constant.DefaultRecordBaseDir, targetPath), true
+	ext := strings.ToLower(filepath.Ext(cleanTarget))
+	if ext != ".ts" && ext != ".mp4" {
+		return "", false
+	}
+
+	baseDir, err := filepath.Abs(constant.DefaultRecordBaseDir)
+	if err != nil {
+		return "", false
+	}
+	baseReal, err := filepath.EvalSymlinks(baseDir)
+	if err != nil {
+		return "", false
+	}
+	baseReal, err = filepath.Abs(baseReal)
+	if err != nil {
+		return "", false
+	}
+
+	fullPath := filepath.Join(baseDir, cleanTarget)
+	fullPath, err = filepath.Abs(fullPath)
+	if err != nil || !pathWithinBase(fullPath, baseDir) {
+		return "", false
+	}
+
+	info, err := os.Stat(fullPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fullPath, true
+		}
+		return "", false
+	}
+	if !info.Mode().IsRegular() {
+		return "", false
+	}
+	realPath, err := filepath.EvalSymlinks(fullPath)
+	if err != nil {
+		return "", false
+	}
+	realPath, err = filepath.Abs(realPath)
+	if err != nil || !pathWithinBase(realPath, baseReal) {
+		return "", false
+	}
+	return fullPath, true
+}
+
+func pathWithinBase(path, base string) bool {
+	rel, err := filepath.Rel(base, path)
+	if err != nil {
+		return false
+	}
+	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator)))
 }
 
 func probeVideoCodec(fullPath string) (string, error) {

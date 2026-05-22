@@ -3,7 +3,6 @@ package app
 import (
 	"fmt"
 	"log"
-	"net/http"
 	"net/http/httputil"
 	"net/url"
 
@@ -36,7 +35,7 @@ func startWebServer() {
 	protected.GET("/api/record/probe", handleProbeRecord)
 	protected.GET("/api/record/download", handleDownloadRecord)
 
-	protected.StaticFS("/play", http.Dir(constant.DefaultRecordBaseDir))
+	protected.GET("/play/*filepath", handlePlayRecord)
 	protected.GET("/play_hls/*filepath", handlePlayHLS)
 	protected.GET("/play_transcode/*filepath", handlePlayTranscode)
 	protected.GET("/play_remux/*filepath", handlePlayRemux)

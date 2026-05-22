@@ -245,6 +245,117 @@ func TestParseRecordDateFromPath(t *testing.T) {
 	}
 }
 
+func TestHandleDownloadRecordRejectsTraversalOutsideRecordDir(t *testing.T) {
+	t.Chdir(t.TempDir())
+	if err := os.MkdirAll("config", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll("records/cam1", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("config/conf.mp4", []byte("secret"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, targetPath := range []string{
+		"../config/conf.mp4",
+		"/../config/conf.mp4",
+		"cam1/../../config/conf.mp4",
+		"cam1\\..\\..\\config\\conf.mp4",
+	} {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		req := httptest.NewRequest(http.MethodGet, "/api/record/download?path="+targetPath, nil)
+		c.Request = req
+
+		handleDownloadRecord(c)
+
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("expected traversal path %q to be rejected, got %d: %s", targetPath, w.Code, w.Body.String())
+		}
+	}
+}
+
+func TestHandleDownloadRecordRejectsSymlinkOutsideRecordDir(t *testing.T) {
+	t.Chdir(t.TempDir())
+	if err := os.MkdirAll("config", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll("records/cam1/2026-05-12", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("config/conf.yaml", []byte("secret"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("../../../config/conf.yaml", "records/cam1/2026-05-12/link.mp4"); err != nil {
+		t.Skipf("symlink is not available: %v", err)
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	req := httptest.NewRequest(http.MethodGet, "/api/record/download?path=cam1/2026-05-12/link.mp4", nil)
+	c.Request = req
+
+	handleDownloadRecord(c)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected symlink outside record dir to be rejected, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestHandlePlayRecordUsesSafeRecordPath(t *testing.T) {
+	t.Chdir(t.TempDir())
+	if err := os.MkdirAll("config", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll("records/cam1/2026-05-12", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("config/conf.yaml", []byte("secret"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("../../../config/conf.yaml", "records/cam1/2026-05-12/link.mp4"); err != nil {
+		t.Skipf("symlink is not available: %v", err)
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	req := httptest.NewRequest(http.MethodGet, "/play/cam1/2026-05-12/link.mp4", nil)
+	c.Request = req
+	c.Params = gin.Params{{Key: "filepath", Value: "/cam1/2026-05-12/link.mp4"}}
+
+	handlePlayRecord(c)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected play symlink outside record dir to be rejected, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestHandlePlayHLSRejectsTraversalOutsideRecordDir(t *testing.T) {
+	t.Chdir(t.TempDir())
+	if err := os.MkdirAll("config", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll("records/cam1", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("config/conf.ts", []byte("secret"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	req := httptest.NewRequest(http.MethodGet, "/play_hls/cam1/../../config/conf.ts", nil)
+	c.Request = req
+	c.Params = gin.Params{{Key: "filepath", Value: "/cam1/../../config/conf.ts"}}
+
+	handlePlayHLS(c)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected HLS traversal outside record dir to be rejected, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
 func TestParseConfigYAMLValidatesKnownShape(t *testing.T) {
 	validYAML := []byte(`
 daily_merge:
