@@ -149,7 +149,7 @@ func handleLoginPage(auth authConfig) gin.HandlerFunc {
 		c.HTML(http.StatusOK, "login.html", gin.H{
 			"Version": version,
 			"Next":    next,
-			"User":    auth.Username,
+			"User":    "",
 		})
 	}
 }
