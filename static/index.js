@@ -1274,6 +1274,16 @@ function buildCameraCoverURL(camId) {
     return cameraCoverObjectURLs.get(camId) || '';
 }
 
+function escapeCssURL(value) {
+    return String(value || '').replace(/["\\\n\r\f]/g, char => ({
+        '"': '\\"',
+        '\\': '\\\\',
+        '\n': '\\A ',
+        '\r': '\\D ',
+        '\f': '\\C '
+    })[char]);
+}
+
 function buildCameraCoverMarkup(camId, cam, streamState) {
     const coverURL = buildCameraCoverURL(camId);
     const hasCover = Boolean(coverURL);
@@ -1338,6 +1348,7 @@ function releaseCameraCoverObjectURLs() {
 
 function buildCameraCardView(id, cam) {
     ensureCameraCoverLoaded(id, cam);
+    const coverURL = buildCameraCoverURL(id);
 
     const recordState = cam.record_state || (cam.is_running ? 'recording' : 'idle');
     const overrideState = normalizeRecordOverride(cam.record_override);
@@ -1405,7 +1416,9 @@ function buildCameraCardView(id, cam) {
             ? 'bg-sky-100 text-sky-700'
             : 'bg-slate-100 text-slate-500';
 
-    const className = `camera-node-card ${recordStateView.cardClass} ${isSelected ? 'is-selected' : ''} overflow-hidden rounded-md border cursor-pointer transition-all group`;
+    const coverBackgroundClass = coverURL ? 'has-cover-background' : '';
+    const className = `camera-node-card ${coverBackgroundClass} ${recordStateView.cardClass} ${isSelected ? 'is-selected' : ''} overflow-hidden rounded-md border cursor-pointer transition-all group`;
+    const style = coverURL ? `--camera-node-cover-bg: url("${escapeCssURL(coverURL)}");` : '';
     const html = `
         <div class="flex items-center gap-1 p-1">
             ${buildCameraCoverMarkup(id, cam, streamState)}
@@ -1438,7 +1451,7 @@ function buildCameraCardView(id, cam) {
         </div>
     `;
 
-    return {className, html};
+    return {className, html, style};
 }
 
 function buildRecordStateView(recordState, overrideState) {
@@ -1532,6 +1545,11 @@ async function loadStatus() {
                 item.onclick = () => selectCamera(id);
             }
             item.className = view.className;
+            if (view.style) {
+                item.setAttribute('style', view.style);
+            } else {
+                item.removeAttribute('style');
+            }
             if (cameraCardRenderKeys.get(id) !== view.html) {
                 item.innerHTML = view.html;
                 cameraCardRenderKeys.set(id, view.html);

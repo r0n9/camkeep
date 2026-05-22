@@ -267,6 +267,29 @@
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72), 0 10px 22px -20px var(--camera-node-glow);
 }
 
+.camera-node-card > * {
+    position: relative;
+    z-index: 1;
+}
+
+.camera-node-card.has-cover-background {
+    background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.86)),
+        radial-gradient(circle at 0 0, rgba(148, 163, 184, 0.12), transparent 36%);
+}
+
+.camera-node-card.has-cover-background::after {
+    position: absolute;
+    inset: -12px;
+    z-index: 0;
+    background: var(--camera-node-cover-bg) center / cover no-repeat;
+    content: "";
+    filter: blur(16px) saturate(1.08);
+    opacity: 0.2;
+    pointer-events: none;
+    transform: scale(1.04);
+}
+
 #camList {
     padding-top: 1px;
     scroll-padding-top: 1px;
@@ -514,6 +537,17 @@ html.dark .camera-node-card {
         linear-gradient(90deg, rgba(17, 24, 39, 0.98), rgba(15, 23, 42, 0.94)),
         radial-gradient(circle at 0 0, rgba(148, 163, 184, 0.12), transparent 36%);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045), 0 14px 26px -22px rgba(0, 0, 0, 0.95);
+}
+
+html.dark .camera-node-card.has-cover-background {
+    background:
+        linear-gradient(90deg, rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.78)),
+        radial-gradient(circle at 0 0, rgba(148, 163, 184, 0.08), transparent 36%);
+}
+
+html.dark .camera-node-card.has-cover-background::after {
+    filter: blur(18px) saturate(1.04);
+    opacity: 0.32;
 }
 
 html.dark .camera-node-card.is-recording,
