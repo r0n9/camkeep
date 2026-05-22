@@ -76,22 +76,40 @@
                 <span class="h-4 w-px bg-gray-200"></span>
                 <button id="userNavBtn" onclick="openUsers()" class="group flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold text-gray-700 transition-all hover:bg-gray-50 hover:text-gray-900 active:scale-95">
                     <svg class="w-4 h-4 text-gray-500 transition-colors group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11a4 4 0 10-8 0 4 4 0 008 0z"></path>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 21a8 8 0 0116 0"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h4v-1.5a4.5 4.5 0 00-3.25-4.32M7 20H3v-1.5a4.5 4.5 0 013.25-4.32M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14a6 6 0 00-6 6h12a6 6 0 00-6-6zM18 8.5a2.5 2.5 0 11-1.55-2.32M6 8.5a2.5 2.5 0 101.55-2.32"></path>
                     </svg>
                     <span>用户管理</span>
                 </button>
                 {{ end }}
                 {{ if .AuthEnabled }}
                 <span class="h-4 w-px bg-gray-200"></span>
-                <form method="post" action="/logout" class="m-0">
-                    <button type="submit" class="group flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold text-gray-500 transition-all hover:bg-gray-50 hover:text-gray-900 active:scale-95" title="退出登录">
-                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12H3m0 0l4-4m-4 4l4 4M21 4v16a2 2 0 01-2 2h-6a2 2 0 01-2-2v-3m0-10V4a2 2 0 012-2h6a2 2 0 012 2z"></path>
+                <div id="accountMenu" class="account-menu">
+                    <button id="accountMenuButton" onclick="toggleAccountMenu(event)" class="account-menu-button" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="accountMenuPanel" title="账号菜单">
+                        <svg class="account-menu-user-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11a4 4 0 10-8 0 4 4 0 008 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 21a8 8 0 0116 0"></path>
                         </svg>
-                        <span>退出</span>
+                        <span class="account-menu-username">{{ .CurrentUser.DisplayName }}</span>
+                        <svg class="account-menu-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.3" d="M19 9l-7 7-7-7"></path>
+                        </svg>
                     </button>
-                </form>
+                    <div id="accountMenuPanel" class="account-menu-panel hidden" role="menu" aria-labelledby="accountMenuButton">
+                        <div class="account-menu-current">
+                            <span>用户名</span>
+                            <strong>{{ .CurrentUser.Username }}</strong>
+                        </div>
+                        <form method="post" action="/logout" class="m-0">
+                            <button type="submit" class="account-menu-logout" role="menuitem">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12H3m0 0l4-4m-4 4l4 4M21 4v16a2 2 0 01-2 2h-6a2 2 0 01-2-2v-3m0-10V4a2 2 0 012-2h6a2 2 0 012 2z"></path>
+                                </svg>
+                                <span>退出登录</span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
                 {{ end }}
             </div>
         </div>

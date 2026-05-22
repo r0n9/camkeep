@@ -75,6 +75,129 @@
     color: #1e40af;
 }
 
+.account-menu {
+    position: relative;
+    flex: 0 0 auto;
+}
+
+.account-menu-button {
+    display: inline-flex;
+    height: 32px;
+    max-width: 180px;
+    align-items: center;
+    gap: 6px;
+    border-radius: 8px;
+    color: #475569;
+    padding: 0 10px;
+    font-size: 12px;
+    font-weight: 850;
+    line-height: 1;
+    transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease;
+}
+
+.account-menu-button:hover,
+.account-menu-button.is-open {
+    background: #f8fafc;
+    color: #0f172a;
+}
+
+.account-menu-button:active {
+    transform: scale(0.96);
+}
+
+.account-menu-user-icon,
+.account-menu-chevron,
+.account-menu-logout svg {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+}
+
+.account-menu-user-icon,
+.account-menu-chevron {
+    color: #64748b;
+}
+
+.account-menu-chevron {
+    width: 14px;
+    height: 14px;
+    transition: transform 0.16s ease;
+}
+
+.account-menu-button.is-open .account-menu-chevron {
+    transform: rotate(180deg);
+}
+
+.account-menu-username {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.account-menu-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 70;
+    width: 190px;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.98);
+    box-shadow: 0 24px 50px -28px rgba(15, 23, 42, 0.5);
+}
+
+.account-menu-panel.hidden {
+    display: none;
+}
+
+.account-menu-current {
+    border-bottom: 1px solid #e2e8f0;
+    padding: 11px 12px;
+}
+
+.account-menu-current span,
+.account-menu-current strong {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.account-menu-current span {
+    color: #94a3b8;
+    font-size: 10px;
+    font-weight: 900;
+}
+
+.account-menu-current strong {
+    margin-top: 4px;
+    color: #0f172a;
+    font-size: 13px;
+    font-weight: 950;
+}
+
+.account-menu-logout {
+    display: flex;
+    width: 100%;
+    min-height: 38px;
+    align-items: center;
+    gap: 8px;
+    color: #be123c;
+    padding: 0 12px;
+    font-size: 12px;
+    font-weight: 950;
+    text-align: left;
+    transition: background 0.16s ease, color 0.16s ease;
+}
+
+.account-menu-logout:hover {
+    background: #fff1f2;
+    color: #9f1239;
+}
+
 .record24h-dock {
     position: relative;
     z-index: 6;
@@ -1329,6 +1452,48 @@ html.dark .version-update-badge.is-reference:hover {
     color: #bfdbfe;
 }
 
+html.dark .account-menu-button {
+    color: #cbd5e1;
+}
+
+html.dark .account-menu-button:hover,
+html.dark .account-menu-button.is-open {
+    background: rgba(30, 41, 59, 0.82);
+    color: #f8fafc;
+}
+
+html.dark .account-menu-user-icon,
+html.dark .account-menu-chevron {
+    color: #94a3b8;
+}
+
+html.dark .account-menu-panel {
+    border-color: rgba(51, 65, 85, 0.95);
+    background: rgba(15, 23, 42, 0.98);
+    box-shadow: 0 24px 50px -28px rgba(0, 0, 0, 0.96);
+}
+
+html.dark .account-menu-current {
+    border-color: rgba(51, 65, 85, 0.9);
+}
+
+html.dark .account-menu-current span {
+    color: #64748b;
+}
+
+html.dark .account-menu-current strong {
+    color: #e5e7eb;
+}
+
+html.dark .account-menu-logout {
+    color: #fda4af;
+}
+
+html.dark .account-menu-logout:hover {
+    background: rgba(127, 29, 29, 0.28);
+    color: #fecdd3;
+}
+
 html.dark [class~="bg-white"],
 html.dark [class~="bg-white/60"] {
     background-color: #111827 !important;
@@ -2060,6 +2225,7 @@ html.dark .record-timeline-card-action-delete:hover {
     transform: translateY(0) scale(0.98);
 }
 
+.config-page-primary-btn:disabled,
 .config-page-secondary-btn:disabled {
     cursor: not-allowed;
     opacity: 0.55;
@@ -2895,6 +3061,32 @@ html.dark .record-timeline-card-action-delete:hover {
     flex-wrap: wrap;
     align-items: center;
     gap: 10px;
+}
+
+.user-editor-feedback {
+    display: inline-flex;
+    min-height: 24px;
+    align-items: center;
+    border-radius: 9999px;
+    background: #f1f5f9;
+    color: #64748b;
+    padding: 0 9px;
+    font-size: 11px;
+    font-weight: 950;
+}
+
+.user-editor-feedback.hidden {
+    display: none;
+}
+
+.user-editor-feedback.is-success {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.user-editor-feedback.is-error {
+    background: #fee2e2;
+    color: #b91c1c;
 }
 
 .user-danger-btn {
@@ -4252,6 +4444,21 @@ html.dark .user-danger-btn {
 html.dark .user-danger-btn:hover {
     border-color: rgba(251, 113, 133, 0.78);
     background: rgba(190, 18, 60, 0.3);
+}
+
+html.dark .user-editor-feedback {
+    background: rgba(51, 65, 85, 0.78);
+    color: #cbd5e1;
+}
+
+html.dark .user-editor-feedback.is-success {
+    background: rgba(22, 101, 52, 0.32);
+    color: #86efac;
+}
+
+html.dark .user-editor-feedback.is-error {
+    background: rgba(127, 29, 29, 0.3);
+    color: #fca5a5;
 }
 
 html.dark .user-password-panel,

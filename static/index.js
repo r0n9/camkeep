@@ -35,6 +35,7 @@ function canAdmin() {
 
 window.onload = function () {
     initThemeControls();
+    initAccountMenu();
     initUpdateBadge();
     if (typeof DPlayer === 'undefined') {
         alert("播放器组件加载失败，请检查网络！");
@@ -56,6 +57,39 @@ window.onload = function () {
         }
     });
 };
+
+function initAccountMenu() {
+    const menu = document.getElementById('accountMenu');
+    if (!menu) return;
+
+    document.addEventListener('click', event => {
+        if (!menu.contains(event.target)) {
+            setAccountMenuOpen(false);
+        }
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+            setAccountMenuOpen(false);
+        }
+    });
+}
+
+function toggleAccountMenu(event) {
+    event?.stopPropagation();
+    const panel = document.getElementById('accountMenuPanel');
+    const open = panel ? panel.classList.contains('hidden') : false;
+    setAccountMenuOpen(open);
+}
+
+function setAccountMenuOpen(open) {
+    const button = document.getElementById('accountMenuButton');
+    const panel = document.getElementById('accountMenuPanel');
+    if (!button || !panel) return;
+
+    panel.classList.toggle('hidden', !open);
+    button.classList.toggle('is-open', open);
+    button.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
 
 function initThemeControls() {
     syncThemeToggleIcon();
@@ -209,6 +243,7 @@ let configCameraUiSeq = 0;
 let userListState = [];
 let selectedUserId = '';
 let userEditorMode = 'empty';
+let userEditorFeedbackTimer = null;
 
 function isBootstrapUserSetup() {
     return authState.auth_enabled === false && userListState.length === 0;
@@ -409,6 +444,7 @@ function renderUserListItem(user) {
 function selectUser(id) {
     selectedUserId = id;
     userEditorMode = 'edit';
+    clearUserEditorFeedbackTimer();
     renderUserList();
     renderUserEditor();
 }
@@ -417,6 +453,7 @@ function showCreateUserForm() {
     if (!canAdmin()) return;
     selectedUserId = '';
     userEditorMode = 'create';
+    clearUserEditorFeedbackTimer();
     renderUserList();
     renderCreateUserForm();
 }
@@ -452,8 +489,9 @@ function renderUserEditor() {
         </div>
         ${editable ? `
             <div class="user-editor-actions">
-                <button onclick="saveSelectedUser()" class="config-page-primary-btn config-page-primary-btn--compact" type="button">保存修改</button>
+                <button id="saveSelectedUserBtn" onclick="saveSelectedUser()" class="config-page-primary-btn config-page-primary-btn--compact" type="button">保存修改</button>
                 ${user.can_delete ? '<button onclick="deleteSelectedUser()" class="user-danger-btn" type="button">删除用户</button>' : ''}
+                <span id="userEditorFeedback" class="user-editor-feedback hidden" role="status" aria-live="polite"></span>
             </div>
         ` : `
             <div class="user-editor-note">该账号不能在页面中修改或删除。</div>
@@ -567,6 +605,28 @@ function readUserChecked(field) {
     return Boolean(document.querySelector(`[data-user-field="${field}"]`)?.checked);
 }
 
+function clearUserEditorFeedbackTimer() {
+    if (!userEditorFeedbackTimer) return;
+    clearTimeout(userEditorFeedbackTimer);
+    userEditorFeedbackTimer = null;
+}
+
+function setUserEditorFeedback(message, type = 'info') {
+    clearUserEditorFeedbackTimer();
+    const feedback = document.getElementById('userEditorFeedback');
+    if (!feedback) return;
+
+    feedback.textContent = message || '';
+    feedback.className = `user-editor-feedback ${message ? `is-${type}` : 'hidden'}`;
+    if (message && type !== 'info') {
+        userEditorFeedbackTimer = setTimeout(() => {
+            feedback.textContent = '';
+            feedback.className = 'user-editor-feedback hidden';
+            userEditorFeedbackTimer = null;
+        }, 2200);
+    }
+}
+
 async function createUser() {
     const bootstrap = isBootstrapUserSetup();
     const password = readUserField('password');
@@ -601,6 +661,15 @@ async function createUser() {
 async function saveSelectedUser() {
     const user = selectedUser();
     if (!user || user.editable !== true) return;
+    const button = document.getElementById('saveSelectedUserBtn');
+    if (button?.disabled) return;
+
+    if (button) {
+        button.disabled = true;
+        button.textContent = '保存中...';
+    }
+    setUserEditorFeedback('正在保存...', 'info');
+
     const updated = await sendUserRequest(`/api/users/${encodeURIComponent(user.id)}`, {
         method: 'PATCH',
         headers: {'Content-Type': 'application/json'},
@@ -610,7 +679,22 @@ async function saveSelectedUser() {
             enabled: readUserChecked('enabled')
         })
     });
-    if (updated) await loadUsers({selectId: updated.id});
+    if (updated) {
+        await loadUsers({selectId: updated.id});
+        const currentButton = document.getElementById('saveSelectedUserBtn');
+        if (currentButton) {
+            currentButton.disabled = false;
+            currentButton.textContent = '保存修改';
+        }
+        setUserEditorFeedback('已保存', 'success');
+        return;
+    }
+
+    if (button) {
+        button.disabled = false;
+        button.textContent = '保存修改';
+    }
+    setUserEditorFeedback('保存失败', 'error');
 }
 
 async function resetSelectedUserPassword() {
