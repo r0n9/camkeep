@@ -2929,18 +2929,18 @@ async function loadRecords(camId) {
 
             const dateBytes = entries.reduce((sum, entry) => sum + parseRecordSizeBytes(entry.file.size), 0);
             const header = document.createElement('div');
-            header.className = 'flex w-full items-stretch justify-between gap-2 border-b border-slate-100 transition-colors hover:bg-slate-50';
+            header.className = 'record-archive-group-header flex w-full items-stretch justify-between gap-2 border-b border-slate-100 transition-colors hover:bg-slate-50';
 
             const summaryBtn = document.createElement('button');
             summaryBtn.type = 'button';
-            summaryBtn.className = 'flex min-w-0 flex-1 items-center gap-3 px-3 py-2 text-left';
+            summaryBtn.className = 'record-archive-group-summary flex min-w-0 flex-1 items-center gap-3 px-3 py-2 text-left';
             summaryBtn.innerHTML = `
                 <div class="min-w-0">
                     <div class="flex flex-wrap items-center gap-2">
-                        <span class="text-[13px] font-extrabold tracking-tight text-slate-800">${archiveDateTitle(date)}</span>
-                        <span class="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-600 ring-1 ring-blue-100">${entries.length} 段</span>
+                        <span class="record-archive-group-title text-[13px] font-extrabold tracking-tight text-slate-800">${archiveDateTitle(date)}</span>
+                        <span class="record-archive-group-count rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-600 ring-1 ring-blue-100">${entries.length} 段</span>
                     </div>
-                    <div class="mt-0.5 text-[11px] font-medium text-slate-400">${archiveDateSubTitle(date)} · ${formatRecordSize(dateBytes)}</div>
+                    <div class="record-archive-group-meta mt-0.5 text-[11px] font-medium text-slate-400">${archiveDateSubTitle(date)} · ${formatRecordSize(dateBytes)}</div>
                 </div>
             `;
 
@@ -2959,7 +2959,7 @@ async function loadRecords(camId) {
 
             const collapseBtn = document.createElement('button');
             collapseBtn.type = 'button';
-            collapseBtn.className = 'flex h-full items-center px-2 text-slate-400 transition-colors hover:text-slate-700';
+            collapseBtn.className = 'record-archive-group-collapse flex h-full items-center px-2 text-slate-400 transition-colors hover:text-slate-700';
             collapseBtn.title = isOpen ? '收起该日录像' : '展开该日录像';
             collapseBtn.innerHTML = `
                 <svg class="h-4 w-4 shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2968,7 +2968,7 @@ async function loadRecords(camId) {
             `;
 
             const rightTools = document.createElement('div');
-            rightTools.className = 'flex shrink-0 items-center gap-1 pr-2';
+            rightTools.className = 'record-archive-group-tools flex shrink-0 items-center gap-1 pr-2';
             rightTools.appendChild(viewSwitch);
             rightTools.appendChild(timeline24hAction);
             rightTools.appendChild(collapseBtn);
