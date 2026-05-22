@@ -426,6 +426,7 @@ function renderUserList() {
 
 function renderUserListItem(user) {
     const active = user.id === selectedUserId && userEditorMode !== 'create';
+    const loginText = renderUserLoginMeta(user, true);
     return `
         <button class="user-list-item ${active ? 'is-active' : ''}" onclick="selectUser('${escapeHtml(user.id)}')" type="button">
             <span class="user-list-avatar">${escapeHtml(userInitials(user))}</span>
@@ -436,7 +437,10 @@ function renderUserListItem(user) {
             <span class="user-list-badges">
                 <span class="user-role-badge user-role-badge--${escapeHtml(user.role)}">${userRoleLabel(user.role)}</span>
                 <span class="user-status-badge ${user.enabled ? 'is-enabled' : 'is-disabled'}">${user.enabled ? '启用' : '停用'}</span>
+                <span class="user-session-badge ${user.online ? 'is-online' : 'is-offline'}">${user.online ? '在线' : '离线'}</span>
+                ${user.is_current ? '<span class="user-current-badge">当前登录</span>' : ''}
             </span>
+            ${loginText ? `<span class="user-list-login-meta">${escapeHtml(loginText)}</span>` : ''}
         </button>
     `;
 }
@@ -477,7 +481,7 @@ function renderUserEditor() {
             <div>
                 <div class="user-editor-kicker">LOCAL USER</div>
                 <h3>${escapeHtml(user.display_name || user.username)}</h3>
-                <p>${escapeHtml(user.username)} · ${userRoleLabel(user.role)} · ${user.enabled ? '已启用' : '已停用'}</p>
+                <p>${renderUserDetailMeta(user)}</p>
             </div>
             <span class="user-source-badge">本地用户</span>
         </div>
@@ -750,6 +754,53 @@ function userRoleLabel(role) {
 function userInitials(user) {
     const text = String(user.display_name || user.username || '?').trim();
     return (text[0] || '?').toUpperCase();
+}
+
+function renderUserLoginMeta(user, brief) {
+    const parts = [];
+    if (user.online) {
+        const onlineText = user.active_sessions?.length > 1
+            ? `在线 · ${user.active_sessions.length} 个会话`
+            : '在线';
+        parts.push(onlineText);
+        const currentSession = user.active_sessions?.find(session => session.current) || user.active_sessions?.[0];
+        if (currentSession?.ip) {
+            parts.push(`IP ${currentSession.ip}`);
+        }
+    } else if (user.last_login_at) {
+        const timeText = formatUserLoginTime(user.last_login_at);
+        const ipText = user.last_login_ip ? `IP ${user.last_login_ip}` : '';
+        parts.push(`最近登录 ${timeText}${ipText ? ` · ${ipText}` : ''}`);
+    } else {
+        parts.push('从未登录');
+    }
+    if (!brief && user.is_current) {
+        parts.unshift('当前账号');
+    }
+    return parts.join(' · ');
+}
+
+function renderUserDetailMeta(user) {
+    const parts = [
+        user.username,
+        userRoleLabel(user.role),
+        user.enabled ? '已启用' : '已停用'
+    ];
+    const loginMeta = renderUserLoginMeta(user, false);
+    if (loginMeta) parts.push(loginMeta);
+    return escapeHtml(parts.join(' · '));
+}
+
+function formatUserLoginTime(value) {
+    const date = value ? new Date(value) : null;
+    if (!date || Number.isNaN(date.getTime())) return '';
+    return date.toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
 }
 
 async function saveConfig() {

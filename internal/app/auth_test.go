@@ -245,6 +245,70 @@ func TestBootstrapCreateUserWithoutEnvPasswordCreatesAdminSession(t *testing.T) 
 	}
 }
 
+func TestLoginRecordsForwardedIPAndListsActiveSession(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	auth := testAuthConfig(t)
+
+	r := gin.New()
+	r.POST("/login", handleLoginPost(auth))
+	protected := r.Group("")
+	protected.Use(authRequired(auth))
+	protected.Use(adminRequired(auth))
+	protected.GET("/api/users", handleListUsers(auth))
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/login", strings.NewReader("username=admin&password=admin-secret"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("X-Forwarded-For", "203.0.113.10, 10.0.0.1")
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusFound {
+		t.Fatalf("expected login redirect, got %d: %s", w.Code, w.Body.String())
+	}
+	cookies := w.Result().Cookies()
+	if len(cookies) == 0 || cookies[0].Name != authCookieName {
+		t.Fatalf("expected session cookie, got %+v", cookies)
+	}
+
+	admin, ok := auth.UserStore.userByUsername("admin")
+	if !ok {
+		t.Fatal("expected admin user to exist")
+	}
+	if admin.LastLoginAt == nil {
+		t.Fatal("expected last login time to be recorded")
+	}
+	if admin.LastLoginIP != "203.0.113.10" {
+		t.Fatalf("expected forwarded IP to be recorded, got %q", admin.LastLoginIP)
+	}
+
+	w = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/api/users", nil)
+	req.AddCookie(cookies[0])
+	req.Header.Set("X-Forwarded-For", "203.0.113.10, 10.0.0.1")
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected users response, got %d: %s", w.Code, w.Body.String())
+	}
+	var payload usersResponse
+	if err := json.NewDecoder(w.Body).Decode(&payload); err != nil {
+		t.Fatal(err)
+	}
+	if len(payload.Users) != 1 {
+		t.Fatalf("expected one user, got %+v", payload.Users)
+	}
+	view := payload.Users[0]
+	if !view.IsCurrent || !view.Online {
+		t.Fatalf("expected current online user, got %+v", view)
+	}
+	if view.LastLoginAt == nil || view.LastLoginIP != "203.0.113.10" {
+		t.Fatalf("expected last login metadata, got %+v", view)
+	}
+	if len(view.ActiveSessions) != 1 || view.ActiveSessions[0].IP != "203.0.113.10" || !view.ActiveSessions[0].Current {
+		t.Fatalf("expected current active session with forwarded IP, got %+v", view.ActiveSessions)
+	}
+}
+
 func TestLoadAuthConfigSeedsAdminFromEnvPasswordWhenUsersFileMissing(t *testing.T) {
 	t.Setenv(envAuthPassword, "env-secret")
 	t.Setenv(envSessionSecret, "test-session-secret")
@@ -331,6 +395,7 @@ func testAuthConfig(t *testing.T) authConfig {
 		SessionSecret: []byte("test-session-secret"),
 		SessionTTL:    time.Hour,
 		UserStore:     store,
+		Sessions:      newSessionTracker(),
 	}
 }
 

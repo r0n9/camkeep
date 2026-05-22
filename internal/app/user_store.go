@@ -36,30 +36,37 @@ type currentUser struct {
 }
 
 type userView struct {
-	ID              string    `json:"id"`
-	Username        string    `json:"username"`
-	DisplayName     string    `json:"display_name"`
-	Role            string    `json:"role"`
-	Enabled         bool      `json:"enabled"`
-	Source          string    `json:"source"`
-	SessionVersion  int64     `json:"session_version"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
-	Editable        bool      `json:"editable"`
-	CanDelete       bool      `json:"can_delete"`
-	PasswordManaged bool      `json:"password_managed"`
+	ID              string            `json:"id"`
+	Username        string            `json:"username"`
+	DisplayName     string            `json:"display_name"`
+	Role            string            `json:"role"`
+	Enabled         bool              `json:"enabled"`
+	Source          string            `json:"source"`
+	SessionVersion  int64             `json:"session_version"`
+	CreatedAt       time.Time         `json:"created_at"`
+	UpdatedAt       time.Time         `json:"updated_at"`
+	LastLoginAt     *time.Time        `json:"last_login_at,omitempty"`
+	LastLoginIP     string            `json:"last_login_ip,omitempty"`
+	Online          bool              `json:"online"`
+	IsCurrent       bool              `json:"is_current"`
+	ActiveSessions  []userSessionView `json:"active_sessions,omitempty"`
+	Editable        bool              `json:"editable"`
+	CanDelete       bool              `json:"can_delete"`
+	PasswordManaged bool              `json:"password_managed"`
 }
 
 type storedUser struct {
-	ID             string    `json:"id"`
-	Username       string    `json:"username"`
-	DisplayName    string    `json:"display_name"`
-	Role           string    `json:"role"`
-	PasswordHash   string    `json:"password_hash"`
-	Enabled        bool      `json:"enabled"`
-	SessionVersion int64     `json:"session_version"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID             string     `json:"id"`
+	Username       string     `json:"username"`
+	DisplayName    string     `json:"display_name"`
+	Role           string     `json:"role"`
+	PasswordHash   string     `json:"password_hash"`
+	Enabled        bool       `json:"enabled"`
+	SessionVersion int64      `json:"session_version"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+	LastLoginAt    *time.Time `json:"last_login_at,omitempty"`
+	LastLoginIP    string     `json:"last_login_ip,omitempty"`
 }
 
 type usersFile struct {
@@ -358,6 +365,26 @@ func (s *userStore) updatePassword(id, password string) error {
 	return nil
 }
 
+func (s *userStore) recordLogin(id, ip string, now time.Time) (storedUser, error) {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	user, ok := s.users[id]
+	if !ok {
+		return storedUser{}, os.ErrNotExist
+	}
+	prev := user
+	loginAt := now
+	user.LastLoginAt = &loginAt
+	user.LastLoginIP = strings.TrimSpace(ip)
+	s.users[id] = user
+	if err := s.saveLocked(); err != nil {
+		s.users[id] = prev
+		return storedUser{}, err
+	}
+	return user, nil
+}
+
 func (s *userStore) deleteUser(id string) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
@@ -489,6 +516,8 @@ func userViewFromStored(user storedUser) userView {
 		SessionVersion:  user.SessionVersion,
 		CreatedAt:       user.CreatedAt,
 		UpdatedAt:       user.UpdatedAt,
+		LastLoginAt:     user.LastLoginAt,
+		LastLoginIP:     user.LastLoginIP,
 		Editable:        true,
 		CanDelete:       true,
 		PasswordManaged: true,

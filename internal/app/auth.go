@@ -39,6 +39,7 @@ type authConfig struct {
 	CookieSecure  bool
 	SessionTTL    time.Duration
 	UserStore     *userStore
+	Sessions      *sessionTracker
 }
 
 type sessionClaims struct {
@@ -83,6 +84,7 @@ func loadAuthConfigFromEnv() authConfig {
 		CookieSecure: parseBoolEnv(os.Getenv(envAuthCookieSecure)),
 		SessionTTL:   7 * 24 * time.Hour,
 		UserStore:    store,
+		Sessions:     newSessionTracker(),
 	}
 
 	secret := os.Getenv(envSessionSecret)
@@ -160,7 +162,8 @@ func handleLoginPost(auth authConfig) gin.HandlerFunc {
 		}
 
 		next := sanitizeLoginNext(c.PostForm("next"))
-		if !auth.credentialsValid(c.PostForm("username"), c.PostForm("password")) {
+		user, ok := auth.authenticateUser(c.PostForm("username"), c.PostForm("password"))
+		if !ok {
 			c.HTML(http.StatusUnauthorized, "login.html", gin.H{
 				"Version": version,
 				"Next":    next,
@@ -170,8 +173,8 @@ func handleLoginPost(auth authConfig) gin.HandlerFunc {
 			return
 		}
 
-		user, _ := auth.authenticateUser(c.PostForm("username"), c.PostForm("password"))
-		token, err := auth.newSessionTokenForUser(user, time.Now())
+		now := time.Now()
+		token, err := auth.newSessionTokenForUser(user, now)
 		if err != nil {
 			c.HTML(http.StatusInternalServerError, "login.html", gin.H{
 				"Version": version,
@@ -181,6 +184,15 @@ func handleLoginPost(auth authConfig) gin.HandlerFunc {
 			})
 			return
 		}
+		ip := clientIP(c)
+		if auth.UserStore != nil {
+			if _, err := auth.UserStore.recordLogin(user.ID, ip, now); err != nil {
+				log.Printf("记录用户登录信息失败: %v", err)
+			}
+		}
+		if auth.Sessions != nil {
+			auth.Sessions.trackLogin(token, user, ip, now, now.Add(auth.SessionTTL))
+		}
 		auth.setSessionCookie(c, token)
 		c.Redirect(http.StatusFound, next)
 	}
@@ -188,6 +200,9 @@ func handleLoginPost(auth authConfig) gin.HandlerFunc {
 
 func handleLogout(auth authConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if token, err := c.Cookie(authCookieName); err == nil && auth.Sessions != nil {
+			auth.Sessions.remove(token)
+		}
 		auth.clearSessionCookie(c)
 		if auth.isEnabled() {
 			c.Redirect(http.StatusFound, "/login")
@@ -205,8 +220,11 @@ func authRequired(auth authConfig) gin.HandlerFunc {
 			return
 		}
 
-		if user, ok := auth.currentUserFromRequest(c); ok {
+		if user, claims, token, ok := auth.currentUserClaimsFromRequest(c); ok {
 			setCurrentUser(c, user)
+			if auth.Sessions != nil {
+				auth.Sessions.touch(token, user, clientIP(c), time.Now(), time.Unix(claims.ExpiresAt, 0))
+			}
 			c.Next()
 			return
 		}
@@ -244,6 +262,20 @@ func sanitizeLoginNext(next string) string {
 	return next
 }
 
+func clientIP(c *gin.Context) string {
+	forwarded := c.GetHeader("X-Forwarded-For")
+	if forwarded != "" {
+		ip, _, _ := strings.Cut(forwarded, ",")
+		if ip = strings.TrimSpace(ip); ip != "" {
+			return ip
+		}
+	}
+	if ip := strings.TrimSpace(c.GetHeader("X-Real-IP")); ip != "" {
+		return ip
+	}
+	return c.ClientIP()
+}
+
 func (auth authConfig) credentialsValid(username, password string) bool {
 	_, ok := auth.authenticateUser(username, password)
 	return ok
@@ -266,11 +298,17 @@ func (auth authConfig) isRequestAuthenticated(c *gin.Context) bool {
 }
 
 func (auth authConfig) currentUserFromRequest(c *gin.Context) (currentUser, bool) {
+	user, _, _, ok := auth.currentUserClaimsFromRequest(c)
+	return user, ok
+}
+
+func (auth authConfig) currentUserClaimsFromRequest(c *gin.Context) (currentUser, sessionClaims, string, bool) {
 	token, err := c.Cookie(authCookieName)
 	if err != nil {
-		return currentUser{}, false
+		return currentUser{}, sessionClaims{}, "", false
 	}
-	return auth.validateSessionTokenUser(token, time.Now())
+	user, claims, ok := auth.validateSessionTokenUserClaims(token, time.Now())
+	return user, claims, token, ok
 }
 
 func (auth authConfig) newSessionToken(now time.Time) (string, error) {
@@ -307,36 +345,41 @@ func (auth authConfig) validateSessionToken(token string, now time.Time) bool {
 }
 
 func (auth authConfig) validateSessionTokenUser(token string, now time.Time) (currentUser, bool) {
+	user, _, ok := auth.validateSessionTokenUserClaims(token, now)
+	return user, ok
+}
+
+func (auth authConfig) validateSessionTokenUserClaims(token string, now time.Time) (currentUser, sessionClaims, bool) {
 	payload, signature, ok := strings.Cut(token, ".")
 	if !ok || payload == "" || signature == "" {
-		return currentUser{}, false
+		return currentUser{}, sessionClaims{}, false
 	}
 
 	if subtle.ConstantTimeCompare([]byte(signature), []byte(auth.signPayload(payload))) != 1 {
-		return currentUser{}, false
+		return currentUser{}, sessionClaims{}, false
 	}
 
 	payloadBytes, err := base64.RawURLEncoding.DecodeString(payload)
 	if err != nil {
-		return currentUser{}, false
+		return currentUser{}, sessionClaims{}, false
 	}
 
 	var claims sessionClaims
 	if err := json.Unmarshal(payloadBytes, &claims); err != nil {
-		return currentUser{}, false
+		return currentUser{}, sessionClaims{}, false
 	}
 	if claims.ExpiresAt <= now.Unix() {
-		return currentUser{}, false
+		return currentUser{}, sessionClaims{}, false
 	}
 
 	if claims.Source != userSourceLocal || auth.UserStore == nil || claims.UID == "" {
-		return currentUser{}, false
+		return currentUser{}, sessionClaims{}, false
 	}
 	user, ok := auth.UserStore.userByID(claims.UID)
 	if !ok || !user.Enabled || user.Username != claims.User || user.SessionVersion != claims.SessionVersion {
-		return currentUser{}, false
+		return currentUser{}, sessionClaims{}, false
 	}
-	return currentUserFromStored(user), true
+	return currentUserFromStored(user), claims, true
 }
 
 func (auth authConfig) signPayload(payload string) string {

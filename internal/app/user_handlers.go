@@ -72,10 +72,18 @@ func handleCreateUser(auth authConfig) gin.HandlerFunc {
 			current := currentUserFromStored(user)
 			if token, err := auth.newSessionTokenForUser(current, time.Now()); err == nil {
 				setCurrentUser(c, current)
+				now := time.Now()
+				ip := clientIP(c)
+				if _, err := auth.UserStore.recordLogin(current.ID, ip, now); err == nil {
+					user, _ = auth.UserStore.userByID(current.ID)
+				}
+				if auth.Sessions != nil {
+					auth.Sessions.trackLogin(token, current, ip, now, now.Add(auth.SessionTTL))
+				}
 				auth.setSessionCookie(c, token)
 			}
 		}
-		c.JSON(http.StatusCreated, userViewFromStored(user))
+		c.JSON(http.StatusCreated, auth.enrichUserView(c, userViewFromStored(user)))
 	}
 }
 
@@ -112,7 +120,10 @@ func handleUpdateUser(auth authConfig) gin.HandlerFunc {
 			c.JSON(status, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusOK, userViewFromStored(user))
+		if auth.Sessions != nil && user.SessionVersion != existing.SessionVersion {
+			auth.Sessions.removeByUserID(id)
+		}
+		c.JSON(http.StatusOK, auth.enrichUserView(c, userViewFromStored(user)))
 	}
 }
 
@@ -136,6 +147,9 @@ func handleResetUserPassword(auth authConfig) gin.HandlerFunc {
 			}
 			c.JSON(status, gin.H{"error": err.Error()})
 			return
+		}
+		if auth.Sessions != nil {
+			auth.Sessions.removeByUserID(id)
 		}
 		c.JSON(http.StatusOK, gin.H{"msg": "密码已更新"})
 	}
@@ -171,12 +185,20 @@ func handleDeleteUser(auth authConfig) gin.HandlerFunc {
 			c.JSON(status, gin.H{"error": err.Error()})
 			return
 		}
+		if auth.Sessions != nil {
+			auth.Sessions.removeByUserID(id)
+		}
 		c.JSON(http.StatusOK, gin.H{"msg": "用户已删除"})
 	}
 }
 
 func (auth authConfig) userViews(c *gin.Context) []userView {
 	current, _ := getCurrentUser(c)
+	currentToken, _ := c.Cookie(authCookieName)
+	activeByUser := map[string][]userSessionView{}
+	if auth.Sessions != nil {
+		activeByUser = auth.Sessions.activeSessionsByUser(time.Now(), currentToken)
+	}
 	localUsers := []storedUser(nil)
 	if auth.UserStore != nil {
 		localUsers = auth.UserStore.listUsers()
@@ -187,9 +209,26 @@ func (auth authConfig) userViews(c *gin.Context) []userView {
 		if current.Source == userSourceLocal && current.ID == user.ID {
 			view.CanDelete = false
 		}
+		view.IsCurrent = current.Source == userSourceLocal && current.ID == user.ID
+		view.ActiveSessions = activeByUser[user.ID]
+		view.Online = len(view.ActiveSessions) > 0
 		views = append(views, view)
 	}
 	return views
+}
+
+func (auth authConfig) enrichUserView(c *gin.Context, view userView) userView {
+	current, _ := getCurrentUser(c)
+	view.IsCurrent = current.Source == userSourceLocal && current.ID == view.ID
+	currentToken, _ := c.Cookie(authCookieName)
+	if auth.Sessions != nil {
+		view.ActiveSessions = auth.Sessions.activeSessionsByUser(time.Now(), currentToken)[view.ID]
+		view.Online = len(view.ActiveSessions) > 0
+	}
+	if view.IsCurrent {
+		view.CanDelete = false
+	}
+	return view
 }
 
 func (auth authConfig) validateUserUpdate(c *gin.Context, existing storedUser, req updateUserRequest) error {

@@ -2939,6 +2939,8 @@ html.dark .record-timeline-card-action-delete:hover {
 
 .user-role-badge,
 .user-status-badge,
+.user-session-badge,
+.user-current-badge,
 .user-source-badge {
     display: inline-flex;
     align-items: center;
@@ -2967,6 +2969,34 @@ html.dark .record-timeline-card-action-delete:hover {
 .user-status-badge.is-disabled {
     background: #f1f5f9;
     color: #64748b;
+}
+
+.user-session-badge.is-online {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.user-session-badge.is-offline {
+    background: #f8fafc;
+    color: #94a3b8;
+}
+
+.user-current-badge {
+    background: #fef3c7;
+    color: #b45309;
+}
+
+.user-list-login-meta {
+    grid-column: 1 / -1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-top: 1px solid #f1f5f9;
+    padding-top: 8px;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 800;
 }
 
 .user-source-badge {
@@ -4393,6 +4423,21 @@ html.dark .user-status-badge.is-disabled {
     color: #94a3b8;
 }
 
+html.dark .user-session-badge.is-online {
+    background: rgba(30, 64, 175, 0.22);
+    color: #93c5fd;
+}
+
+html.dark .user-session-badge.is-offline {
+    background: rgba(51, 65, 85, 0.74);
+    color: #94a3b8;
+}
+
+html.dark .user-current-badge {
+    background: rgba(146, 64, 14, 0.28);
+    color: #fcd34d;
+}
+
 html.dark .user-source-badge {
     border-color: rgba(51, 65, 85, 0.9);
     background: rgba(30, 41, 59, 0.72);
@@ -4444,6 +4489,11 @@ html.dark .user-danger-btn {
 html.dark .user-danger-btn:hover {
     border-color: rgba(251, 113, 133, 0.78);
     background: rgba(190, 18, 60, 0.3);
+}
+
+html.dark .user-list-login-meta {
+    border-color: rgba(51, 65, 85, 0.78);
+    color: #94a3b8;
 }
 
 html.dark .user-editor-feedback {
