@@ -1440,7 +1440,7 @@ function buildCameraCardView(id, cam) {
             ${adminActions}
         </div>
 
-        <div class="camera-node-card-footer camera-node-schedule-pill ${recordSchedule.pillClass} flex min-w-0 items-center gap-1 border-t px-2 py-1"
+        <div class="camera-node-card-footer camera-node-schedule-pill ${recordSchedule.pillClass} flex min-w-0 items-center gap-1 border-t px-2 py-0.5"
              title="${escapeHtml(recordSchedule.title)}">
                 <svg class="camera-node-schedule-icon h-2.5 w-2.5 shrink-0 ${recordSchedule.iconClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2"></path>
