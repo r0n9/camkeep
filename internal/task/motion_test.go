@@ -153,11 +153,14 @@ func TestMotionDetectionShouldRunBlocksOfflineStream(t *testing.T) {
 	}
 }
 
-func TestNewMotionRecordSessionAppliesPreRecord(t *testing.T) {
+func TestNewEventRecordSessionAppliesPreRecord(t *testing.T) {
 	detectedAt := time.Date(2026, 5, 12, 10, 0, 0, 0, time.Local)
-	session := newMotionRecordSession(detectedAt)
+	session := newEventRecordSession(EventTypeMotion, detectedAt)
 	if !session.StartTime.Equal(detectedAt.Add(-motionTimeShiftPreRecord)) {
 		t.Fatalf("expected prerecord start %s, got %s", detectedAt.Add(-motionTimeShiftPreRecord), session.StartTime)
+	}
+	if session.EventType != EventTypeMotion {
+		t.Fatalf("expected event type %q, got %q", EventTypeMotion, session.EventType)
 	}
 }
 

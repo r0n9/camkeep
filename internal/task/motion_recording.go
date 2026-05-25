@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/r0n9/camkeep/constant"
@@ -27,11 +26,8 @@ const (
 	motionTimeShiftSegmentExt      = ".ts" // 从 .mp4 改为 .ts
 )
 
-type motionRecordState struct {
-	LastMotionTime time.Time
-}
-
-type motionRecordSession struct {
+type eventRecordSession struct {
+	EventType string
 	StartTime time.Time
 	EndTime   time.Time
 }
@@ -48,11 +44,6 @@ type motionTimeShiftClip struct {
 	start  time.Time
 	end    time.Time
 }
-
-var (
-	motionStateMux sync.RWMutex
-	motionStates   = make(map[string]motionRecordState)
-)
 
 func isNormalMode(cam constant.Camera) bool {
 	return cam.Mode == "" || cam.Mode == "normal"
@@ -85,26 +76,35 @@ func motionRatioThreshold(cam constant.Camera) float64 {
 }
 
 func markMotionDetected(camID string, at time.Time) {
-	motionStateMux.Lock()
-	motionStates[camID] = motionRecordState{LastMotionTime: at}
-	motionStateMux.Unlock()
+	PublishDetectionEvent(DetectionEvent{
+		CameraID: camID,
+		Type:     EventTypeMotion,
+		Source:   "builtin-motion",
+		At:       at,
+	})
 }
 
 func resetMotionDetected(camID string) {
-	motionStateMux.Lock()
-	delete(motionStates, camID)
-	motionStateMux.Unlock()
-}
-
-func lastMotionTime(camID string) time.Time {
-	motionStateMux.RLock()
-	defer motionStateMux.RUnlock()
-	return motionStates[camID].LastMotionTime
+	ResetCameraDetectionEvents(camID)
 }
 
 func motionDetectedRecently(camID string, now time.Time) bool {
-	last := lastMotionTime(camID)
-	return !last.IsZero() && now.Sub(last) < motionRecordIdleTimeout
+	return motionEventRecordAction.shouldRecord(camID, now)
+}
+
+type eventRecordAction struct {
+	eventType   string
+	idleTimeout time.Duration
+}
+
+var motionEventRecordAction = eventRecordAction{
+	eventType:   EventTypeMotion,
+	idleTimeout: motionRecordIdleTimeout,
+}
+
+func (action eventRecordAction) shouldRecord(camID string, now time.Time) bool {
+	_, ok := RecentDetectionEvent(camID, action.eventType, now, action.idleTimeout)
+	return ok
 }
 
 func startMotionTimeShiftFFmpeg(ctx context.Context, cam constant.Camera) (*exec.Cmd, error) {
@@ -148,13 +148,17 @@ func startMotionTimeShiftFFmpeg(ctx context.Context, cam constant.Camera) (*exec
 	return cmd, nil
 }
 
-func newMotionRecordSession(detectedAt time.Time) *motionRecordSession {
-	return &motionRecordSession{
+func newEventRecordSession(eventType string, detectedAt time.Time) *eventRecordSession {
+	if eventType == "" {
+		eventType = EventTypeMotion
+	}
+	return &eventRecordSession{
+		EventType: eventType,
 		StartTime: detectedAt.Add(-motionTimeShiftPreRecord),
 	}
 }
 
-func finishMotionRecordSession(ctx context.Context, cam constant.Camera, camDir string, session *motionRecordSession, endTime time.Time) {
+func finishEventRecordSession(ctx context.Context, cam constant.Camera, camDir string, session *eventRecordSession, endTime time.Time) {
 	if session == nil {
 		return
 	}
@@ -164,10 +168,10 @@ func finishMotionRecordSession(ctx context.Context, cam constant.Camera, camDir 
 	if session.EndTime.Before(session.StartTime) {
 		session.EndTime = session.StartTime
 	}
-	exportMotionTimeShiftEvent(ctx, cam, camDir, *session)
+	exportTimeShiftEvent(ctx, cam, camDir, *session)
 }
 
-func exportMotionTimeShiftEvent(ctx context.Context, cam constant.Camera, camDir string, session motionRecordSession) {
+func exportTimeShiftEvent(ctx context.Context, cam constant.Camera, camDir string, session eventRecordSession) {
 	if !session.EndTime.After(session.StartTime) {
 		log.Printf("[%s] 动检事件时长不足，跳过裁剪: start=%s end=%s", cam.ID, session.StartTime, session.EndTime)
 		return

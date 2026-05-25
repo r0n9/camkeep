@@ -185,7 +185,7 @@ func runMotionCameraTask(ctx context.Context, cam constant.Camera, camDir string
 	var harvestCmd *exec.Cmd
 	var harvestCancel context.CancelFunc
 	var harvestDone chan error
-	var motionSession *motionRecordSession
+	var eventSession *eventRecordSession
 
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
@@ -220,10 +220,10 @@ func runMotionCameraTask(ctx context.Context, cam constant.Camera, camDir string
 					harvestCmd = nil
 					harvestDone = nil
 					harvestCancel = nil
-					if motionSession != nil && ctx.Err() == nil {
+					if eventSession != nil && ctx.Err() == nil {
 						log.Printf("[%s] 动检 Time-Shift 缓存引擎退出，结束当前动检事件...", cam.ID)
-						finishMotionRecordSession(ctx, cam, camDir, motionSession, time.Now())
-						motionSession = nil
+						finishEventRecordSession(ctx, cam, camDir, eventSession, time.Now())
+						eventSession = nil
 					}
 				default:
 				}
@@ -267,21 +267,21 @@ func runMotionCameraTask(ctx context.Context, cam constant.Camera, camDir string
 			}
 
 			eventShouldRecord := harvestShouldRun && harvestCmd != nil && motionDetectedRecently(cam.ID, now)
-			if eventShouldRecord && motionSession == nil {
-				motionSession = newMotionRecordSession(now)
+			if eventShouldRecord && eventSession == nil {
+				eventSession = newEventRecordSession(EventTypeMotion, now)
 				log.Printf("[%s] 检测到移动，记录动检事件窗口: start=%s",
-					cam.ID, motionSession.StartTime.Format(time.RFC3339))
+					cam.ID, eventSession.StartTime.Format(time.RFC3339))
 			}
 
 			if harvestCmd != nil {
 				protectAfter := time.Time{}
-				if motionSession != nil {
-					protectAfter = motionSession.StartTime
+				if eventSession != nil {
+					protectAfter = eventSession.StartTime
 				}
 				pruneMotionTimeShiftSegments(cam.ID, protectAfter)
 			}
 
-			if !eventShouldRecord && motionSession != nil {
+			if !eventShouldRecord && eventSession != nil {
 				if streamState == "offline" {
 					log.Printf("[%s] 检测到流状态离线 (Offline)，结束动检事件录制...", cam.ID)
 				} else if control == "stop" {
@@ -291,12 +291,12 @@ func runMotionCameraTask(ctx context.Context, cam constant.Camera, camDir string
 				} else {
 					log.Printf("[%s] 画面连续 %s 无变化，结束动检事件录制...", cam.ID, motionRecordIdleTimeout)
 				}
-				finishMotionRecordSession(ctx, cam, camDir, motionSession, now)
-				motionSession = nil
+				finishEventRecordSession(ctx, cam, camDir, eventSession, now)
+				eventSession = nil
 			}
 
 			recordState := service.RecordStateIdle
-			if motionSession != nil {
+			if eventSession != nil {
 				recordState = service.RecordStateMotionRecording
 			} else if harvestCmd != nil {
 				recordState = service.RecordStateMotionDetecting
