@@ -166,6 +166,10 @@ This project uses:
 - go2rtc — https://github.com/AlexxIT/go2rtc
   Licensed under the MIT License.
 
+<a href="https://nextlaunch.io/projects/camkeep" target="_blank" title="Featured on Next Launch">
+  <img src="https://nextlaunch.io/images/badges/nextlaunch-badge-light.svg" alt="Featured on Next Launch" style="width: 175px; height: auto;" />
+</a>
+
 ---
 
 <a href="https://www.star-history.com/?repos=r0n9%2Fcamkeep&type=date&legend=top-left">
