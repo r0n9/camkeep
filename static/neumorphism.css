@@ -276,12 +276,221 @@ html.dark #camList {
 }
 
 /* version + update badges become soft inset pills */
+.brand-meta {
+    gap: 8px !important;
+    row-gap: 6px;
+}
+
+.app-version-badge,
+.version-status-badge,
+.github-source-link {
+    border: 0 !important;
+    border-radius: 9999px !important;
+    background: var(--nm-surface) !important;
+    color: var(--nm-text-soft) !important;
+    box-shadow: var(--nm-raise-sm), var(--nm-edge) !important;
+    transition: box-shadow 160ms ease, transform 120ms ease, color 160ms ease, background 160ms ease;
+}
+
+.app-version-badge,
+.version-status-badge {
+    height: 26px;
+    align-items: center;
+    gap: 5px;
+    padding: 0 9px !important;
+    font-family: var(--nm-font-mono);
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.app-version-badge svg,
+.version-status-badge svg {
+    width: 13px;
+    height: 13px;
+    flex: 0 0 auto;
+}
+
 #appVersionText {
     color: var(--nm-text-soft);
 }
+
+.version-status-badge {
+    background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.42), rgba(15, 23, 42, 0.012)),
+        var(--nm-surface) !important;
+    text-decoration: none !important;
+}
+
+.version-status-divider {
+    width: 1px;
+    height: 12px;
+    background: var(--nm-dark);
+    box-shadow: 1px 0 0 var(--nm-light);
+}
+
+#versionStatusText {
+    color: var(--nm-text-faint);
+}
+
+.version-status-badge:hover,
+.github-source-link:hover {
+    background: var(--nm-surface-2) !important;
+    color: var(--nm-text) !important;
+    box-shadow: var(--nm-raise), var(--nm-edge) !important;
+    transform: translateY(-1px);
+}
+
+.version-status-badge:active,
+.github-source-link:active {
+    background: var(--nm-well) !important;
+    box-shadow: var(--nm-inset-sm) !important;
+    transform: translateY(0);
+}
+
+.version-status-badge.is-update {
+    background:
+        linear-gradient(145deg, rgba(255, 251, 235, 0.92), rgba(245, 158, 11, 0.12)),
+        var(--nm-surface) !important;
+    color: #b45309 !important;
+    box-shadow:
+        3px 3px 7px var(--nm-dark),
+        -2px -2px 6px var(--nm-light),
+        inset 0 1px 0 rgba(255, 255, 255, 0.62),
+        inset 0 0 0 1px rgba(245, 158, 11, 0.18) !important;
+}
+
+.version-status-badge.is-update #versionStatusText {
+    color: #b45309;
+}
+
+.version-status-badge.is-update:hover {
+    background:
+        linear-gradient(145deg, rgba(254, 243, 199, 0.98), rgba(245, 158, 11, 0.16)),
+        var(--nm-surface-2) !important;
+    color: #92400e !important;
+    box-shadow:
+        5px 5px 12px var(--nm-dark),
+        -3px -3px 9px var(--nm-light),
+        0 8px 22px -10px rgba(245, 158, 11, 0.42),
+        inset 0 1px 0 rgba(255, 255, 255, 0.70),
+        inset 0 0 0 1px rgba(245, 158, 11, 0.24) !important;
+}
+
+.version-status-badge.is-reference {
+    background:
+        linear-gradient(145deg, rgba(239, 246, 255, 0.92), rgba(59, 130, 246, 0.10)),
+        var(--nm-surface) !important;
+    color: var(--nm-accent) !important;
+    box-shadow:
+        3px 3px 7px var(--nm-dark),
+        -2px -2px 6px var(--nm-light),
+        inset 0 1px 0 rgba(255, 255, 255, 0.62),
+        inset 0 0 0 1px rgba(59, 111, 224, 0.16) !important;
+}
+
+.version-status-badge.is-reference #versionStatusText {
+    color: var(--nm-accent);
+}
+
+.version-status-badge.is-reference:hover {
+    background:
+        linear-gradient(145deg, rgba(219, 234, 254, 0.96), rgba(59, 130, 246, 0.14)),
+        var(--nm-surface-2) !important;
+    color: var(--nm-accent-strong) !important;
+}
+
+.version-status-badge.is-current #versionStatusText {
+    color: var(--nm-online);
+}
+
+.version-status-badge.is-unknown #versionStatusText {
+    color: var(--nm-alert);
+}
+
 .version-update-badge {
-    border: 0 !important;
-    box-shadow: var(--nm-raise-sm) !important;
+    display: none !important;
+}
+
+.github-source-link {
+    width: 30px;
+    height: 30px;
+    justify-content: center;
+}
+
+.github-source-link svg {
+    width: 17px;
+    height: 17px;
+}
+
+html.dark .version-status-badge,
+html.dark .github-source-link {
+    background:
+        linear-gradient(145deg, rgba(45, 53, 73, 0.98), rgba(27, 31, 43, 0.96)),
+        var(--nm-surface-2) !important;
+    color: var(--nm-text-soft) !important;
+    box-shadow: var(--nm-raise-sm), var(--nm-edge) !important;
+}
+
+html.dark .version-status-badge:hover,
+html.dark .github-source-link:hover {
+    background: var(--nm-surface) !important;
+    color: var(--nm-text) !important;
+    box-shadow: var(--nm-raise), var(--nm-edge) !important;
+}
+
+html.dark .version-status-badge.is-update {
+    background:
+        linear-gradient(145deg, rgba(120, 53, 15, 0.38), rgba(27, 31, 43, 0.96)),
+        var(--nm-surface-2) !important;
+    color: #fbbf24 !important;
+    box-shadow:
+        3px 3px 7px var(--nm-dark),
+        -2px -2px 6px var(--nm-light),
+        inset 0 1px 0 rgba(255, 255, 255, 0.055),
+        inset 0 0 0 1px rgba(251, 191, 36, 0.22) !important;
+}
+
+html.dark .version-status-badge.is-update #versionStatusText {
+    color: #fbbf24;
+}
+
+html.dark .version-status-badge.is-update:hover {
+    background:
+        linear-gradient(145deg, rgba(146, 64, 14, 0.46), rgba(31, 36, 50, 0.96)),
+        var(--nm-surface) !important;
+    color: #fde68a !important;
+}
+
+html.dark .version-status-badge.is-reference {
+    background:
+        linear-gradient(145deg, rgba(30, 58, 138, 0.38), rgba(27, 31, 43, 0.96)),
+        var(--nm-surface-2) !important;
+    color: #93c5fd !important;
+    box-shadow:
+        3px 3px 7px var(--nm-dark),
+        -2px -2px 6px var(--nm-light),
+        inset 0 1px 0 rgba(255, 255, 255, 0.055),
+        inset 0 0 0 1px rgba(96, 165, 250, 0.22) !important;
+}
+
+html.dark .version-status-badge.is-reference #versionStatusText {
+    color: #93c5fd;
+}
+
+html.dark .version-status-badge.is-reference:hover {
+    background:
+        linear-gradient(145deg, rgba(30, 64, 175, 0.44), rgba(31, 36, 50, 0.96)),
+        var(--nm-surface) !important;
+    color: #bfdbfe !important;
+}
+
+html.dark .version-status-badge.is-current #versionStatusText {
+    color: var(--nm-online);
+}
+
+html.dark .version-status-badge.is-unknown #versionStatusText {
+    color: var(--nm-alert);
 }
 
 /* ---- 5. Camera status sidebar ------------------------------------------- */

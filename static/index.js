@@ -124,48 +124,78 @@ function syncThemeToggleIcon() {
 }
 
 async function initUpdateBadge() {
-    const badge = document.getElementById('updateBadge');
+    const badge = document.getElementById('versionStatusBadge');
     if (!badge) return;
+    const current = document.getElementById('appVersionText')?.textContent?.trim() || '';
+    renderVersionStatus({
+        status: canAdmin() ? 'checking' : 'current',
+        current
+    });
     if (!canAdmin()) return;
 
     try {
         const resp = await fetch('/api/update/check');
-        if (!resp.ok) return;
+        if (!resp.ok) {
+            renderVersionStatus({status: 'unknown', current});
+            return;
+        }
 
         const data = await resp.json();
-        renderUpdateBadge(data);
+        renderVersionStatus(data);
     } catch (e) {
+        renderVersionStatus({status: 'unknown', current});
         console.warn('检查更新失败:', e);
     }
 }
 
-function renderUpdateBadge(data) {
-    const badge = document.getElementById('updateBadge');
+function renderVersionStatus(data) {
+    const badge = document.getElementById('versionStatusBadge');
     if (!badge || !data) return;
 
+    const current = String(data.current_version || data.currentVersion || document.getElementById('appVersionText')?.textContent || '').trim();
     const latest = String(data.latest_stable_version || '').trim();
     const releaseURL = String(data.release_url || 'https://github.com/r0n9/camkeep/releases/latest').trim();
     const channel = String(data.channel || '').trim().toLowerCase();
+    const statusText = document.getElementById('versionStatusText');
 
-    badge.classList.add('hidden');
-    badge.classList.remove('is-reference');
-    badge.textContent = '';
+    badge.href = releaseURL;
+    badge.classList.remove('is-checking', 'is-current', 'is-update', 'is-reference', 'is-unknown');
+    if (current) {
+        const versionText = document.getElementById('appVersionText');
+        if (versionText) versionText.textContent = current;
+    }
 
     if (data.update_available && latest) {
-        badge.href = releaseURL;
-        badge.textContent = `有新版本 ${latest}`;
+        if (statusText) statusText.textContent = `可更新到 ${latest}`;
         badge.title = data.message || `发现新版本 ${latest}`;
-        badge.classList.remove('hidden');
+        badge.classList.add('is-update');
         return;
     }
 
     if ((channel === 'dev' || channel === 'test') && latest) {
-        badge.href = releaseURL;
-        badge.textContent = `最新稳定版 ${latest}`;
+        if (statusText) statusText.textContent = `稳定版 ${latest}`;
         badge.title = data.message || '当前为开发/测试版本，不参与稳定版更新判断';
         badge.classList.add('is-reference');
-        badge.classList.remove('hidden');
+        return;
     }
+
+    if (data.status === 'checking') {
+        if (statusText) statusText.textContent = '检查中';
+        badge.title = '正在检查最新版本';
+        badge.classList.add('is-checking');
+        return;
+    }
+
+    if (data.status === 'unknown') {
+        if (statusText) statusText.textContent = latest ? `最新 ${latest}` : '更新未知';
+        badge.title = '暂时无法确认最新版本';
+        badge.classList.add('is-unknown');
+        return;
+    }
+
+    if (statusText) statusText.textContent = latest ? `已是最新 ${latest}` : '已是最新';
+    badge.title = data.message || (latest ? `当前已是最新稳定版 ${latest}` : '当前已是最新版本');
+    badge.classList.add('is-current');
 }
 
 // --- 控制面板动作弹窗 ---
