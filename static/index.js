@@ -2925,7 +2925,7 @@ async function loadRecords(camId) {
             if (isOpen) recordArchiveOpenDates.add(groupKey);
 
             const groupDiv = document.createElement('div');
-            groupDiv.className = 'overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md';
+            groupDiv.className = `record-archive-group ${isOpen ? 'is-open' : 'is-collapsed'} overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md`;
 
             const dateBytes = entries.reduce((sum, entry) => sum + parseRecordSizeBytes(entry.file.size), 0);
             const header = document.createElement('div');
@@ -2933,6 +2933,7 @@ async function loadRecords(camId) {
 
             const summaryBtn = document.createElement('button');
             summaryBtn.type = 'button';
+            summaryBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
             summaryBtn.className = 'record-archive-group-summary flex min-w-0 flex-1 items-center gap-3 px-3 py-2 text-left';
             summaryBtn.innerHTML = `
                 <div class="min-w-0">
@@ -2959,6 +2960,7 @@ async function loadRecords(camId) {
 
             const collapseBtn = document.createElement('button');
             collapseBtn.type = 'button';
+            collapseBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
             collapseBtn.className = 'record-archive-group-collapse flex h-full items-center px-2 text-slate-400 transition-colors hover:text-slate-700';
             collapseBtn.title = isOpen ? '收起该日录像' : '展开该日录像';
             collapseBtn.innerHTML = `
@@ -2974,6 +2976,10 @@ async function loadRecords(camId) {
             rightTools.appendChild(collapseBtn);
 
             const setOpen = (nextOpen) => {
+                groupDiv.classList.toggle('is-open', nextOpen);
+                groupDiv.classList.toggle('is-collapsed', !nextOpen);
+                summaryBtn.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
+                collapseBtn.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
                 content.classList.toggle('hidden', !nextOpen);
                 collapseBtn.querySelector('svg').classList.toggle('rotate-90', nextOpen);
                 collapseBtn.title = nextOpen ? '收起该日录像' : '展开该日录像';
