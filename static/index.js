@@ -1834,7 +1834,7 @@ function renderGrid() {
             ? 'w-full h-full border-0 hidden'
             : 'w-full h-full border-0 hidden pointer-events-none';
         const cellHtml = `
-            <div id="cell-${i}" onclick="setActiveCell(${i})" ondblclick="toggleCellFullscreen(${i})" class="relative w-full h-full bg-gray-900 border-[2px] transition-colors overflow-hidden group cursor-pointer ${activeCellClass} ${cellFocusClass}">
+            <div id="cell-${i}" onclick="setActiveCell(${i})" ondblclick="toggleCellFullscreen(${i})" class="matrix-cell relative w-full h-full bg-gray-900 border-[2px] transition-colors overflow-hidden group cursor-pointer ${activeCellClass} ${cellFocusClass}">
                 <iframe id="live-iframe-${i}" class="${liveIframeClass}" allow="autoplay; fullscreen; microphone; camera"></iframe>
                 <div id="dplayer-${i}" class="w-full h-full hidden"></div>
                 <video id="native-player-${i}" class="w-full h-full object-contain hidden bg-black" playsinline controls></video>
