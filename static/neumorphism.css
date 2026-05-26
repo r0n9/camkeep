@@ -596,6 +596,98 @@ html.dark .camera-node-live-btn svg {
     box-shadow: var(--nm-inset-sm) !important;
 }
 
+.record-range-actions {
+    gap: 8px !important;
+}
+
+.record-range-actions .nm-btn,
+.record-range-actions .nm-btn--emerald {
+    height: 32px !important;
+    min-width: 86px;
+    border: 0 !important;
+    border-radius: var(--nm-r-sm) !important;
+    padding: 0 13px !important;
+    font-family: var(--nm-font-body);
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+    transition: box-shadow 160ms ease, transform 120ms ease, color 160ms ease, background 160ms ease;
+}
+
+.record-range-actions .nm-btn {
+    background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.40), rgba(15, 23, 42, 0.012)),
+        var(--nm-surface) !important;
+    color: var(--nm-text-soft) !important;
+    box-shadow: var(--nm-raise-sm), var(--nm-edge) !important;
+}
+
+.record-range-actions .nm-btn:hover {
+    background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.50), rgba(15, 23, 42, 0.014)),
+        var(--nm-surface-2) !important;
+    color: var(--nm-text) !important;
+    box-shadow: var(--nm-raise), var(--nm-edge) !important;
+    transform: translateY(-1px);
+}
+
+.record-range-actions .nm-btn:active {
+    background: var(--nm-well) !important;
+    box-shadow: var(--nm-inset-sm) !important;
+    transform: translateY(0);
+}
+
+.record-range-actions .nm-btn--emerald {
+    background:
+        linear-gradient(145deg, rgba(52, 211, 153, 0.96), rgba(4, 120, 87, 0.98)) !important;
+    color: #ffffff !important;
+    box-shadow:
+        4px 4px 10px var(--nm-dark),
+        -3px -3px 9px var(--nm-light),
+        inset 0 1px 0 rgba(255, 255, 255, 0.30) !important;
+}
+
+.record-range-actions .nm-btn--emerald:hover {
+    box-shadow:
+        6px 6px 14px var(--nm-dark),
+        -4px -4px 11px var(--nm-light),
+        0 8px 22px -10px var(--nm-online-glow),
+        inset 0 1px 0 rgba(255, 255, 255, 0.34) !important;
+    transform: translateY(-1px);
+}
+
+.record-range-actions .nm-btn--emerald:active {
+    background:
+        linear-gradient(145deg, rgba(4, 120, 87, 0.98), rgba(6, 95, 70, 0.98)) !important;
+    box-shadow:
+        inset 3px 3px 8px rgba(0, 0, 0, 0.30),
+        inset -2px -2px 6px rgba(255, 255, 255, 0.18) !important;
+    transform: translateY(0);
+}
+
+html.dark .record-range-actions .nm-btn {
+    background:
+        linear-gradient(145deg, rgba(45, 53, 73, 0.98), rgba(27, 31, 43, 0.96)),
+        var(--nm-surface-2) !important;
+    color: var(--nm-text-soft) !important;
+    box-shadow: var(--nm-raise-sm), var(--nm-edge) !important;
+}
+
+html.dark .record-range-actions .nm-btn:hover {
+    background:
+        linear-gradient(145deg, rgba(52, 60, 82, 0.98), rgba(31, 36, 50, 0.96)),
+        var(--nm-surface) !important;
+    color: var(--nm-text) !important;
+}
+
+html.dark .record-range-actions .nm-btn:active {
+    background: var(--nm-well) !important;
+    box-shadow:
+        inset 2px 2px 6px rgba(0, 0, 0, 0.52),
+        inset -2px -2px 5px rgba(255, 255, 255, 0.045) !important;
+}
+
 /* archive group cards (JS-injected) */
 .record-archive-group {
     --record-archive-chrome: linear-gradient(90deg, rgba(255, 255, 255, 0.42), rgba(15, 23, 42, 0.015));
