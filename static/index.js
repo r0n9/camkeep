@@ -2811,7 +2811,7 @@ function snapRecordTimeline24hDockBelowPlayer() {
 function renderRecordDateContent(content, camId, date, entries, viewMode, onUpdate = () => {}) {
     content.innerHTML = '';
     if (viewMode === 'timeline') {
-        content.className = 'record-watermark-window bg-slate-50/70 p-2 custom-scrollbar';
+        content.className = 'record-watermark-window record-archive-content-shell bg-slate-50/70 p-2 custom-scrollbar';
         if (!window.RecordTimeline) {
             const error = document.createElement('div');
             error.className = 'rounded-lg border border-red-100 bg-red-50 px-4 py-8 text-center text-sm font-bold text-red-400';
@@ -2838,7 +2838,7 @@ function renderRecordDateContent(content, camId, date, entries, viewMode, onUpda
     if (activeRecordTimeline24hDockKey === getRecordArchiveGroupKey(camId, date)) {
         renderRecordTimeline24hDock(camId, date, entries, selectedRecordPath);
     }
-    content.className = 'record-watermark-window max-h-[360px] overflow-y-auto bg-slate-50/60 p-2 custom-scrollbar sm:max-h-[460px]';
+    content.className = 'record-watermark-window record-archive-content-shell record-archive-file-well max-h-[360px] overflow-y-auto bg-slate-50/60 p-2 custom-scrollbar sm:max-h-[460px]';
     const fileGrid = document.createElement('div');
     fileGrid.className = 'relative z-[1] grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5';
 

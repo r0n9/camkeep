@@ -578,6 +578,9 @@ html.dark .camera-node-live-btn svg {
 
 /* archive group cards (JS-injected) */
 .record-archive-group {
+    --record-archive-chrome: linear-gradient(90deg, rgba(255, 255, 255, 0.42), rgba(15, 23, 42, 0.015));
+    --record-archive-chrome-dark: linear-gradient(90deg, rgba(38, 44, 61, 0.98), rgba(27, 31, 43, 0.96));
+    --record-archive-content-fill: var(--nm-well);
     border: 0 !important;
     border-radius: var(--nm-r) !important;
     background: var(--nm-surface) !important;
@@ -597,7 +600,7 @@ html.dark .camera-node-live-btn svg {
     border: 0 !important;
     border-radius: var(--nm-r) var(--nm-r) 0 0;
     background:
-        linear-gradient(145deg, rgba(255, 255, 255, 0.42), rgba(15, 23, 42, 0.015)),
+        var(--record-archive-chrome),
         var(--nm-surface) !important;
     box-shadow: var(--nm-edge) !important;
     transition: background 180ms ease, box-shadow 180ms ease;
@@ -606,7 +609,7 @@ html.dark .camera-node-live-btn svg {
 .record-archive-group-header:hover,
 .record-archive-group.is-open .record-archive-group-header {
     background:
-        linear-gradient(145deg, rgba(255, 255, 255, 0.42), rgba(15, 23, 42, 0.015)),
+        var(--record-archive-chrome),
         var(--nm-surface) !important;
     box-shadow: var(--nm-edge) !important;
 }
@@ -640,6 +643,49 @@ html.dark .camera-node-live-btn svg {
     box-shadow: var(--nm-inset) !important;
 }
 
+.record-archive-content-shell {
+    margin: 7px;
+    padding: 11px !important;
+    border: 1px solid transparent !important;
+    border-radius: var(--nm-r-lg) !important;
+    background:
+        linear-gradient(var(--record-archive-content-fill), var(--record-archive-content-fill)) padding-box,
+        var(--record-archive-chrome) border-box !important;
+    box-shadow: var(--nm-inset), var(--nm-edge) !important;
+    scroll-padding: 10px;
+}
+
+.record-archive-file-well {
+    overflow-y: auto;
+}
+
+.record-archive-file-well::before {
+    color: rgba(44, 51, 64, 0.045);
+}
+
+.record-archive-file-well > .grid {
+    padding: 1px;
+}
+
+.record-archive-content-shell .record-timeline-frame {
+    border: 0 !important;
+    border-radius: calc(var(--nm-r-lg) - 6px) !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.record-archive-content-shell .record-timeline-frame::after {
+    display: none !important;
+    content: none !important;
+}
+
+.record-archive-content-shell .record-timeline-scroll {
+    border-radius: calc(var(--nm-r-lg) - 8px) !important;
+    background:
+        repeating-linear-gradient(90deg, rgba(148, 163, 184, 0.08) 0 1px, transparent 1px 96px) !important;
+    box-shadow: var(--nm-inset-sm), inset 0 0 0 999px rgba(255, 255, 255, 0.10) !important;
+}
+
 .record-archive-group-title {
     color: var(--nm-text) !important;
     font-family: var(--nm-font-display);
@@ -659,12 +705,17 @@ html.dark .camera-node-live-btn svg {
 .record-archive-group-tools {
     align-self: stretch;
     align-items: center;
-    padding: 0 !important;
+    gap: 6px !important;
+    padding: 0 2px 0 0 !important;
     background: transparent !important;
+    box-shadow: none !important;
 }
 
 .record-archive-group-tools [data-record-view-switch="true"] {
-    height: 30px;
+    height: 32px;
+    gap: 5px;
+    overflow: visible !important;
+    padding: 0 !important;
     border: 0 !important;
     border-radius: 9999px !important;
     background: transparent !important;
@@ -672,43 +723,85 @@ html.dark .camera-node-live-btn svg {
 }
 
 .record-archive-group-tools [data-record-view-mode] {
+    height: 30px;
+    min-width: 64px;
+    padding: 0 10px !important;
     border-radius: 9999px !important;
-    color: var(--nm-text-faint) !important;
-    background: transparent !important;
-    box-shadow: none !important;
+    color: var(--nm-text-soft) !important;
+    background: var(--nm-surface) !important;
+    box-shadow: var(--nm-raise-sm), var(--nm-edge) !important;
+    transition: box-shadow 160ms ease, transform 120ms ease, color 160ms ease, background 160ms ease;
 }
 
 .record-archive-group-tools [data-record-view-mode]:hover {
-    background: transparent !important;
-    box-shadow: none !important;
+    transform: translateY(-1px);
+    background: var(--nm-surface-2) !important;
+    box-shadow: var(--nm-raise), var(--nm-edge) !important;
     color: var(--nm-text) !important;
 }
 
+.record-archive-group-tools [data-record-view-mode]:active {
+    transform: translateY(0);
+    background: var(--nm-well) !important;
+    box-shadow: var(--nm-inset-sm) !important;
+}
+
+.record-archive-group-tools [data-record-view-mode]:focus-visible,
+.record-archive-group-tools .record24h-dock-action:focus-visible,
+.record-archive-group-collapse:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--nm-accent) 62%, transparent);
+    outline-offset: 2px;
+}
+
 .record-archive-group-tools [data-record-view-mode][aria-pressed="true"] {
-    background: transparent !important;
+    transform: translateY(0);
+    background: var(--nm-well) !important;
     color: var(--nm-accent) !important;
-    box-shadow: none !important;
+    box-shadow: var(--nm-inset-sm) !important;
+}
+
+.record-archive-group-tools [data-record-view-mode][aria-pressed="true"]:hover {
+    background: var(--nm-well) !important;
+    color: var(--nm-accent) !important;
+    box-shadow: var(--nm-inset-sm) !important;
 }
 
 .record-archive-group-tools .record24h-dock-action {
     height: 30px;
-    min-width: 56px;
+    min-width: 58px;
+    padding: 0 10px;
     border: 0 !important;
-    background: transparent !important;
+    border-radius: 9999px;
+    background: var(--nm-surface) !important;
     color: var(--nm-text-soft) !important;
-    box-shadow: none !important;
+    box-shadow: var(--nm-raise-sm), var(--nm-edge) !important;
+    transition: box-shadow 160ms ease, transform 120ms ease, color 160ms ease, background 160ms ease;
 }
 
 .record-archive-group-tools .record24h-dock-action:hover {
-    background: transparent !important;
+    transform: translateY(-1px);
+    background: var(--nm-surface-2) !important;
     color: var(--nm-text) !important;
-    box-shadow: none !important;
+    box-shadow: var(--nm-raise), var(--nm-edge) !important;
+}
+
+.record-archive-group-tools .record24h-dock-action:active {
+    transform: translateY(0) scale(0.98);
+    background: var(--nm-well) !important;
+    box-shadow: var(--nm-inset-sm) !important;
 }
 
 .record-archive-group-tools .record24h-dock-action.is-active {
+    transform: translateY(0);
     color: var(--nm-online) !important;
-    background: transparent !important;
-    box-shadow: none !important;
+    background: var(--nm-well) !important;
+    box-shadow: var(--nm-inset-sm) !important;
+}
+
+.record-archive-group-tools .record24h-dock-action.is-active:hover {
+    color: var(--nm-online) !important;
+    background: var(--nm-well) !important;
+    box-shadow: var(--nm-inset-sm) !important;
 }
 
 .record-archive-group-collapse {
@@ -720,28 +813,38 @@ html.dark .camera-node-live-btn svg {
     padding: 0 !important;
     border: 0 !important;
     border-radius: 9999px !important;
-    background: transparent !important;
-    color: var(--nm-text-faint) !important;
-    box-shadow: none !important;
+    background: var(--nm-surface) !important;
+    color: var(--nm-text-soft) !important;
+    box-shadow: var(--nm-raise-sm), var(--nm-edge) !important;
+    transition: box-shadow 160ms ease, transform 120ms ease, color 160ms ease, background 160ms ease;
 }
 
 .record-archive-group-collapse:hover {
+    transform: translateY(-1px);
     color: var(--nm-text) !important;
-    background: transparent !important;
-    box-shadow: none !important;
+    background: var(--nm-surface-2) !important;
+    box-shadow: var(--nm-raise), var(--nm-edge) !important;
 }
 
+.record-archive-group-collapse:active,
 .record-archive-group.is-open .record-archive-group-collapse {
+    transform: translateY(0);
     color: var(--nm-text) !important;
-    background: transparent !important;
-    box-shadow: none !important;
+    background: var(--nm-well) !important;
+    box-shadow: var(--nm-inset-sm) !important;
+}
+
+.record-archive-group.is-open .record-archive-group-collapse:hover {
+    color: var(--nm-text) !important;
+    background: var(--nm-well) !important;
+    box-shadow: var(--nm-inset-sm) !important;
 }
 
 html.dark .record-archive-group-header,
 html.dark .record-archive-group-header:hover,
 html.dark .record-archive-group.is-open .record-archive-group-header {
     background:
-        linear-gradient(145deg, rgba(38, 44, 61, 0.98), rgba(27, 31, 43, 0.96)),
+        var(--record-archive-chrome-dark),
         var(--nm-surface) !important;
     box-shadow: var(--nm-edge) !important;
 }
@@ -760,23 +863,86 @@ html.dark .record-archive-group.is-open .record-archive-group-summary:hover {
         inset -3px -3px 9px rgba(255, 255, 255, 0.045) !important;
 }
 
+html.dark .record-archive-content-shell {
+    background:
+        linear-gradient(var(--record-archive-content-fill), var(--record-archive-content-fill)) padding-box,
+        var(--record-archive-chrome-dark) border-box !important;
+    box-shadow:
+        inset 4px 4px 11px rgba(0, 0, 0, 0.58),
+        inset -3px -3px 9px rgba(255, 255, 255, 0.045),
+        var(--nm-edge) !important;
+}
+
+html.dark .record-archive-file-well::before {
+    color: rgba(226, 232, 240, 0.035);
+}
+
+html.dark .record-archive-content-shell .record-timeline-frame {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+html.dark .record-archive-content-shell .record-timeline-scroll {
+    background:
+        repeating-linear-gradient(90deg, rgba(148, 163, 184, 0.055) 0 1px, transparent 1px 96px) !important;
+    box-shadow:
+        inset 2px 2px 6px rgba(0, 0, 0, 0.46),
+        inset -2px -2px 5px rgba(255, 255, 255, 0.04),
+        inset 0 0 0 999px rgba(0, 0, 0, 0.08) !important;
+}
+
 html.dark .record-archive-group-tools {
     background: transparent !important;
     box-shadow: none !important;
 }
 
+html.dark .record-archive-group-tools [data-record-view-switch="true"] {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+html.dark .record-archive-group-tools [data-record-view-mode],
+html.dark .record-archive-group-tools .record24h-dock-action,
+html.dark .record-archive-group-collapse {
+    background: var(--nm-surface-2) !important;
+    color: var(--nm-text-soft) !important;
+    box-shadow: var(--nm-raise-sm), var(--nm-edge) !important;
+}
+
 html.dark .record-archive-group-tools [data-record-view-mode]:hover,
 html.dark .record-archive-group-tools .record24h-dock-action:hover,
 html.dark .record-archive-group-collapse:hover {
-    background: transparent !important;
+    background: var(--nm-surface) !important;
     color: var(--nm-text) !important;
+    box-shadow: var(--nm-raise), var(--nm-edge) !important;
+}
+
+html.dark .record-archive-group-tools [data-record-view-mode]:active,
+html.dark .record-archive-group-tools [data-record-view-mode][aria-pressed="true"],
+html.dark .record-archive-group-tools [data-record-view-mode][aria-pressed="true"]:hover,
+html.dark .record-archive-group-tools .record24h-dock-action:active,
+html.dark .record-archive-group-tools .record24h-dock-action.is-active,
+html.dark .record-archive-group-tools .record24h-dock-action.is-active:hover,
+html.dark .record-archive-group-collapse:active,
+html.dark .record-archive-group.is-open .record-archive-group-collapse,
+html.dark .record-archive-group.is-open .record-archive-group-collapse:hover {
+    background: var(--nm-well) !important;
+    box-shadow: var(--nm-inset-sm) !important;
 }
 
 html.dark .record-archive-group-tools [data-record-view-mode][aria-pressed="true"],
+html.dark .record-archive-group-tools [data-record-view-mode][aria-pressed="true"]:hover {
+    color: var(--nm-accent) !important;
+}
+
 html.dark .record-archive-group-tools .record24h-dock-action.is-active,
-html.dark .record-archive-group.is-open .record-archive-group-collapse {
-    background: transparent !important;
-    box-shadow: none !important;
+html.dark .record-archive-group-tools .record24h-dock-action.is-active:hover {
+    color: var(--nm-online) !important;
+}
+
+html.dark .record-archive-group.is-open .record-archive-group-collapse,
+html.dark .record-archive-group.is-open .record-archive-group-collapse:hover {
+    color: var(--nm-text) !important;
 }
 
 html.dark .record-archive-group-count {
@@ -786,7 +952,8 @@ html.dark .record-archive-group-count {
 
 html.dark .record-archive-group-tools .record24h-dock-action.is-active {
     color: var(--nm-online) !important;
-    background: transparent !important;
+    background: var(--nm-well) !important;
+    box-shadow: var(--nm-inset-sm) !important;
 }
 
 html.dark .record-archive-group.is-open .record-archive-group-collapse {
