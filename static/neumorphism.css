@@ -169,7 +169,7 @@ h1, h2, .config-page-title, .config-doc-hero h1, .config-doc-content h1 {
 .nm-card-head h2 {
     display: flex !important;
     align-items: center;
-    gap: 10px;
+    /*gap: 10px;*/
     font-family: var(--nm-font-display);
     font-weight: 700;
     font-size: 15px;
@@ -183,6 +183,7 @@ h1, h2, .config-page-title, .config-doc-hero h1, .config-doc-content h1 {
     display: inline-block;
     width: 10px;
     height: 10px;
+    margin-right: 10px;
     border-radius: 9999px;
     background: var(--nm-card-dot-color, var(--nm-accent));
     box-shadow:
