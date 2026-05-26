@@ -406,28 +406,44 @@
         <div class="nm-card nm-card--blue bg-white p-3 rounded-xl shadow-sm border-t-4 border-blue-500 flex flex-col h-[560px] lg:h-[560px]">
             <div class="nm-card-head mb-2.5 flex items-center justify-between">
                 <h2 class="font-bold text-base text-gray-700 flex items-center"><span class="nm-card-dot" aria-hidden="true"></span>实时节点</h2>
-                <span id="camStatsSummary" class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-500 border border-slate-200">0 节点</span>
+                <span id="camStatsSummary" data-state="empty" class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-500 border border-slate-200">0 节点</span>
             </div>
-            <div id="camStatsPanel" class="mb-2 grid grid-cols-5 gap-1.5">
-                <div class="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-center">
-                    <div id="camStatsTotal" class="font-mono text-sm font-extrabold leading-none text-slate-800 tabular-nums">0</div>
-                    <div class="mt-1 text-[10px] font-bold leading-none text-slate-400">节点</div>
+            <div id="camStatsPanel" class="live-stats-panel" aria-label="实时节点统计">
+                <div class="live-stats-total">
+                    <span class="live-stats-kicker">TOTAL</span>
+                    <div class="live-stats-total-row">
+                        <strong id="camStatsTotal" class="tabular-nums">0</strong>
+                        <span>节点</span>
+                    </div>
                 </div>
-                <div class="rounded-lg border border-emerald-100 bg-emerald-50/70 px-2 py-1.5 text-center">
-                    <div id="camStatsOnline" class="font-mono text-sm font-extrabold leading-none text-emerald-700 tabular-nums">0</div>
-                    <div class="mt-1 text-[10px] font-bold leading-none text-emerald-700">在线</div>
-                </div>
-                <div class="rounded-lg border border-blue-100 bg-blue-50 px-2 py-1.5 text-center">
-                    <div id="camStatsIdle" class="font-mono text-sm font-extrabold leading-none text-blue-600 tabular-nums">0</div>
-                    <div class="mt-1 text-[10px] font-bold leading-none text-blue-600">待机</div>
-                </div>
-                <div class="rounded-lg border border-amber-100 bg-amber-50/70 px-2 py-1.5 text-center">
-                    <div id="camStatsRecording" class="font-mono text-sm font-extrabold leading-none text-amber-700 tabular-nums">0</div>
-                    <div class="mt-1 text-[10px] font-bold leading-none text-amber-700">录制</div>
-                </div>
-                <div class="rounded-lg border border-rose-100 bg-rose-50/80 px-2 py-1.5 text-center">
-                    <div id="camStatsOffline" class="font-mono text-sm font-extrabold leading-none text-rose-700 tabular-nums">0</div>
-                    <div class="mt-1 text-[10px] font-bold leading-none text-rose-700">离线</div>
+                <div class="live-stats-main">
+                    <div class="live-stats-distribution" aria-hidden="true">
+                        <span class="live-stats-segment live-stats-segment--online"></span>
+                        <span class="live-stats-segment live-stats-segment--idle"></span>
+                        <span class="live-stats-segment live-stats-segment--offline"></span>
+                    </div>
+                    <div class="live-stats-grid">
+                        <div class="live-stat-item live-stat-item--online">
+                            <span class="live-stat-dot"></span>
+                            <span class="live-stat-name">在线</span>
+                            <strong id="camStatsOnline" class="tabular-nums">0</strong>
+                        </div>
+                        <div class="live-stat-item live-stat-item--idle">
+                            <span class="live-stat-dot"></span>
+                            <span class="live-stat-name">待机</span>
+                            <strong id="camStatsIdle" class="tabular-nums">0</strong>
+                        </div>
+                        <div class="live-stat-item live-stat-item--recording">
+                            <span class="live-stat-dot"></span>
+                            <span class="live-stat-name">录制</span>
+                            <strong id="camStatsRecording" class="tabular-nums">0</strong>
+                        </div>
+                        <div class="live-stat-item live-stat-item--offline">
+                            <span class="live-stat-dot"></span>
+                            <span class="live-stat-name">离线</span>
+                            <strong id="camStatsOffline" class="tabular-nums">0</strong>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div id="camList" class="space-y-1.5 overflow-y-auto flex-1 pr-1 custom-scrollbar">

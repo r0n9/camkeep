@@ -1608,6 +1608,7 @@ async function loadStatus() {
 
 function updateCameraStats(cameras, failed = false) {
     const summary = document.getElementById('camStatsSummary');
+    const panel = document.getElementById('camStatsPanel');
     const totalEl = document.getElementById('camStatsTotal');
     const onlineEl = document.getElementById('camStatsOnline');
     const idleEl = document.getElementById('camStatsIdle');
@@ -1615,7 +1616,11 @@ function updateCameraStats(cameras, failed = false) {
     const offlineEl = document.getElementById('camStatsOffline');
 
     if (failed) {
-        if (summary) summary.innerText = '同步失败';
+        if (summary) {
+            summary.innerText = '同步失败';
+            summary.dataset.state = 'failed';
+        }
+        updateCameraStatsDistribution(panel, {total: 0, online: 0, idle: 0, offline: 0});
         [totalEl, onlineEl, idleEl, recordingEl, offlineEl].forEach(el => {
             if (el) el.innerText = '-';
         });
@@ -1633,12 +1638,41 @@ function updateCameraStats(cameras, failed = false) {
         return result;
     }, {total: 0, online: 0, idle: 0, recording: 0, offline: 0});
 
-    if (summary) summary.innerText = `${stats.total} 节点`;
+    updateCameraStatsDistribution(panel, stats);
+
+    if (summary) {
+        if (stats.total === 0) {
+            summary.innerText = '0 节点';
+            summary.dataset.state = 'empty';
+        } else if (stats.offline > 0) {
+            summary.innerText = `${stats.offline} 离线`;
+            summary.dataset.state = 'warning';
+        } else if (stats.recording > 0) {
+            summary.innerText = `${stats.recording} 录制中`;
+            summary.dataset.state = 'active';
+        } else {
+            summary.innerText = `${stats.total} 节点`;
+            summary.dataset.state = 'ok';
+        }
+    }
     if (totalEl) totalEl.innerText = stats.total;
     if (onlineEl) onlineEl.innerText = stats.online;
     if (idleEl) idleEl.innerText = stats.idle;
     if (recordingEl) recordingEl.innerText = stats.recording;
     if (offlineEl) offlineEl.innerText = stats.offline;
+}
+
+function updateCameraStatsDistribution(panel, stats) {
+    if (!panel) return;
+    const total = Math.max(0, Number(stats.total) || 0);
+    const share = value => {
+        if (!total) return '0%';
+        const percent = Math.max(0, Math.min(100, ((Number(value) || 0) / total) * 100));
+        return `${percent.toFixed(2)}%`;
+    };
+    panel.style.setProperty('--live-stat-online', share(stats.online));
+    panel.style.setProperty('--live-stat-idle', share(stats.idle));
+    panel.style.setProperty('--live-stat-offline', share(stats.offline));
 }
 
 function buildRecordScheduleDisplay(recordTime, override) {
