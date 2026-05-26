@@ -16,6 +16,7 @@ let latestBatchCameraPreview = {valid: [], invalid: []};
 let activeRecordTimeline24hDockKey = '';
 let matrixToolbarTimer = null;
 let configPageVisible = false;
+let recordListHeightLockToken = 0;
 const cameraCoverObjectURLs = new Map();
 const cameraCoverRequested = new Set();
 const cameraCoverFailed = new Set();
@@ -1993,16 +1994,45 @@ function updateFocusUI() {
 function selectCamera(camId) {
     currentSelectedCam = camId;
     updateSelectedRecordCameraBadge(camId);
-    loadStatus();
+    applySelectedCameraCardStyles();
+    refreshPTZPanel();
     loadRecords(camId);
 }
 
 function previewLive(camId) {
     currentSelectedCam = camId;
     updateSelectedRecordCameraBadge(camId);
-    loadStatus();
+    applySelectedCameraCardStyles();
+    refreshPTZPanel();
     playVideo(camId, true, `🟢 直播: ${camId}`);
     loadRecords(camId);
+}
+
+function applySelectedCameraCardStyles() {
+    const list = document.getElementById('camList');
+    if (!list) return;
+    Array.from(list.children).forEach(item => {
+        if (!item.dataset.camId) return;
+        item.classList.toggle('is-selected', item.dataset.camId === currentSelectedCam);
+    });
+}
+
+function lockRecordListHeightDuringRender(list) {
+    if (!list || window.scrollY <= 0 || list.children.length === 0) return () => {};
+    const height = list.getBoundingClientRect().height;
+    if (!Number.isFinite(height) || height <= 0) return () => {};
+
+    const token = ++recordListHeightLockToken;
+    list.style.minHeight = `${Math.ceil(height)}px`;
+    return () => {
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                if (recordListHeightLockToken === token && list.isConnected) {
+                    list.style.minHeight = '';
+                }
+            });
+        });
+    };
 }
 
 function playVideo(source, isLive, title) {
@@ -2872,6 +2902,7 @@ function dateKeyToUTC(dateKey) {
 async function loadRecords(camId) {
     const list = document.getElementById('recordList');
     const countBadge = document.getElementById('recordCount');
+    const releaseRecordListHeight = lockRecordListHeightDuringRender(list);
     updateSelectedRecordCameraBadge(camId);
     clearRecordTimeline24hDock();
     updateRecordRangeStatus();
@@ -3017,6 +3048,8 @@ async function loadRecords(camId) {
         errorDiv.className = 'rounded-xl border border-red-100 bg-red-50 px-5 py-10 text-center text-sm font-bold text-red-400';
         errorDiv.textContent = e.message || '获取录像列表失败';
         list.appendChild(errorDiv);
+    } finally {
+        releaseRecordListHeight();
     }
 }
 

@@ -217,12 +217,32 @@ h1, h2, .config-page-title, .config-doc-hero h1, .config-doc-content h1 {
 
 /* The cam-list scroll area sits below the groove with a hairline top fade */
 #camList {
-    padding: 8px 8px 10px !important;
-    scroll-padding: 8px 8px 10px;
-    -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 12px,
-                                                 #000 calc(100% - 12px), transparent 100%);
-            mask-image: linear-gradient(180deg, transparent 0, #000 12px,
-                                                 #000 calc(100% - 12px), transparent 100%);
+    margin-top: 4px;
+    padding: 10px !important;
+    border: 1px solid transparent !important;
+    border-radius: var(--nm-r-lg) !important;
+    background:
+        linear-gradient(var(--nm-well), var(--nm-well)) padding-box,
+        linear-gradient(90deg, rgba(255, 255, 255, 0.42), rgba(15, 23, 42, 0.015)) border-box !important;
+    box-shadow: var(--nm-inset), var(--nm-edge) !important;
+    overflow-anchor: none;
+    scroll-padding: 10px;
+    -webkit-mask-image: none;
+            mask-image: none;
+}
+
+#recordList {
+    overflow-anchor: none;
+}
+
+html.dark #camList {
+    background:
+        linear-gradient(var(--nm-well), var(--nm-well)) padding-box,
+        linear-gradient(90deg, rgba(38, 44, 61, 0.98), rgba(27, 31, 43, 0.96)) border-box !important;
+    box-shadow:
+        inset 4px 4px 11px rgba(0, 0, 0, 0.58),
+        inset -3px -3px 9px rgba(255, 255, 255, 0.045),
+        var(--nm-edge) !important;
 }
 
 /* ---- 4. Header toolbar --------------------------------------------------- */
@@ -680,10 +700,12 @@ html.dark .camera-node-live-btn svg {
 }
 
 .record-archive-content-shell .record-timeline-scroll {
-    border-radius: calc(var(--nm-r-lg) - 8px) !important;
+    border-radius: calc(var(--nm-r-lg) - 8px) calc(var(--nm-r-lg) - 8px) 0 0 !important;
     background:
-        repeating-linear-gradient(90deg, rgba(148, 163, 184, 0.08) 0 1px, transparent 1px 96px) !important;
-    box-shadow: var(--nm-inset-sm), inset 0 0 0 999px rgba(255, 255, 255, 0.10) !important;
+        repeating-linear-gradient(90deg, rgba(148, 163, 184, 0.08) 0 1px, transparent 1px 96px),
+        linear-gradient(145deg, rgba(255, 255, 255, 0.45), rgba(15, 23, 42, 0.012)),
+        var(--nm-surface) !important;
+    box-shadow: var(--nm-raise-sm), var(--nm-edge) !important;
 }
 
 .record-archive-group-title {
@@ -884,11 +906,10 @@ html.dark .record-archive-content-shell .record-timeline-frame {
 
 html.dark .record-archive-content-shell .record-timeline-scroll {
     background:
-        repeating-linear-gradient(90deg, rgba(148, 163, 184, 0.055) 0 1px, transparent 1px 96px) !important;
-    box-shadow:
-        inset 2px 2px 6px rgba(0, 0, 0, 0.46),
-        inset -2px -2px 5px rgba(255, 255, 255, 0.04),
-        inset 0 0 0 999px rgba(0, 0, 0, 0.08) !important;
+        repeating-linear-gradient(90deg, rgba(148, 163, 184, 0.055) 0 1px, transparent 1px 96px),
+        linear-gradient(145deg, rgba(45, 53, 73, 0.98), rgba(27, 31, 43, 0.96)),
+        var(--nm-surface-2) !important;
+    box-shadow: var(--nm-raise-sm), var(--nm-edge) !important;
 }
 
 html.dark .record-archive-group-tools {
