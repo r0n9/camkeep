@@ -2841,7 +2841,7 @@ function snapRecordTimeline24hDockBelowPlayer() {
 function renderRecordDateContent(content, camId, date, entries, viewMode, onUpdate = () => {}) {
     content.innerHTML = '';
     if (viewMode === 'timeline') {
-        content.className = 'record-watermark-window record-archive-content-shell bg-slate-50/70 p-2 custom-scrollbar';
+        content.className = 'record-watermark-window record-archive-content-shell record-archive-timeline-well bg-slate-50/70 p-2 custom-scrollbar';
         if (!window.RecordTimeline) {
             const error = document.createElement('div');
             error.className = 'rounded-lg border border-red-100 bg-red-50 px-4 py-8 text-center text-sm font-bold text-red-400';

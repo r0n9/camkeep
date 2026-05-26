@@ -683,6 +683,10 @@ html.dark .camera-node-live-btn svg {
     color: rgba(44, 51, 64, 0.045);
 }
 
+.record-archive-timeline-well::before {
+    content: none !important;
+}
+
 .record-archive-file-well > .grid {
     padding: 1px;
 }
@@ -694,7 +698,7 @@ html.dark .camera-node-live-btn svg {
     box-shadow: none !important;
 }
 
-.record-archive-content-shell .record-timeline-frame::after {
+.record-archive-timeline-well .record-timeline-frame::after {
     display: none !important;
     content: none !important;
 }
@@ -706,6 +710,37 @@ html.dark .camera-node-live-btn svg {
         linear-gradient(145deg, rgba(255, 255, 255, 0.45), rgba(15, 23, 42, 0.012)),
         var(--nm-surface) !important;
     box-shadow: var(--nm-raise-sm), var(--nm-edge) !important;
+}
+
+.record-archive-timeline-well .record-timeline-scroll::before {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    color: rgba(44, 51, 64, 0.045);
+    content: "CamKeep";
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 156px;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: 0;
+    pointer-events: none;
+    text-align: center;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.record-archive-timeline-well .record-timeline-stage {
+    z-index: 1;
+}
+
+@media (max-width: 1024px) {
+    .record-archive-timeline-well .record-timeline-scroll::before {
+        font-size: 64px;
+    }
 }
 
 .record-archive-group-title {
@@ -896,6 +931,10 @@ html.dark .record-archive-content-shell {
 }
 
 html.dark .record-archive-file-well::before {
+    color: rgba(226, 232, 240, 0.035);
+}
+
+html.dark .record-archive-timeline-well .record-timeline-scroll::before {
     color: rgba(226, 232, 240, 0.035);
 }
 
