@@ -1,0 +1,971 @@
+/* ==========================================================================
+   CamKeep · Neumorphism design system (additive overlay)
+   Loaded AFTER index.css / ptz.css / user-management.css / record-timeline-24h.css
+   so it wins on equal specificity. Only restyles surfaces, depth, type and
+   controls — never structure, IDs, or the classes the JS toggles.
+   ========================================================================== */
+
+/* ---- 0. Self-hosted display fonts (no external CDN) ---------------------- */
+@font-face {
+    font-family: "Satoshi";
+    src: url("/static/fonts/satoshi-400.woff2") format("woff2");
+    font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+    font-family: "Satoshi";
+    src: url("/static/fonts/satoshi-500.woff2") format("woff2");
+    font-weight: 500; font-style: normal; font-display: swap;
+}
+@font-face {
+    font-family: "Satoshi";
+    src: url("/static/fonts/satoshi-700.woff2") format("woff2");
+    font-weight: 700; font-style: normal; font-display: swap;
+}
+@font-face {
+    font-family: "Satoshi";
+    src: url("/static/fonts/satoshi-900.woff2") format("woff2");
+    font-weight: 900; font-style: normal; font-display: swap;
+}
+@font-face {
+    font-family: "Clash Display";
+    src: url("/static/fonts/clash-display-600.woff2") format("woff2");
+    font-weight: 600; font-style: normal; font-display: swap;
+}
+@font-face {
+    font-family: "Clash Display";
+    src: url("/static/fonts/clash-display-700.woff2") format("woff2");
+    font-weight: 700; font-style: normal; font-display: swap;
+}
+
+/* ---- 1. Tokens ----------------------------------------------------------- */
+:root {
+    /* Light mode — warm light-gray plane */
+    --nm-bg: #e4e8f0;
+    --nm-bg-tint: radial-gradient(circle at 12% -8%, rgba(94, 132, 224, 0.10), transparent 42%),
+                  radial-gradient(circle at 92% 4%, rgba(20, 184, 166, 0.08), transparent 38%);
+    --nm-surface: #e7ebf2;
+    --nm-surface-2: #eaeef5;
+    --nm-well: #e1e5ee;
+
+    --nm-text: #2c3340;
+    --nm-text-soft: #5a6373;
+    --nm-text-faint: #8b94a4;
+
+    /* dual light/dark shadow pair */
+    --nm-light: rgba(255, 255, 255, 0.95);
+    --nm-dark: rgba(170, 182, 204, 0.60);
+    --nm-edge: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+
+    /* raised + inset recipes */
+    --nm-raise-sm: 3px 3px 7px var(--nm-dark), -3px -3px 7px var(--nm-light);
+    --nm-raise: 6px 6px 15px var(--nm-dark), -6px -6px 15px var(--nm-light);
+    --nm-raise-lg: 11px 11px 28px var(--nm-dark), -9px -9px 24px var(--nm-light);
+    --nm-inset-sm: inset 2px 2px 5px var(--nm-dark), inset -2px -2px 5px var(--nm-light);
+    --nm-inset: inset 4px 4px 10px var(--nm-dark), inset -4px -4px 10px var(--nm-light);
+
+    /* radii */
+    --nm-r-sm: 12px;
+    --nm-r: 16px;
+    --nm-r-lg: 22px;
+    --nm-r-xl: 28px;
+
+    /* accents — preserve CamKeep's existing semantic palette */
+    --nm-accent: #3b6fe0;
+    --nm-accent-strong: #2456c8;
+    --nm-online: #10b981;     /* 在线 */
+    --nm-idle: #3b82f6;       /* 待机 */
+    --nm-recording: #f59e0b;  /* 录制 */
+    --nm-offline: #f43f5e;    /* 离线 */
+    --nm-alert: #f59e0b;
+
+    --nm-accent-glow: rgba(59, 111, 224, 0.45);
+    --nm-online-glow: rgba(16, 185, 129, 0.45);
+
+    --nm-font-body: "Satoshi", "Segoe UI", "PingFang SC", "Hiragino Sans GB",
+                    "Microsoft YaHei", sans-serif;
+    --nm-font-display: "Clash Display", "Satoshi", "Segoe UI",
+                       "PingFang SC", "Microsoft YaHei", sans-serif;
+    --nm-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+                    "Liberation Mono", "Courier New", monospace;
+}
+
+html.dark {
+    /* Dark mode — deep slate plane with subtle highlight */
+    --nm-bg: #1f2330;
+    --nm-bg-tint: radial-gradient(circle at 12% -8%, rgba(59, 111, 224, 0.16), transparent 44%),
+                  radial-gradient(circle at 92% 4%, rgba(20, 184, 166, 0.10), transparent 40%);
+    --nm-surface: #232838;
+    --nm-surface-2: #262c3d;
+    --nm-well: #1b1f2b;
+
+    --nm-text: #e3e8f2;
+    --nm-text-soft: #aab4c5;
+    --nm-text-faint: #7c8699;
+
+    --nm-light: rgba(255, 255, 255, 0.055);
+    --nm-dark: rgba(0, 0, 0, 0.56);
+    --nm-edge: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+
+    --nm-raise-sm: 3px 3px 7px var(--nm-dark), -2px -2px 6px var(--nm-light);
+    --nm-raise: 6px 6px 16px var(--nm-dark), -5px -5px 14px var(--nm-light);
+    --nm-raise-lg: 12px 12px 30px var(--nm-dark), -8px -8px 22px var(--nm-light);
+    --nm-inset-sm: inset 2px 2px 6px var(--nm-dark), inset -2px -2px 5px var(--nm-light);
+    --nm-inset: inset 4px 4px 11px var(--nm-dark), inset -3px -3px 9px var(--nm-light);
+
+    --nm-accent: #5b86ec;
+    --nm-accent-strong: #3b6fe0;
+    --nm-accent-glow: rgba(91, 134, 236, 0.40);
+    --nm-online-glow: rgba(16, 185, 129, 0.38);
+}
+
+/* ---- 2. Base ------------------------------------------------------------- */
+body {
+    font-family: var(--nm-font-body);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+/* page plane (overrides the flat Tailwind bg on every page) */
+body.bg-gray-100,
+body.bg-slate-100,
+body.config-doc-body,
+html.dark body.bg-gray-100,
+html.dark body.bg-slate-100,
+html.dark body.config-doc-body {
+    background: var(--nm-bg-tint), var(--nm-bg) !important;
+    color: var(--nm-text);
+}
+
+h1, h2, .config-page-title, .config-doc-hero h1, .config-doc-content h1 {
+    font-family: var(--nm-font-display);
+    letter-spacing: -0.02em;
+}
+
+/* ---- 3. Raised card primitive ------------------------------------------- */
+.nm-card {
+    position: relative;
+    border: 0 !important;
+    border-radius: var(--nm-r-lg) !important;
+    background: var(--nm-surface) !important;
+    box-shadow: var(--nm-raise), var(--nm-edge) !important;
+}
+
+/* soft accent strip replaces the old hard border-t-4 */
+.nm-card--blue::before,
+.nm-card--emerald::before {
+    /* The old floating left-edge bar was clipped by the card's rounded
+       corners and felt detached. We expose the accent through the .nm-card-dot
+       inside the header band instead — keep the pseudo-element disabled. */
+    display: none !important;
+}
+
+/* ---- 4b. Card header band (used in #camList container & history panel) -- */
+.nm-card-head {
+    position: relative;
+    padding-bottom: 10px !important;
+    box-shadow: inset 0 -1px 0 var(--nm-dark),
+                inset 0 -2px 0 var(--nm-light) !important;
+}
+.nm-card-head h2 {
+    display: flex !important;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--nm-font-display);
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: -0.01em;
+    color: var(--nm-text) !important;
+}
+
+/* Embossed color dot that sits in the header — the visual key for the card */
+.nm-card-dot {
+    flex: 0 0 auto;
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 9999px;
+    background: var(--nm-card-dot-color, var(--nm-accent));
+    box-shadow:
+        inset 0 1px 1px rgba(255, 255, 255, 0.55),
+        inset 0 -1px 1px rgba(0, 0, 0, 0.28),
+        0 0 0 3px var(--nm-surface),
+        0 0 0 4px var(--nm-dark),
+        0 0 9px var(--nm-card-dot-glow, var(--nm-accent-glow));
+}
+.nm-card--blue .nm-card-dot {
+    --nm-card-dot-color: var(--nm-accent);
+    --nm-card-dot-glow: var(--nm-accent-glow);
+}
+.nm-card--emerald .nm-card-dot {
+    --nm-card-dot-color: var(--nm-online);
+    --nm-card-dot-glow: var(--nm-online-glow);
+}
+
+/* Header right-side badge becomes an inset pill that matches the language */
+#camStatsSummary {
+    font-family: var(--nm-font-mono);
+    font-weight: 700;
+}
+
+/* Soft groove between the stats grid and the scrollable cam list */
+#camStatsPanel {
+    padding-bottom: 12px !important;
+    box-shadow: inset 0 -1px 0 var(--nm-dark),
+                inset 0 -2px 0 var(--nm-light);
+}
+
+/* The cam-list scroll area sits below the groove with a hairline top fade */
+#camList {
+    padding-top: 8px !important;
+    -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 12px,
+                                                 #000 calc(100% - 12px), transparent 100%);
+            mask-image: linear-gradient(180deg, transparent 0, #000 12px,
+                                                 #000 calc(100% - 12px), transparent 100%);
+}
+
+/* ---- 4. Header toolbar --------------------------------------------------- */
+.nm-toolbar {
+    border: 0 !important;
+    border-radius: 9999px !important;
+    background: var(--nm-surface) !important;
+    box-shadow: var(--nm-raise-sm), var(--nm-edge) !important;
+    padding: 5px !important;
+    gap: 4px !important;
+}
+.nm-toolbar > span[class*="bg-gray"] {
+    background: transparent !important;
+    box-shadow: inset 1px 0 0 var(--nm-dark);
+}
+.nm-toolbar button,
+.account-menu-button {
+    border-radius: 9999px !important;
+    transition: box-shadow 140ms ease, color 140ms ease, transform 90ms ease, background 140ms ease;
+}
+.nm-toolbar button:hover,
+.account-menu-button:hover,
+.account-menu-button.is-open {
+    background: var(--nm-surface) !important;
+    box-shadow: var(--nm-raise-sm) !important;
+}
+.nm-toolbar button:active,
+.account-menu-button:active {
+    box-shadow: var(--nm-inset-sm) !important;
+    transform: none;
+}
+
+/* version + update badges become soft inset pills */
+#appVersionText {
+    color: var(--nm-text-soft);
+}
+.version-update-badge {
+    border: 0 !important;
+    box-shadow: var(--nm-raise-sm) !important;
+}
+
+/* ---- 5. Camera status sidebar ------------------------------------------- */
+/* recessed stat wells — instantly legible, crisp colored numerals */
+#camStatsPanel > div {
+    position: relative;
+    overflow: hidden;
+    border: 0 !important;
+    border-radius: var(--nm-r-sm) !important;
+    background: var(--nm-well) !important;
+    box-shadow: var(--nm-inset-sm) !important;
+}
+/* per-status accent ribbon along the top edge of each well */
+#camStatsPanel > div::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 8px;
+    right: 8px;
+    height: 2px;
+    border-radius: 0 0 9999px 9999px;
+    background: var(--nm-stat-color, var(--nm-text-faint));
+    opacity: 0.85;
+    box-shadow: 0 0 6px var(--nm-stat-color, transparent);
+}
+#camStatsPanel > div:nth-child(1) { --nm-stat-color: var(--nm-text-faint); }
+#camStatsPanel > div:nth-child(2) { --nm-stat-color: var(--nm-online); }
+#camStatsPanel > div:nth-child(3) { --nm-stat-color: var(--nm-idle); }
+#camStatsPanel > div:nth-child(4) { --nm-stat-color: var(--nm-recording); }
+#camStatsPanel > div:nth-child(5) { --nm-stat-color: var(--nm-offline); }
+#camStatsSummary {
+    border: 0 !important;
+    background: var(--nm-well) !important;
+    box-shadow: var(--nm-inset-sm) !important;
+    color: var(--nm-text-soft) !important;
+}
+
+/* camera node cards → raised soft tiles with top-left status pill */
+.camera-node-card {
+    border: 0 !important;
+    border-radius: var(--nm-r) !important;
+    background: var(--nm-surface) !important;
+    box-shadow:
+        4px 4px 10px var(--nm-dark),
+        -3px -3px 9px var(--nm-light),
+        var(--nm-edge) !important;
+    transition: box-shadow 220ms ease, transform 200ms ease, background 220ms ease;
+}
+html.dark .camera-node-card {
+    background: var(--nm-surface) !important;
+    box-shadow:
+        4px 4px 10px var(--nm-dark),
+        -3px -3px 9px var(--nm-light),
+        var(--nm-edge) !important;
+}
+
+/* The colored "题标" pill in the top-left corner (replaces the old left rail) */
+.camera-node-card::before {
+    top: 9px !important;
+    left: 9px !important;
+    bottom: auto !important;
+    width: 22px !important;
+    height: 5px !important;
+    border-radius: 9999px !important;
+    background: var(--camera-node-status) !important;
+    opacity: 1 !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.55),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+        0 1px 3px rgba(0, 0, 0, 0.22),
+        0 0 0 0 var(--camera-node-pulse) !important;
+    transition: width 220ms ease, box-shadow 220ms ease;
+}
+
+/* Hover: subtle lift + deeper raise */
+.camera-node-card:hover {
+    transform: translateY(-1px);
+    box-shadow:
+        6px 6px 16px var(--nm-dark),
+        -5px -5px 14px var(--nm-light),
+        var(--nm-edge) !important;
+}
+.camera-node-card:hover::before {
+    width: 26px !important;
+}
+
+/* Active recording states — add an ambient colored shadow under the card */
+.camera-node-card.is-recording,
+.camera-node-card.is-motion-recording,
+.camera-node-card.is-motion-detecting,
+.camera-node-card.is-override-start {
+    box-shadow:
+        4px 4px 10px var(--nm-dark),
+        -3px -3px 9px var(--nm-light),
+        0 10px 22px -10px var(--camera-node-glow),
+        var(--nm-edge) !important;
+}
+.camera-node-card.is-recording:hover,
+.camera-node-card.is-motion-recording:hover,
+.camera-node-card.is-motion-detecting:hover,
+.camera-node-card.is-override-start:hover {
+    box-shadow:
+        6px 6px 16px var(--nm-dark),
+        -5px -5px 14px var(--nm-light),
+        0 14px 28px -10px var(--camera-node-glow),
+        var(--nm-edge) !important;
+}
+
+/* Pulse animation rewrites the badge box-shadow each frame, so we must
+   redefine it here to preserve the inset emboss while halo expands. */
+.camera-node-card.is-recording::before,
+.camera-node-card.is-motion-recording::before,
+.camera-node-card.is-motion-detecting::before,
+.camera-node-card.is-override-start::before {
+    animation: nm-status-pulse 1.8s ease-in-out infinite !important;
+}
+.camera-node-card.is-override-stop::before {
+    animation: none !important;
+}
+@keyframes nm-status-pulse {
+    0%, 100% {
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.55),
+            inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+            0 1px 3px rgba(0, 0, 0, 0.22),
+            0 0 0 0 var(--camera-node-pulse);
+    }
+    50% {
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.6),
+            inset 0 -1px 0 rgba(0, 0, 0, 0.2),
+            0 1px 3px rgba(0, 0, 0, 0.22),
+            0 0 0 5px var(--camera-node-pulse);
+    }
+}
+
+/* Selected: noticeable lift, accent ring, inner accent gradient, longer badge */
+.camera-node-card.is-selected {
+    transform: translateY(-2px);
+    background:
+        linear-gradient(135deg, rgba(59, 111, 224, 0.10), transparent 55%),
+        var(--nm-surface) !important;
+    box-shadow:
+        6px 6px 16px var(--nm-dark),
+        -5px -5px 14px var(--nm-light),
+        0 0 0 2px var(--nm-accent),
+        0 12px 26px -10px var(--nm-accent-glow),
+        var(--nm-edge) !important;
+}
+html.dark .camera-node-card.is-selected {
+    background:
+        linear-gradient(135deg, rgba(91, 134, 236, 0.16), transparent 55%),
+        var(--nm-surface) !important;
+}
+.camera-node-card.is-selected::before {
+    width: 32px !important;
+    height: 6px !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.65),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+        0 2px 5px rgba(0, 0, 0, 0.28),
+        0 0 10px var(--camera-node-status) !important;
+}
+
+.camera-node-card-footer {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: inset 0 1px 0 var(--nm-dark);
+}
+.camera-node-cover {
+    border: 0 !important;
+    border-radius: var(--nm-r-sm) !important;
+    box-shadow: var(--nm-inset-sm) !important;
+}
+
+/* ---- Play button overlay on each camera cover --------------------------- */
+/* Default: nearly invisible — let the cover thumbnail breathe. Just a faint
+   ringed disc with a soft blurred triangle so it's still discoverable.
+   Hover: blooms into a solid convex blue disc with a halo.
+   Active: presses in with an inset depression. */
+.camera-node-live-btn {
+    border: 0 !important;
+    background: rgba(15, 23, 42, 0.18) !important;
+    backdrop-filter: blur(3px) !important;
+    -webkit-backdrop-filter: blur(3px) !important;
+    opacity: 0.55 !important;
+    box-shadow:
+        0 2px 10px rgba(0, 0, 0, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.22),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.18) !important;
+    transition: transform 220ms ease, box-shadow 220ms ease,
+                background 220ms ease, opacity 220ms ease !important;
+}
+/* Flatten the inner-ring decoration — let the triangle ride directly on the disc */
+.camera-node-live-btn > span {
+    background: transparent !important;
+    box-shadow: none !important;
+    --tw-ring-color: transparent !important;
+    --tw-ring-shadow: 0 0 #0000 !important;
+}
+.camera-node-live-btn svg {
+    color: #ffffff !important;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
+    transform: translateX(1px);
+    transition: color 220ms ease, transform 90ms ease;
+}
+
+/* Hover / focus: blue bloom */
+.camera-node-cover:hover .camera-node-live-btn,
+.camera-node-cover:focus-visible .camera-node-live-btn,
+.group\/cover:hover .camera-node-live-btn {
+    opacity: 1 !important;
+    transform: translate(-50%, -50%) scale(1.1) !important;
+    background: linear-gradient(145deg, var(--nm-accent), var(--nm-accent-strong)) !important;
+    box-shadow:
+        3px 3px 10px rgba(0, 0, 0, 0.55),
+        -2px -2px 8px rgba(255, 255, 255, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.35),
+        0 0 24px var(--nm-accent-glow),
+        0 0 0 4px rgba(59, 111, 224, 0.18) !important;
+}
+.camera-node-cover:hover .camera-node-live-btn svg,
+.camera-node-cover:focus-visible .camera-node-live-btn svg,
+.group\/cover:hover .camera-node-live-btn svg {
+    color: #ffffff !important;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
+}
+
+.camera-node-cover:active .camera-node-live-btn,
+.group\/cover:active .camera-node-live-btn {
+    transform: translate(-50%, -50%) scale(0.92) !important;
+    box-shadow:
+        inset 3px 3px 7px rgba(0, 0, 0, 0.55),
+        inset -2px -2px 6px rgba(255, 255, 255, 0.18),
+        0 0 14px var(--nm-accent-glow) !important;
+}
+.camera-node-cover:active .camera-node-live-btn svg,
+.group\/cover:active .camera-node-live-btn svg {
+    transform: translateX(1px) scale(0.96);
+}
+
+/* Dark mode: identical resting treatment works, just tweak hover glow slightly */
+html.dark .camera-node-live-btn {
+    background: rgba(15, 23, 42, 0.28) !important;
+    box-shadow:
+        0 2px 10px rgba(0, 0, 0, 0.6),
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.10) !important;
+}
+html.dark .camera-node-live-btn svg {
+    color: #ffffff !important;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));
+}
+
+/* action buttons on each node (start/stop/auto) */
+.camera-node-card-actions {
+    border: 0 !important;
+    border-radius: var(--nm-r-sm) !important;
+    background: var(--nm-surface) !important;
+    box-shadow: var(--nm-raise-sm) !important;
+    overflow: hidden;
+}
+.camera-node-action-btn {
+    background: transparent !important;
+    border: 0 !important;
+}
+.camera-node-action-btn:active {
+    box-shadow: var(--nm-inset-sm) !important;
+}
+
+/* ---- 6. Video monitor frame --------------------------------------------- */
+.nm-screen {
+    border: 0 !important;
+    border-radius: var(--nm-r-lg) !important;
+    box-shadow: var(--nm-raise-lg),
+                inset 0 0 0 1px rgba(0, 0, 0, 0.55),
+                inset 0 2px 6px rgba(0, 0, 0, 0.6) !important;
+}
+#video-toolbar {
+    background: #1a1f2b !important;
+    border: 0 !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* ---- 7. History records panel ------------------------------------------- */
+#recordSelectedCam,
+#recordCount,
+#recordRangeStatus {
+    border: 0 !important;
+    box-shadow: var(--nm-inset-sm) !important;
+}
+/* date-range well */
+.nm-daterange {
+    border: 0 !important;
+    border-radius: 9999px !important;
+    background: var(--nm-well) !important;
+    box-shadow: var(--nm-inset-sm) !important;
+}
+
+/* archive group cards (JS-injected) */
+.record-archive-group-header {
+    background: transparent !important;
+    box-shadow: inset 0 -1px 0 var(--nm-dark) !important;
+}
+
+/* ---- 8. Buttons ---------------------------------------------------------- */
+/* neutral raised button */
+.nm-btn {
+    border: 0 !important;
+    border-radius: var(--nm-r-sm) !important;
+    background: var(--nm-surface) !important;
+    color: var(--nm-text-soft) !important;
+    box-shadow: var(--nm-raise-sm), var(--nm-edge) !important;
+    transition: box-shadow 140ms ease, transform 90ms ease, color 140ms ease;
+}
+.nm-btn:hover {
+    box-shadow: var(--nm-raise), var(--nm-edge) !important;
+    color: var(--nm-text) !important;
+    transform: translateY(-1px);
+}
+.nm-btn:active {
+    box-shadow: var(--nm-inset-sm) !important;
+    transform: none;
+}
+
+/* accent (primary) raised button with colored glow */
+.nm-btn--accent {
+    color: #fff !important;
+    background: linear-gradient(145deg, var(--nm-accent), var(--nm-accent-strong)) !important;
+    box-shadow: 5px 5px 13px var(--nm-dark), -5px -5px 13px var(--nm-light),
+                inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+}
+.nm-btn--accent:hover {
+    box-shadow: 6px 6px 16px var(--nm-dark), -6px -6px 16px var(--nm-light),
+                0 8px 22px -8px var(--nm-accent-glow),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+    color: #fff !important;
+}
+.nm-btn--accent:active {
+    box-shadow: inset 3px 3px 8px rgba(0, 0, 0, 0.32),
+                inset -2px -2px 6px rgba(255, 255, 255, 0.18) !important;
+}
+
+/* emerald accent variant (records / live status) */
+.nm-btn--emerald {
+    border: 0 !important;
+    border-radius: var(--nm-r-sm) !important;
+    color: #fff !important;
+    background: linear-gradient(145deg, #10b981, #047857) !important;
+    box-shadow: 5px 5px 13px var(--nm-dark), -5px -5px 13px var(--nm-light),
+                inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+    transition: box-shadow 140ms ease, transform 90ms ease;
+}
+.nm-btn--emerald:hover {
+    box-shadow: 6px 6px 16px var(--nm-dark), -6px -6px 16px var(--nm-light),
+                0 8px 22px -8px var(--nm-online-glow),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+    transform: translateY(-1px);
+}
+.nm-btn--emerald:active {
+    box-shadow: inset 3px 3px 8px rgba(0, 0, 0, 0.32),
+                inset -2px -2px 6px rgba(255, 255, 255, 0.18) !important;
+    transform: none;
+}
+
+/* named component buttons inherit the language */
+.config-page-primary-btn,
+.config-add-camera-btn,
+.config-batch-camera-apply,
+.config-import-add-btn,
+.config-doc-primary-link {
+    border: 0 !important;
+    border-radius: var(--nm-r-sm) !important;
+    background: linear-gradient(145deg, var(--nm-accent), var(--nm-accent-strong)) !important;
+    box-shadow: 5px 5px 13px var(--nm-dark), -5px -5px 13px var(--nm-light),
+                inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+}
+.config-page-primary-btn:hover,
+.config-add-camera-btn:hover,
+.config-doc-primary-link:hover {
+    box-shadow: 6px 6px 16px var(--nm-dark), -6px -6px 16px var(--nm-light),
+                0 8px 22px -8px var(--nm-accent-glow) !important;
+    transform: translateY(-1px);
+}
+.config-page-primary-btn:active,
+.config-add-camera-btn:active {
+    box-shadow: inset 3px 3px 8px rgba(0, 0, 0, 0.32),
+                inset -2px -2px 6px rgba(255, 255, 255, 0.18) !important;
+    transform: none;
+}
+
+.config-page-secondary-btn,
+.config-doc-secondary-link,
+.config-batch-camera-btn,
+.config-quiet-action {
+    border: 0 !important;
+    border-radius: var(--nm-r-sm) !important;
+    background: var(--nm-surface) !important;
+    color: var(--nm-text-soft) !important;
+    box-shadow: var(--nm-raise-sm), var(--nm-edge) !important;
+}
+.config-page-secondary-btn:hover,
+.config-doc-secondary-link:hover,
+.config-batch-camera-btn:hover,
+.config-quiet-action:hover {
+    box-shadow: var(--nm-raise), var(--nm-edge) !important;
+    color: var(--nm-accent) !important;
+    transform: translateY(-1px);
+}
+.config-page-secondary-btn:active,
+.config-batch-camera-btn:active {
+    box-shadow: var(--nm-inset-sm) !important;
+    transform: none;
+}
+
+/* danger button */
+.user-danger-btn,
+.config-camera-delete-btn {
+    border: 0 !important;
+    border-radius: var(--nm-r-sm) !important;
+    background: var(--nm-surface) !important;
+    color: var(--nm-offline) !important;
+    box-shadow: var(--nm-raise-sm), var(--nm-edge) !important;
+}
+.user-danger-btn:hover,
+.config-camera-delete-btn:hover {
+    background: linear-gradient(145deg, #fb7185, #be123c) !important;
+    color: #fff !important;
+    box-shadow: var(--nm-raise), 0 8px 20px -8px rgba(244, 63, 94, 0.5) !important;
+}
+
+/* ---- 9. Inputs → inset wells -------------------------------------------- */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+select,
+textarea,
+.config-yaml-panel,
+.config-batch-camera-input {
+    border: 0 !important;
+    border-radius: var(--nm-r-sm) !important;
+    background: var(--nm-well) !important;
+    color: var(--nm-text) !important;
+    box-shadow: var(--nm-inset-sm) !important;
+    transition: box-shadow 160ms ease;
+}
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus,
+select:focus,
+textarea:focus,
+.config-yaml-panel:focus-within {
+    outline: none !important;
+    box-shadow: var(--nm-inset-sm), 0 0 0 2px var(--nm-accent-glow) !important;
+}
+
+/* toggle tracks read as inset grooves */
+#dailyMergeEnabled + span,
+.config-toggle-track {
+    box-shadow: var(--nm-inset-sm);
+}
+
+/* YAML editor textarea stays transparent inside its panel well */
+#configYaml {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+/* ---- 10. Config / user surfaces ----------------------------------------- */
+.config-page-card,
+.config-section,
+.config-daily-merge-card,
+.config-camera-card,
+.config-discovery-card,
+.user-list-panel,
+.user-editor-panel,
+.user-password-panel,
+.user-camera-scope-panel,
+.account-menu-panel,
+.config-doc-hero,
+.config-doc-toc,
+.config-doc-content {
+    border: 0 !important;
+    border-radius: var(--nm-r-lg) !important;
+    background: var(--nm-surface) !important;
+    box-shadow: var(--nm-raise), var(--nm-edge) !important;
+}
+.config-page-card::before { display: none; }   /* drop the hard top gradient bar */
+
+.config-section-head,
+.config-page-hero,
+.user-list-head,
+.user-editor-head {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: inset 0 -1px 0 var(--nm-dark) !important;
+}
+.config-page-actionbar {
+    border: 0 !important;
+    border-radius: var(--nm-r-lg) !important;
+    background: var(--nm-surface) !important;
+    box-shadow: var(--nm-raise), var(--nm-edge) !important;
+}
+.config-form-section {
+    border: 0 !important;
+    border-radius: var(--nm-r) !important;
+    background: var(--nm-well) !important;
+    box-shadow: var(--nm-inset-sm) !important;
+}
+.config-tabs {
+    border: 0 !important;
+    background: var(--nm-well) !important;
+    box-shadow: var(--nm-inset-sm) !important;
+}
+.config-tab-btn.is-active {
+    border: 0 !important;
+    background: var(--nm-surface) !important;
+    box-shadow: var(--nm-raise-sm) !important;
+}
+.user-list-item {
+    border: 0 !important;
+    border-radius: var(--nm-r) !important;
+    background: var(--nm-surface) !important;
+    box-shadow: var(--nm-raise-sm), var(--nm-edge) !important;
+}
+.user-list-item:hover,
+.user-list-item.is-active {
+    box-shadow: var(--nm-raise), 0 0 0 2px var(--nm-accent-glow) !important;
+    transform: translateY(-1px);
+}
+
+/* status badges keep their crisp color but lose hard edges */
+.config-camera-chip,
+.user-role-badge, .user-status-badge, .user-session-badge,
+.user-current-badge, .user-camera-scope-badge, .user-source-badge {
+    box-shadow: var(--nm-raise-sm);
+}
+
+/* confirm modal */
+#confirmModal > div {
+    border-radius: var(--nm-r-lg) !important;
+    background: var(--nm-surface) !important;
+    box-shadow: var(--nm-raise-lg), var(--nm-edge) !important;
+}
+#confirmModal .bg-gray-100 {
+    background: var(--nm-surface) !important;
+    box-shadow: var(--nm-raise-sm) !important;
+}
+
+/* ---- 11. Recording timeline (hero) -------------------------------------- */
+.record24h,
+.record-timeline-frame {
+    border: 0 !important;
+    border-radius: var(--nm-r-lg) !important;
+    background: var(--nm-surface) !important;
+    box-shadow: var(--nm-raise), var(--nm-edge) !important;
+}
+/* the scrollable track sits recessed into the surface */
+.record24h-viewport,
+.record-timeline-scroll {
+    border-radius: var(--nm-r) !important;
+    box-shadow: var(--nm-inset) !important;
+}
+.record24h-header,
+.record24h-status,
+.record24h-footer {
+    border: 0 !important;
+    background: transparent !important;
+}
+.record24h-zoom,
+.record24h-time-badge {
+    border: 0 !important;
+    box-shadow: var(--nm-raise-sm) !important;
+}
+.record24h-time-badge {
+    box-shadow: var(--nm-inset-sm) !important;
+}
+.record24h-dock .record24h {
+    box-shadow: var(--nm-raise-lg), var(--nm-edge) !important;
+}
+/* timeline record cards float above the track */
+.record-timeline-card {
+    border: 0 !important;
+    border-radius: var(--nm-r-sm) !important;
+    background: var(--nm-surface) !important;
+    box-shadow: var(--nm-raise-sm), var(--nm-edge) !important;
+}
+.record-timeline-dial-fixed {
+    border: 0 !important;
+    box-shadow: inset 0 1px 0 var(--nm-dark) !important;
+}
+.record-timeline-side-nav,
+.record24h-dock-action {
+    border: 0 !important;
+    border-radius: 9999px !important;
+    box-shadow: var(--nm-raise-sm) !important;
+}
+.record-timeline-side-nav:active:not(:disabled) {
+    box-shadow: var(--nm-inset-sm) !important;
+}
+/* segments stay vivid & crisp — depth makes them pop off the inset track */
+.record24h-segment.is-real::before {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35),
+                0 2px 5px -1px rgba(4, 120, 87, 0.5);
+}
+
+/* ---- 12. PTZ joystick (hero) -------------------------------------------- */
+/* The PTZ panel lives on the dark video stage in both themes, so it keeps a
+   dark tactile treatment — but upgraded to a true convex/concave language. */
+#ptz-panel {
+    --nm-dark: rgba(0, 0, 0, 0.62);
+    --nm-light: rgba(255, 255, 255, 0.06);
+}
+.ptz-dial {
+    border: 0 !important;
+    border-radius: 18px !important;
+    background: radial-gradient(circle at 50% 42%, rgba(59, 130, 246, 0.14), transparent 60%),
+                #1c2230 !important;
+    /* concave dish: dark rim top-left, light rim bottom-right */
+    box-shadow: inset 6px 6px 14px rgba(0, 0, 0, 0.66),
+                inset -6px -6px 14px rgba(255, 255, 255, 0.05) !important;
+}
+.ptz-btn {
+    border: 0 !important;
+    border-radius: 11px !important;
+    background: linear-gradient(145deg, #2a3142, #1a1f2b) !important;
+    /* convex key */
+    box-shadow: 4px 4px 9px rgba(0, 0, 0, 0.6),
+                -3px -3px 8px rgba(255, 255, 255, 0.055),
+                inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
+    color: #cbd5e1 !important;
+}
+.ptz-btn::before { opacity: 0.4; }
+.ptz-btn:hover {
+    border: 0 !important;
+    background: linear-gradient(145deg, #2f6df0, #0e9fc9) !important;
+    box-shadow: 4px 4px 11px rgba(0, 0, 0, 0.6),
+                -3px -3px 9px rgba(255, 255, 255, 0.06),
+                0 8px 18px -8px rgba(14, 165, 233, 0.7),
+                inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+    color: #fff !important;
+}
+.ptz-btn:active,
+.ptz-btn.is-pressing {
+    background: #161b26 !important;
+    /* pressed: deep inset */
+    box-shadow: inset 4px 4px 9px rgba(0, 0, 0, 0.7),
+                inset -3px -3px 8px rgba(255, 255, 255, 0.05) !important;
+    transform: translateY(1px) scale(0.97);
+}
+.ptz-btn.ptz-stop {
+    background: linear-gradient(145deg, #3a1f29, #1a1f2b) !important;
+    color: #fecaca !important;
+}
+.ptz-btn.ptz-stop:hover {
+    background: linear-gradient(145deg, #e0394b, #b1182f) !important;
+    color: #fff !important;
+}
+.ptz-action-btn,
+.ptz-tool-panel {
+    border: 0 !important;
+    border-radius: 10px !important;
+}
+.ptz-action-btn {
+    background: linear-gradient(145deg, #2a3142, #1a1f2b) !important;
+    box-shadow: 4px 4px 9px rgba(0, 0, 0, 0.58),
+                -3px -3px 8px rgba(255, 255, 255, 0.05),
+                inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+    color: #cbd5e1 !important;
+}
+.ptz-action-btn:hover {
+    background: linear-gradient(145deg, #0e7490, #2563eb) !important;
+    color: #fff !important;
+}
+.ptz-action-btn:active,
+.ptz-action-btn.is-pressing {
+    box-shadow: inset 4px 4px 9px rgba(0, 0, 0, 0.68),
+                inset -3px -3px 8px rgba(255, 255, 255, 0.05) !important;
+}
+.ptz-tool-panel {
+    background: #1c2230 !important;
+    box-shadow: inset 4px 4px 10px rgba(0, 0, 0, 0.55),
+                inset -3px -3px 8px rgba(255, 255, 255, 0.045) !important;
+}
+
+/* ---- 13. Login card ------------------------------------------------------ */
+.nm-login-card {
+    border: 0 !important;
+    border-radius: var(--nm-r-xl) !important;
+    background: var(--nm-surface) !important;
+    box-shadow: var(--nm-raise-lg), var(--nm-edge) !important;
+}
+.nm-login-card input {
+    background: var(--nm-well) !important;
+}
+
+/* ---- 14. Scrollbars + focus accessibility ------------------------------- */
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--nm-dark);
+}
+:focus-visible {
+    outline: 2px solid var(--nm-accent);
+    outline-offset: 2px;
+}
+
+/* ---- 15. Motion preference ---------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+    }
+}

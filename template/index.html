@@ -26,6 +26,7 @@
     <link rel="stylesheet" href="/static/user-management.css">
     <link rel="stylesheet" href="/static/record-timeline-24h.css">
     <link rel="stylesheet" href="/static/ptz.css">
+    <link rel="stylesheet" href="/static/neumorphism.css">
     <script>
         window.CAMKEEP_AUTH = {{ .AuthJSON }};
     </script>
@@ -55,7 +56,7 @@
             </div>
         </h1>
         <div class="flex w-full items-center justify-end sm:w-auto">
-            <div class="flex items-center gap-0.5 rounded-xl border border-gray-200 bg-white p-0.5 shadow-sm">
+            <div class="nm-toolbar flex items-center gap-0.5 rounded-xl border border-gray-200 bg-white p-0.5 shadow-sm">
                 <button id="themeToggleBtn" onclick="toggleTheme()" class="group flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-500 transition-all hover:bg-gray-50 hover:text-gray-900 active:scale-95" title="切换深浅色模式" aria-label="切换深浅色模式">
                     <svg id="themeIconLight" class="hidden h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m8.66-13.66l-.7.7M4.04 19.96l-.7.7M21 12h-1M4 12H3m16.96 7.96l-.7-.7M4.04 4.04l-.7-.7"></path>
@@ -400,9 +401,9 @@
     <main id="dashboardPage">
     <div class="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] gap-4 lg:gap-5 mb-5 md:mb-6">
 
-        <div class="bg-white p-3 rounded-xl shadow-sm border-t-4 border-blue-500 flex flex-col h-[560px] lg:h-[560px]">
-            <div class="mb-2.5 flex items-center justify-between">
-                <h2 class="font-bold text-base text-gray-700 flex items-center">实时节点</h2>
+        <div class="nm-card nm-card--blue bg-white p-3 rounded-xl shadow-sm border-t-4 border-blue-500 flex flex-col h-[560px] lg:h-[560px]">
+            <div class="nm-card-head mb-2.5 flex items-center justify-between">
+                <h2 class="font-bold text-base text-gray-700 flex items-center"><span class="nm-card-dot" aria-hidden="true"></span>实时节点</h2>
                 <span id="camStatsSummary" class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-500 border border-slate-200">0 节点</span>
             </div>
             <div id="camStatsPanel" class="mb-2 grid grid-cols-5 gap-1.5">
@@ -433,7 +434,7 @@
         </div>
 
         <div id="playback-column" class="min-w-0 flex flex-col gap-2">
-        <div id="video-wrapper" class="bg-gray-900 rounded-xl shadow-xl overflow-hidden relative h-[58vh] min-h-[320px] max-h-[620px] lg:h-[560px] lg:max-h-none flex flex-col border border-gray-800 transition-all duration-300">
+        <div id="video-wrapper" class="nm-screen bg-gray-900 rounded-xl shadow-xl overflow-hidden relative h-[58vh] min-h-[320px] max-h-[620px] lg:h-[560px] lg:max-h-none flex flex-col border border-gray-800 transition-all duration-300">
 
             <div id="video-stage" class="flex min-h-0 flex-1 bg-black">
                 <div id="video-grid" class="min-w-0 flex-1 h-full p-1 bg-black grid gap-1 transition-all duration-300"></div>
@@ -479,25 +480,25 @@
         </div>
     </div>
 
-    <div class="bg-white p-3 sm:p-4 rounded-xl shadow-sm border-t-4 border-emerald-500">
+    <div class="nm-card nm-card--emerald bg-white p-3 sm:p-4 rounded-xl shadow-sm border-t-4 border-emerald-500">
         <div class="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div class="flex flex-wrap items-center gap-2">
-                <h2 class="font-bold text-base text-gray-700">历史录像</h2>
+                <h2 class="font-bold text-base text-gray-700 flex items-center"><span class="nm-card-dot" aria-hidden="true"></span>历史录像</h2>
                 <span id="recordSelectedCam" class="hidden max-w-[220px] truncate rounded-full border border-blue-100 bg-blue-50 px-2.5 py-0.5 text-[11px] font-extrabold text-blue-700" title=""></span>
                 <span id="recordCount" class="text-[11px] font-medium text-gray-500 bg-gray-100 px-2.5 py-0.5 rounded-full border border-gray-200">0 个文件</span>
                 <span id="recordRangeStatus" class="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100">最近7个录像日</span>
             </div>
             <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <div class="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 shadow-inner">
+                <div class="nm-daterange flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 shadow-inner">
                     <input id="recordStartDate" type="date" aria-label="录像开始日期" class="h-8 min-w-0 rounded-md border border-slate-200 bg-white px-2 text-xs font-mono text-slate-700 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 sm:w-[142px]">
                     <span class="text-xs font-bold text-slate-400">至</span>
                     <input id="recordEndDate" type="date" aria-label="录像结束日期" class="h-8 min-w-0 rounded-md border border-slate-200 bg-white px-2 text-xs font-mono text-slate-700 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 sm:w-[142px]">
                 </div>
                 <div class="grid grid-cols-2 gap-1.5 sm:flex">
-                    <button id="recordRangeApplyBtn" onclick="applyRecordRange()" class="h-8 rounded-lg bg-emerald-600 px-3 text-xs font-bold text-white shadow-sm transition-all hover:bg-emerald-700 active:scale-95">
+                    <button id="recordRangeApplyBtn" onclick="applyRecordRange()" class="nm-btn--emerald h-8 rounded-lg bg-emerald-600 px-3 text-xs font-bold text-white shadow-sm transition-all hover:bg-emerald-700 active:scale-95">
                         查询
                     </button>
-                    <button onclick="resetRecordRange()" class="h-8 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 shadow-sm transition-all hover:bg-slate-50 hover:text-slate-900 active:scale-95">
+                    <button onclick="resetRecordRange()" class="nm-btn h-8 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 shadow-sm transition-all hover:bg-slate-50 hover:text-slate-900 active:scale-95">
                         最近7个录像日
                     </button>
                 </div>
