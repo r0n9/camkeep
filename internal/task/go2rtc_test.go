@@ -60,6 +60,45 @@ func TestGo2rtcStreamStateKeepsProducerErrorOfflineWhenProbeFails(t *testing.T) 
 	}
 }
 
+func TestGo2rtcStreamStateIdleProducerRechecksTCPAfterProbeInterval(t *testing.T) {
+	resetStreamRecoveryForTest(t)
+
+	camData := map[string]interface{}{
+		"producers": []interface{}{
+			map[string]interface{}{
+				"url": "rtsp://camera.example/live",
+			},
+		},
+	}
+	now := time.Date(2026, 5, 28, 10, 0, 0, 0, time.UTC)
+	probeCount := 0
+
+	if got := go2rtcStreamState("cam1", camData, "rtsp://camera.example/live", "offline", now, func(string) bool {
+		probeCount++
+		return true
+	}); got != "idle" {
+		t.Fatalf("expected reachable idle producer to be idle, got %q", got)
+	}
+	if got := go2rtcStreamState("cam1", camData, "rtsp://camera.example/live", "idle", now.Add(streamIdleProbeInterval-time.Second), func(string) bool {
+		probeCount++
+		return false
+	}); got != "idle" {
+		t.Fatalf("expected cached idle producer to stay idle before probe interval, got %q", got)
+	}
+	if probeCount != 1 {
+		t.Fatalf("expected cached idle state to avoid a second probe, got %d probes", probeCount)
+	}
+	if got := go2rtcStreamState("cam1", camData, "rtsp://camera.example/live", "idle", now.Add(streamIdleProbeInterval+time.Second), func(string) bool {
+		probeCount++
+		return false
+	}); got != "offline" {
+		t.Fatalf("expected idle producer to become offline after failed recheck, got %q", got)
+	}
+	if probeCount != 2 {
+		t.Fatalf("expected expired idle cache to trigger a second probe, got %d probes", probeCount)
+	}
+}
+
 func TestGo2rtcStreamStateBacksOffAfterReachableErrorProbeWindow(t *testing.T) {
 	resetStreamRecoveryForTest(t)
 
@@ -166,9 +205,18 @@ func resetStreamRecoveryForTest(t *testing.T) {
 	streamRecoveries = make(map[string]streamRecoveryState)
 	streamRecoveryMux.Unlock()
 
+	streamIdleProbeMux.Lock()
+	oldIdleProbes := streamIdleProbes
+	streamIdleProbes = make(map[string]streamIdleProbeState)
+	streamIdleProbeMux.Unlock()
+
 	t.Cleanup(func() {
 		streamRecoveryMux.Lock()
 		streamRecoveries = oldRecoveries
 		streamRecoveryMux.Unlock()
+
+		streamIdleProbeMux.Lock()
+		streamIdleProbes = oldIdleProbes
+		streamIdleProbeMux.Unlock()
 	})
 }

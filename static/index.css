@@ -396,6 +396,16 @@
     --camera-node-chip-text: #0284c7;
 }
 
+.camera-node-card.is-record-error {
+    --camera-node-status: #f43f5e;
+    --camera-node-border: rgba(244, 63, 94, 0.5);
+    --camera-node-glow: rgba(225, 29, 72, 0.3);
+    --camera-node-pulse: rgba(244, 63, 94, 0.14);
+    --camera-node-chip-bg: rgba(255, 241, 242, 0.84);
+    --camera-node-chip-border: rgba(244, 63, 94, 0.28);
+    --camera-node-chip-text: #be123c;
+}
+
 .camera-node-card.is-idle {
     --camera-node-status: #cbd5e1;
 }
@@ -614,6 +624,12 @@ html.dark .camera-node-card.is-motion-detecting {
     --camera-node-chip-bg: rgba(12, 74, 110, 0.3);
     --camera-node-chip-border: rgba(56, 189, 248, 0.34);
     --camera-node-chip-text: #7dd3fc;
+}
+
+html.dark .camera-node-card.is-record-error {
+    --camera-node-chip-bg: rgba(136, 19, 55, 0.36);
+    --camera-node-chip-border: rgba(251, 113, 133, 0.34);
+    --camera-node-chip-text: #fda4af;
 }
 
 html.dark .camera-node-card.is-override-stop {

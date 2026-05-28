@@ -1422,17 +1422,20 @@ function buildCameraCardView(id, cam) {
                 </button>
             </div>
     ` : '';
-    let streamLight, streamText;
+    let streamLight, streamText, streamTitle;
 
     if (streamState === 'online') {
         streamLight = 'bg-green-500 shadow-[0_0_5px_#22c55e]';
         streamText = '<span class="text-[8px] leading-none text-green-600 font-bold">在线</span>';
+        streamTitle = '摄像机实时流状态: 在线，已有真实媒体数据';
     } else if (streamState === 'idle') {
         streamLight = 'bg-blue-400 shadow-[0_0_5px_#60a5fa]';
-        streamText = '<span class="text-[8px] leading-none text-blue-500 font-bold">待机</span>';
+        streamText = '<span class="text-[8px] leading-none text-blue-500 font-bold">待连接</span>';
+        streamTitle = '摄像机实时流状态: 待连接，设备可访问，视频流尚未连接';
     } else {
         streamLight = 'bg-red-500 shadow-[0_0_5px_#ef4444]';
         streamText = '<span class="text-[8px] leading-none text-red-500 font-bold">断线</span>';
+        streamTitle = '摄像机实时流状态: 断线';
     }
 
     const modeValue = (cam.mode || 'normal').toLowerCase();
@@ -1461,7 +1464,7 @@ function buildCameraCardView(id, cam) {
                         <span class="camera-node-record-chip ${recordStateView.chipClass}" title="本地录制状态: ${escapeHtml(recordStateView.title)}">${recordStateView.label}</span>
                     </div>
                     <div class="mt-0.5 flex flex-wrap items-center gap-0.5">
-                        <span class="inline-flex h-3.5 items-center rounded bg-slate-50 px-1 ring-1 ring-slate-100" title="摄像机实时流状态: ${escapeHtml(streamState)}">
+                        <span class="inline-flex h-3.5 items-center rounded bg-slate-50 px-1 ring-1 ring-slate-100" title="${escapeHtml(streamTitle)}">
                             <span class="mr-0.5 h-1.5 w-1.5 shrink-0 rounded-full ${streamLight}"></span>
                             ${streamText}
                         </span>
@@ -1512,6 +1515,15 @@ function buildRecordStateView(recordState, overrideState) {
             chipClass: 'camera-node-record-chip--recording',
             label: '录制中',
             title: '录制中'
+        };
+    }
+
+    if (recordState === 'record_error') {
+        return {
+            cardClass: `is-record-error ${overrideClass}`,
+            chipClass: 'camera-node-record-chip--record-error',
+            label: '录制异常',
+            title: 'FFmpeg 拉流或录制失败，等待重试'
         };
     }
 
@@ -1635,8 +1647,9 @@ function updateCameraStats(cameras, failed = false) {
         if (streamState === 'idle') result.idle += 1;
         if (streamState === 'offline') result.offline += 1;
         if (recordState === 'recording' || recordState === 'motion_detecting' || recordState === 'motion_recording') result.recording += 1;
+        if (recordState === 'record_error') result.recordError += 1;
         return result;
-    }, {total: 0, online: 0, idle: 0, recording: 0, offline: 0});
+    }, {total: 0, online: 0, idle: 0, recording: 0, recordError: 0, offline: 0});
 
     updateCameraStatsDistribution(panel, stats);
 
@@ -1646,6 +1659,9 @@ function updateCameraStats(cameras, failed = false) {
             summary.dataset.state = 'empty';
         } else if (stats.offline > 0) {
             summary.innerText = `${stats.offline} 离线`;
+            summary.dataset.state = 'warning';
+        } else if (stats.recordError > 0) {
+            summary.innerText = `${stats.recordError} 录制异常`;
             summary.dataset.state = 'warning';
         } else if (stats.recording > 0) {
             summary.innerText = `${stats.recording} 录制中`;

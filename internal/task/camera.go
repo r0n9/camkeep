@@ -23,6 +23,8 @@ var (
 	overrides       = make(map[string]string) // key: 摄像头ID, value: "start", "stop", 或空("auto")
 )
 
+const scheduledRecordRetryDelay = 30 * time.Second
+
 // SetOverride 设置手动录像指令
 func SetOverride(camID, action string) error {
 	if camID == "" {
@@ -95,6 +97,8 @@ func runScheduledCameraTask(ctx context.Context, cam constant.Camera, camDir str
 	var ffmpegCmd *exec.Cmd
 	var ffmpegCancel context.CancelFunc
 	var ffmpegDone chan error
+	var recordErr error
+	var nextStartAfter time.Time
 
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
@@ -123,15 +127,25 @@ func runScheduledCameraTask(ctx context.Context, cam constant.Camera, camDir str
 
 			shouldRun := recordingWindowEnabled(control, inTimeRange)
 
-			// 注意：如果状态是 "idle" (按需休眠) 是可以启动的，只有明确的 "offline" 才拦截
+			// idle 只表示近期 TCP 可达且等待拉流验证，仍允许录制任务发起一次真实拉流。
+			// 只有明确的 offline 才拦截，避免设备恢复供电后没有消费者触发 go2rtc 刷新。
 			if streamState == "offline" {
 				shouldRun = false
+			}
+			if !shouldRun {
+				recordErr = nil
+				nextStartAfter = time.Time{}
 			}
 
 			isRunning := ffmpegCmd != nil && ffmpegCmd.ProcessState == nil
 			if ffmpegCmd != nil && !isRunning && ffmpegDone != nil {
 				select {
-				case <-ffmpegDone:
+				case err := <-ffmpegDone:
+					if err != nil && ctx.Err() == nil && shouldRun {
+						recordErr = err
+						nextStartAfter = now.Add(scheduledRecordRetryDelay)
+						log.Printf("[%s] 录制进程异常退出，%s 后重试: %v", cam.ID, scheduledRecordRetryDelay, err)
+					}
 					ffmpegCmd = nil
 					ffmpegDone = nil
 					ffmpegCancel = nil
@@ -141,20 +155,34 @@ func runScheduledCameraTask(ctx context.Context, cam constant.Camera, camDir str
 				}
 			}
 
-			if shouldRun && !isRunning {
+			retryBlocked := shouldRun && !isRunning && recordErr != nil && now.Before(nextStartAfter)
+
+			if shouldRun && !isRunning && !retryBlocked {
 				log.Printf("[%s] 启动录制...", cam.ID)
 				var fCtx context.Context
 				fCtx, ffmpegCancel = context.WithCancel(ctx)
-				ffmpegCmd = startFFmpeg(fCtx, cam, camDir)
-				ffmpegDone = make(chan error, 1)
+				var err error
+				ffmpegCmd, err = startFFmpeg(fCtx, cam, camDir)
+				if err != nil {
+					recordErr = err
+					nextStartAfter = now.Add(scheduledRecordRetryDelay)
+					ffmpegCancel()
+					ffmpegCancel = nil
+					ffmpegCmd = nil
+					log.Printf("[%s] 启动 FFmpeg 失败，%s 后重试: %v", cam.ID, scheduledRecordRetryDelay, err)
+				} else {
+					recordErr = nil
+					nextStartAfter = time.Time{}
+					ffmpegDone = make(chan error, 1)
 
-				go func(c *exec.Cmd) {
-					err := c.Wait()
-					log.Printf("[%s] FFmpeg 进程已退出, err: %v", cam.ID, err)
-					ffmpegDone <- err
-				}(ffmpegCmd)
+					go func(c *exec.Cmd) {
+						err := c.Wait()
+						log.Printf("[%s] FFmpeg 进程已退出, err: %v", cam.ID, err)
+						ffmpegDone <- err
+					}(ffmpegCmd)
 
-				isRunning = true
+					isRunning = true
+				}
 
 			} else if !shouldRun && isRunning {
 				// 细化日志输出，方便排查是时间到了还是流断了
@@ -176,7 +204,16 @@ func runScheduledCameraTask(ctx context.Context, cam constant.Camera, camDir str
 				isRunning = false
 			}
 
-			service.UpdateStatus(cam.ID, isRunning, statusModeForCamera(cam), cam.RecordTime)
+			recordState := service.RecordStateIdle
+			switch {
+			case isRunning:
+				recordState = service.RecordStateRecording
+			case shouldRun && recordErr != nil:
+				// 录制条件满足但 FFmpeg 无法建立有效录制时，明确暴露失败状态，
+				// 避免前端把退避等待误显示成“录制中”。
+				recordState = service.RecordStateError
+			}
+			service.UpdateRecordState(cam.ID, recordState, statusModeForCamera(cam), cam.RecordTime)
 		}
 	}
 }
@@ -376,7 +413,7 @@ func currentStreamState(camID string) string {
 }
 
 // startFFmpeg 构建并启动 FFmpeg 进程
-func startFFmpeg(ctx context.Context, cam constant.Camera, camDir string) *exec.Cmd {
+func startFFmpeg(ctx context.Context, cam constant.Camera, camDir string) (*exec.Cmd, error) {
 	fileNamePattern := fmt.Sprintf("%s/%%Y-%%m-%%d/%s_%%Y%%m%%d_%%H%%M%%S_unknown.%s", filepath.ToSlash(camDir), cam.ID, cam.Format)
 
 	var args []string
@@ -474,10 +511,10 @@ func startFFmpeg(ctx context.Context, cam constant.Camera, camDir string) *exec.
 	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
-		log.Printf("[%s] 启动 FFmpeg 失败: %v", cam.ID, err)
+		return nil, err
 	}
 
-	return cmd
+	return cmd, nil
 }
 
 // LoadOverrides 在程序启动时调用（例如 main 函数开头）

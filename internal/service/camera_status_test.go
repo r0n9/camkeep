@@ -71,6 +71,24 @@ func TestUpdateRecordStateSetsMotionDetecting(t *testing.T) {
 	}
 }
 
+func TestUpdateRecordStateSetsRecordErrorWithoutRunning(t *testing.T) {
+	camID := "record-state-error"
+	deleteStatusForTest(t, camID)
+
+	UpdateRecordState(camID, RecordStateError, "normal", "00:00-23:59")
+
+	StatusMux.RLock()
+	status := StatusMap[camID]
+	StatusMux.RUnlock()
+
+	if status.RecordState != RecordStateError {
+		t.Fatalf("expected record state %q, got %q", RecordStateError, status.RecordState)
+	}
+	if status.IsRunning {
+		t.Fatal("expected record error to set is_running false")
+	}
+}
+
 func TestUpdateRecordStateNormalizesUnknownState(t *testing.T) {
 	camID := "record-state-unknown"
 	deleteStatusForTest(t, camID)

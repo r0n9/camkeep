@@ -73,7 +73,7 @@
     --nm-accent: #3b6fe0;
     --nm-accent-strong: #2456c8;
     --nm-online: #10b981;     /* 在线 */
-    --nm-idle: #3b82f6;       /* 待机 */
+    --nm-idle: #3b82f6;       /* 待连接 */
     --nm-recording: #f59e0b;  /* 录制 */
     --nm-offline: #f43f5e;    /* 离线 */
     --nm-alert: #f59e0b;

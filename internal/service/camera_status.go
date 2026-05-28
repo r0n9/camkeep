@@ -9,11 +9,11 @@ import (
 type CameraStatus struct {
 	ID          string    `json:"id"`
 	IsRunning   bool      `json:"is_running"`
-	RecordState string    `json:"record_state"` // 录像状态: idle, recording, motion_detecting, motion_recording
+	RecordState string    `json:"record_state"` // 录像状态: idle, recording, record_error, motion_detecting, motion_recording
 	StartTime   time.Time `json:"start_time"`
 	Mode        string    `json:"mode"` // 录制模式: normal, motion, timelapse
 	RecordTime  string    `json:"record_time"`
-	StreamState string    `json:"stream_state"` // 流状态: online(在线), offline(断线), idle(按需休眠)
+	StreamState string    `json:"stream_state"` // 流状态: online(有真实媒体数据), offline(断线), idle(待拉流验证)
 }
 
 const (
@@ -23,6 +23,7 @@ const (
 
 	RecordStateIdle            = "idle"
 	RecordStateRecording       = "recording"
+	RecordStateError           = "record_error"
 	RecordStateMotionDetecting = "motion_detecting"
 	RecordStateMotionRecording = "motion_recording"
 )
@@ -56,7 +57,7 @@ func UpdateRecordState(id string, recordState string, mode string, recordTime st
 	defer StatusMux.Unlock()
 	status := ensureCameraStatus(id)
 	status.RecordState = normalizeRecordState(recordState)
-	status.IsRunning = status.RecordState != RecordStateIdle
+	status.IsRunning = recordStateIsRunning(status.RecordState)
 	status.Mode = normalizeStatusMode(mode)
 	status.RecordTime = recordTime
 }
@@ -95,10 +96,19 @@ func recordStateFromRunning(isRunning bool) string {
 
 func normalizeRecordState(recordState string) string {
 	switch recordState {
-	case RecordStateRecording, RecordStateMotionDetecting, RecordStateMotionRecording:
+	case RecordStateRecording, RecordStateError, RecordStateMotionDetecting, RecordStateMotionRecording:
 		return recordState
 	default:
 		return RecordStateIdle
+	}
+}
+
+func recordStateIsRunning(recordState string) bool {
+	switch recordState {
+	case RecordStateRecording, RecordStateMotionDetecting, RecordStateMotionRecording:
+		return true
+	default:
+		return false
 	}
 }
 

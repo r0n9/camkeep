@@ -28,6 +28,7 @@ const (
 	streamRecoveryProbeWindow = 15 * time.Second
 	streamRecoveryBaseBackoff = 30 * time.Second
 	streamRecoveryMaxBackoff  = 5 * time.Minute
+	streamIdleProbeInterval   = 30 * time.Second
 )
 
 // streamRecoveryState 只用于处理“TCP 已恢复但 RTSP/媒体流仍不可用”的灰色状态。
@@ -38,9 +39,18 @@ type streamRecoveryState struct {
 	Failures       int
 }
 
+// streamIdleProbeState 记录无消费者 idle 态的轻量探活缓存。
+// go2rtc 只返回 URL 且没有消费者时无法证明真实媒体流可用，这里只缓存 TCP 可达性，避免每轮轮询都拨号。
+type streamIdleProbeState struct {
+	LastProbeAt time.Time
+	Reachable   bool
+}
+
 var (
-	streamRecoveryMux sync.Mutex
-	streamRecoveries  = make(map[string]streamRecoveryState)
+	streamRecoveryMux  sync.Mutex
+	streamRecoveries   = make(map[string]streamRecoveryState)
+	streamIdleProbeMux sync.Mutex
+	streamIdleProbes   = make(map[string]streamIdleProbeState)
 )
 
 // StartGo2rtcDaemon 负责启动并守护底层流媒体引擎。
@@ -354,7 +364,7 @@ func go2rtcStreamState(camID string, camData interface{}, configuredURL string, 
 	}
 
 	streamState := "offline" // 默认假设为离线
-	isIdle := false          // 标记是否进入了 go2rtc 无法分辨的待机状态
+	isIdle := false          // 标记是否进入了 go2rtc 无法分辨的待验证状态
 	var producerURL string   // 存放 go2rtc 返回的物理地址
 
 	if data, ok := camData.(map[string]interface{}); ok {
@@ -397,9 +407,11 @@ func go2rtcStreamState(camID string, camData interface{}, configuredURL string, 
 			// 状态仲裁
 			if isActive {
 				clearStreamRecovery(camID)
+				clearStreamIdleProbe(camID)
 				return "online" // 数据流转中，绝对健康
 			}
 			if hasError {
+				clearStreamIdleProbe(camID)
 				// go2rtc 可能保留旧的 producer error。这里先用配置里的真实流地址做轻量 TCP 探活，
 				// 但 TCP 通只代表设备端口恢复，不代表 RTSP/媒体流可用，因此后面还会套恢复窗口和退避。
 				probeURL := strings.TrimSpace(configuredURL)
@@ -415,6 +427,7 @@ func go2rtcStreamState(camID string, camData interface{}, configuredURL string, 
 			// 既没报错也没数据，说明 `producer` 里只剩下一个干瘪的 {"url": "..."}
 			if consumerCount > 0 {
 				clearStreamRecovery(camID)
+				clearStreamIdleProbe(camID)
 				return "online" // 有人在请求，但还没拿到数据/也没报错，说明“正在握手建联中”
 			}
 			clearStreamRecovery(camID)
@@ -423,24 +436,48 @@ func go2rtcStreamState(camID string, camData interface{}, configuredURL string, 
 	}
 
 	if isIdle {
-		// 如果之前已经是休眠状态，直接继承，跳过 TCP 探活。
-		// 如果它真的在此期间断电了，等到下次有业务拉流时，
-		// go2rtc 会报错产生 error 进而被上面的逻辑打回 offline。
-		if prevState == "idle" {
-			return "idle"
-		}
-
 		// 优先沿用 go2rtc 给出的物理地址，没有才回退到配置地址。
 		probeURL := producerURL
 		if probeURL == "" {
 			probeURL = strings.TrimSpace(configuredURL)
 		}
-		if streamProbeAlive(probeURL, tcpAlive) {
-			streamState = "idle" // 端口通，才是真休眠
-		}
+		return streamStateForIdleProducer(camID, probeURL, prevState, now, tcpAlive)
 	}
 
 	return streamState
+}
+
+func streamStateForIdleProducer(camID string, probeURL string, prevState string, now time.Time, tcpAlive func(string) bool) string {
+	if now.IsZero() {
+		now = time.Now()
+	}
+
+	// 无消费者时 go2rtc 没有真实媒体状态；idle 只表示“近期 TCP 探活可达、等待业务拉流验证”。
+	// 上一次已经是 idle 时复用短期缓存，避免大量摄像头每 3 秒都做 TCP dial。
+	if prevState == "idle" {
+		streamIdleProbeMux.Lock()
+		cached, ok := streamIdleProbes[camID]
+		streamIdleProbeMux.Unlock()
+		if ok && now.Sub(cached.LastProbeAt) < streamIdleProbeInterval {
+			if cached.Reachable {
+				return "idle"
+			}
+			return "offline"
+		}
+	}
+
+	reachable := streamProbeAlive(probeURL, tcpAlive)
+	streamIdleProbeMux.Lock()
+	streamIdleProbes[camID] = streamIdleProbeState{
+		LastProbeAt: now,
+		Reachable:   reachable,
+	}
+	streamIdleProbeMux.Unlock()
+
+	if reachable {
+		return "idle"
+	}
+	return "offline"
 }
 
 func streamStateForReachableProducerError(camID string, now time.Time) string {
@@ -479,6 +516,12 @@ func clearStreamRecovery(camID string) {
 	streamRecoveryMux.Lock()
 	delete(streamRecoveries, camID)
 	streamRecoveryMux.Unlock()
+}
+
+func clearStreamIdleProbe(camID string) {
+	streamIdleProbeMux.Lock()
+	delete(streamIdleProbes, camID)
+	streamIdleProbeMux.Unlock()
 }
 
 func streamRecoveryBackoff(failures int) time.Duration {
