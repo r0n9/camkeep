@@ -1,6 +1,6 @@
 /* ==========================================================================
    CamKeep · Neumorphism design system (additive overlay)
-   Loaded AFTER index.css / ptz.css / user-management.css / record-timeline-24h.css
+   Loaded AFTER the base stylesheet files
    so it wins on equal specificity. Only restyles surfaces, depth, type and
    controls — never structure, IDs, or the classes the JS toggles.
    ========================================================================== */
