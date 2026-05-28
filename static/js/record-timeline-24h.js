@@ -5,22 +5,32 @@
     const LANE_HEIGHT = 22;
     const MIN_SEGMENT_WIDTH = 6;
     const DRAG_START_THRESHOLD = 6;
-    const WHEEL_ZOOM_THRESHOLD = 90;
-    const PINCH_ZOOM_STEP_RATIO = 1.22;
+    const WHEEL_ZOOM_THRESHOLD = 120;
+    const WHEEL_ZOOM_REPEAT_MS = 180;
+    const WHEEL_ZOOM_RESET_MS = 260;
+    const ZOOM_ANIMATION_MS = 220;
+    const ZOOM_GESTURE_PREVIEW_SCALE = 0.045;
+    const PINCH_ZOOM_STEP_RATIO = 1.3;
     const MIN_LABEL_GAP_PX = 72;
     const MAX_ELASTIC_PAN_PX = 34;
     const fallbackDurationSeconds = 5 * 60;
     const states = new Map();
     const zoomLevels = [
         {label: '24H', trackWidth: 1040, tickSeconds: 2 * 60 * 60},
+        {label: '18H', trackWidth: 1320, tickSeconds: 60 * 60},
         {label: '12H', trackWidth: 1680, tickSeconds: 60 * 60},
+        {label: '8H', trackWidth: 2160, tickSeconds: 30 * 60},
         {label: '6H', trackWidth: 2640, tickSeconds: 30 * 60},
+        {label: '4H', trackWidth: 3420, tickSeconds: 15 * 60},
         {label: '3H', trackWidth: 4200, tickSeconds: 15 * 60},
         {label: '2H', trackWidth: 5600, tickSeconds: 10 * 60},
         {label: '1H', trackWidth: 8400, tickSeconds: 5 * 60},
+        {label: '45m', trackWidth: 10080, tickSeconds: 5 * 60},
         {label: '30m', trackWidth: 12600, tickSeconds: 2 * 60},
+        {label: '20m', trackWidth: 16800, tickSeconds: 2 * 60},
         {label: '10m', trackWidth: 25200, tickSeconds: 60},
         {label: '5m', trackWidth: 37800, tickSeconds: 30},
+        {label: '2m', trackWidth: 56700, tickSeconds: 20},
         {label: '1m', trackWidth: 75600, tickSeconds: 10}
     ];
 
@@ -49,8 +59,15 @@
         const render = () => {
             wrapper.innerHTML = '';
             const zoom = zoomLevels[state.zoomIndex];
+            const zoomBy = direction => requestZoom(
+                state,
+                state.zoomIndex + direction,
+                state.pointerSeconds,
+                0.5,
+                render
+            );
 
-            wrapper.appendChild(createHeader(date, segments, unknownCount, state, render));
+            wrapper.appendChild(createHeader(date, segments, unknownCount, state, zoomBy));
             if (segments.length === 0) {
                 wrapper.appendChild(createEmptyState(unknownCount));
                 return;
@@ -72,6 +89,7 @@
             stage.className = 'record24h-stage';
             stage.style.width = `${stageWidth}px`;
             stage.style.height = `${stageHeight}px`;
+            applyZoomMotion(stage, state);
 
             drawGrid(stage, scale, axisTop, stageHeight);
             drawSegments(stage, layout.segments, scale, selectedRecordPath);
@@ -125,8 +143,8 @@
             wrapper.appendChild(timelineShell);
             wrapper.appendChild(createFooter());
 
-            requestAnimationFrame(() => {
-                if (!viewport.isConnected) return;
+            const restoreViewportAnchor = () => {
+                if (!viewport.isConnected || viewport.clientWidth <= 0) return;
                 const anchorSeconds = Number.isFinite(state.scrollAnchorSeconds)
                     ? state.scrollAnchorSeconds
                     : state.pointerSeconds;
@@ -137,7 +155,9 @@
                 updatePointer(viewportCenterSeconds(viewport, scale));
                 state.scrollAnchorSeconds = state.pointerSeconds;
                 state.scrollAnchorRatio = 0.5;
-            });
+            };
+            restoreViewportAnchor();
+            requestAnimationFrame(restoreViewportAnchor);
         };
 
         render();
@@ -150,7 +170,8 @@
                 zoomIndex: 0,
                 pointerSeconds: NaN,
                 scrollAnchorSeconds: NaN,
-                scrollAnchorRatio: 0.5
+                scrollAnchorRatio: 0.5,
+                lastWheelZoomAt: 0
             });
         }
         return states.get(key);
@@ -164,7 +185,35 @@
         return {...zoom, trackWidth: availableTrackWidth, fitToViewport: true, sidePadding};
     }
 
-    function createHeader(date, segments, unknownCount, state, render) {
+    function requestZoom(state, targetZoomIndex, anchorSeconds, anchorRatio, render) {
+        const previousIndex = state.zoomIndex;
+        const nextIndex = clampZoomIndex(targetZoomIndex);
+        if (nextIndex === previousIndex) return false;
+
+        state.scrollAnchorSeconds = clampSeconds(anchorSeconds);
+        state.scrollAnchorRatio = Number.isFinite(anchorRatio) ? clamp(anchorRatio, 0, 1) : 0.5;
+        state.zoomDirection = Math.sign(nextIndex - previousIndex);
+        // 时间轴缩放仍落到固定档位，用轻微的反向缩放过渡，减少重绘后的突跳感。
+        state.zoomFromScale = nextIndex > previousIndex ? 1 - ZOOM_GESTURE_PREVIEW_SCALE : 1 + ZOOM_GESTURE_PREVIEW_SCALE;
+        state.zoomAnimationToken = (state.zoomAnimationToken || 0) + 1;
+        state.zoomIndex = nextIndex;
+        render();
+        return true;
+    }
+
+    function applyZoomMotion(stage, state) {
+        const direction = Number(state.zoomDirection) || 0;
+        if (direction === 0) return;
+
+        const token = state.zoomAnimationToken || 0;
+        stage.style.setProperty('--record24h-zoom-from-scale', String(state.zoomFromScale || 1));
+        stage.classList.add(direction > 0 ? 'is-zooming-in' : 'is-zooming-out');
+        setTimeout(() => {
+            if (state.zoomAnimationToken === token) state.zoomDirection = 0;
+        }, ZOOM_ANIMATION_MS);
+    }
+
+    function createHeader(date, segments, unknownCount, state, zoomBy) {
         const header = document.createElement('div');
         header.className = 'record24h-header';
 
@@ -197,8 +246,7 @@
         zoomOut.textContent = '-';
         zoomOut.disabled = state.zoomIndex <= 0;
         zoomOut.onclick = () => {
-            setZoomIndex(state, state.zoomIndex - 1);
-            render();
+            zoomBy(-1);
         };
 
         const zoomLabel = document.createElement('span');
@@ -211,8 +259,7 @@
         zoomIn.textContent = '+';
         zoomIn.disabled = state.zoomIndex >= zoomLevels.length - 1;
         zoomIn.onclick = () => {
-            setZoomIndex(state, state.zoomIndex + 1);
-            render();
+            zoomBy(1);
         };
 
         zoom.appendChild(zoomOut);
@@ -428,6 +475,33 @@
             });
         };
 
+        const setGesturePreview = (scale, originX) => {
+            stage.style.setProperty('--record24h-gesture-scale', scale.toFixed(3));
+            stage.style.setProperty('--record24h-transform-origin', `${originX.toFixed(1)}px 50%`);
+        };
+
+        const clearGesturePreview = () => {
+            stage.classList.remove('is-wheel-zooming');
+            stage.style.removeProperty('--record24h-gesture-scale');
+            stage.style.removeProperty('--record24h-transform-origin');
+        };
+
+        const setPinchPreview = ratio => {
+            const previewScale = clamp(Math.pow(Math.max(0.01, ratio), 0.35), 1 - ZOOM_GESTURE_PREVIEW_SCALE * 1.8, 1 + ZOOM_GESTURE_PREVIEW_SCALE * 1.8);
+            const rect = stage.getBoundingClientRect();
+            const originX = rect.width > 0 ? clamp(pinch.centerX - rect.left, 0, rect.width) : rect.width / 2;
+            setGesturePreview(previewScale, originX);
+        };
+
+        const setWheelZoomPreview = () => {
+            const progress = clamp(Math.abs(wheelZoomDelta) / WHEEL_ZOOM_THRESHOLD, 0, 1);
+            const direction = wheelZoomDelta > 0 ? -1 : 1;
+            const previewScale = 1 + direction * progress * ZOOM_GESTURE_PREVIEW_SCALE;
+            const originX = viewport.scrollLeft + viewport.clientWidth / 2;
+            stage.classList.add('is-wheel-zooming');
+            setGesturePreview(previewScale, originX);
+        };
+
         const applyPanDrag = (deltaX) => {
             const maxScrollLeft = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
             const desiredScrollLeft = drag.startScrollLeft - deltaX;
@@ -451,14 +525,14 @@
             rememberViewportAnchor(rect.left + rect.width / 2);
         };
 
-        const zoomAround = (clientX, direction) => {
-            const anchorSeconds = viewportClientXToSeconds(clientX, viewport, zoom);
-            rememberViewportAnchor(clientX, anchorSeconds);
-            if (setZoomIndex(state, state.zoomIndex + direction)) {
-                render();
-                return true;
-            }
-            return false;
+        const zoomAroundCenter = (direction) => {
+            return requestZoom(
+                state,
+                state.zoomIndex + direction,
+                viewportCenterSeconds(viewport, zoom),
+                0.5,
+                render
+            );
         };
 
         viewport.addEventListener('wheel', event => {
@@ -474,16 +548,25 @@
 
             event.preventDefault();
             wheelZoomDelta += normalizeWheelDelta(event, event.deltaY, viewport.clientWidth);
-            if (Math.abs(wheelZoomDelta) >= WHEEL_ZOOM_THRESHOLD) {
+            setWheelZoomPreview();
+            const now = performance.now();
+            if (Math.abs(wheelZoomDelta) >= WHEEL_ZOOM_THRESHOLD && now - (state.lastWheelZoomAt || 0) >= WHEEL_ZOOM_REPEAT_MS) {
                 const direction = wheelZoomDelta > 0 ? -1 : 1;
-                wheelZoomDelta = 0;
-                zoomAround(event.clientX, direction);
+                clearGesturePreview();
+                if (zoomAroundCenter(direction)) {
+                    state.lastWheelZoomAt = now;
+                    const remaining = Math.max(0, Math.abs(wheelZoomDelta) - WHEEL_ZOOM_THRESHOLD);
+                    wheelZoomDelta = Math.sign(wheelZoomDelta) * Math.min(remaining, WHEEL_ZOOM_THRESHOLD * 0.35);
+                } else {
+                    wheelZoomDelta = 0;
+                }
             }
             if (wheelZoomTimer) clearTimeout(wheelZoomTimer);
             wheelZoomTimer = setTimeout(() => {
                 wheelZoomDelta = 0;
                 wheelZoomTimer = null;
-            }, 180);
+                clearGesturePreview();
+            }, WHEEL_ZOOM_RESET_MS);
         }, {passive: false});
 
         viewport.addEventListener('scroll', schedulePointerCenterSync, {passive: true});
@@ -505,7 +588,9 @@
                 drag = null;
                 stage.classList.remove('is-dragging', 'is-scrubbing');
                 settleElasticPanOffset();
+                clearGesturePreview();
                 stage.classList.add('is-pinching');
+                setPinchPreview(1);
                 rememberViewportAnchor(centerX);
                 event.preventDefault();
                 return;
@@ -532,6 +617,8 @@
                 const distance = pointerDistance(first, second);
                 if (pinch.startDistance > 0 && distance > 0) {
                     pinch.currentDistance = distance;
+                    pinch.centerX = (first.clientX + second.clientX) / 2;
+                    setPinchPreview(distance / pinch.startDistance);
                 }
                 event.preventDefault();
                 return;
@@ -554,11 +641,13 @@
             const ratio = pinch.currentDistance / pinch.startDistance;
             const targetZoomIndex = pinchZoomTargetIndex(pinch.startZoomIndex, ratio);
             if (targetZoomIndex === state.zoomIndex) return false;
-            state.scrollAnchorSeconds = viewportClientXToSeconds(pinch.centerX, viewport, zoom);
-            state.scrollAnchorRatio = viewportClientXToRatio(pinch.centerX, viewport);
-            state.zoomIndex = targetZoomIndex;
-            render();
-            return true;
+            return requestZoom(
+                state,
+                targetZoomIndex,
+                viewportClientXToSeconds(pinch.centerX, viewport, zoom),
+                viewportClientXToRatio(pinch.centerX, viewport),
+                render
+            );
         };
 
         const finishPointer = event => {
@@ -570,7 +659,8 @@
             }
 
             if (pinch && activePointers.size < 2) {
-                if (!cancelled) applyPinchZoom();
+                const zoomed = !cancelled && applyPinchZoom();
+                if (!zoomed) clearGesturePreview();
                 pinch = null;
                 stage.classList.remove('is-pinching');
                 event.preventDefault();
@@ -607,6 +697,7 @@
             if (activePointers.size < 2) {
                 pinch = null;
                 stage.classList.remove('is-pinching');
+                clearGesturePreview();
             }
         });
     }
@@ -722,13 +813,6 @@
 
     function axisPadding(zoom) {
         return Number.isFinite(zoom && zoom.sidePadding) ? zoom.sidePadding : SIDE_PADDING;
-    }
-
-    function setZoomIndex(state, zoomIndex) {
-        const nextIndex = clampZoomIndex(zoomIndex);
-        if (nextIndex === state.zoomIndex) return false;
-        state.zoomIndex = nextIndex;
-        return true;
     }
 
     function clampZoomIndex(zoomIndex) {
