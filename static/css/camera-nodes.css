@@ -1,0 +1,1177 @@
+/* === Real-time camera node styles === */
+
+.camera-node-card {
+    --camera-node-status: #94a3b8;
+    --camera-node-border: rgba(203, 213, 225, 0.92);
+    --camera-node-glow: rgba(15, 23, 42, 0.08);
+    --camera-node-pulse: rgba(148, 163, 184, 0.16);
+    --camera-node-chip-bg: rgba(248, 250, 252, 0.72);
+    --camera-node-chip-border: rgba(148, 163, 184, 0.22);
+    --camera-node-chip-text: #94a3b8;
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    contain: paint;
+    border-color: var(--camera-node-border) !important;
+    background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.94)),
+        radial-gradient(circle at 0 0, rgba(148, 163, 184, 0.12), transparent 36%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72), 0 10px 22px -20px var(--camera-node-glow);
+}
+
+.camera-node-card > * {
+    position: relative;
+    z-index: 1;
+}
+
+.camera-node-card.has-cover-background {
+    background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.86)),
+        radial-gradient(circle at 0 0, rgba(148, 163, 184, 0.12), transparent 36%);
+}
+
+.camera-node-card.has-cover-background::after {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    background: var(--camera-node-cover-bg) center / cover no-repeat;
+    content: "";
+    filter: blur(4px) saturate(1.02);
+    opacity: 0.2;
+    pointer-events: none;
+    transform: scale(1.06);
+}
+
+#camList {
+    padding-top: 1px;
+    scroll-padding-top: 1px;
+}
+
+.camera-node-empty {
+    display: grid;
+    gap: 5px;
+    border: 1px dashed rgba(203, 213, 225, 0.9);
+    border-radius: 10px;
+    background: rgba(248, 250, 252, 0.78);
+    color: #94a3b8;
+    padding: 22px 12px;
+    text-align: center;
+}
+
+.camera-node-empty strong {
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 950;
+}
+
+.camera-node-empty span {
+    font-size: 11px;
+    font-weight: 750;
+}
+
+.camera-node-card::before {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 3;
+    width: 3px;
+    border-radius: 9999px;
+    background: var(--camera-node-status);
+    content: "";
+    opacity: 0.9;
+    pointer-events: none;
+}
+
+.camera-node-card:hover {
+    transform: translateY(-1px);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74), 0 14px 26px -22px var(--camera-node-glow);
+}
+
+.camera-node-card.is-selected {
+    --camera-node-border: rgba(37, 99, 235, 0.82);
+    outline: none;
+    transform: translateY(-1px);
+    background:
+        linear-gradient(90deg, rgba(239, 246, 255, 0.98), rgba(255, 255, 255, 0.94)),
+        radial-gradient(circle at 0 0, rgba(37, 99, 235, 0.22), transparent 44%);
+    box-shadow:
+        inset 0 0 0 1px rgba(37, 99, 235, 0.42),
+        inset 0 1px 0 rgba(255, 255, 255, 0.78),
+        0 0 0 2px rgba(37, 99, 235, 0.16),
+        0 16px 30px -20px rgba(37, 99, 235, 0.62);
+}
+
+.camera-node-card.is-selected::before {
+    width: 5px;
+    opacity: 1;
+}
+
+.camera-node-card.has-cover-background.is-selected::after {
+    opacity: 0.24;
+}
+
+.camera-node-card.is-selected .camera-node-card-footer {
+    border-color: rgba(37, 99, 235, 0.24) !important;
+}
+
+.camera-node-card.is-recording {
+    --camera-node-status: #10b981;
+    --camera-node-border: rgba(16, 185, 129, 0.48);
+    --camera-node-glow: rgba(5, 150, 105, 0.36);
+    --camera-node-pulse: rgba(16, 185, 129, 0.18);
+    --camera-node-chip-bg: rgba(236, 253, 245, 0.82);
+    --camera-node-chip-border: rgba(16, 185, 129, 0.26);
+    --camera-node-chip-text: #047857;
+}
+
+.camera-node-card.is-motion-recording {
+    --camera-node-status: #f59e0b;
+    --camera-node-border: rgba(245, 158, 11, 0.5);
+    --camera-node-glow: rgba(217, 119, 6, 0.34);
+    --camera-node-pulse: rgba(245, 158, 11, 0.18);
+    --camera-node-chip-bg: rgba(255, 251, 235, 0.84);
+    --camera-node-chip-border: rgba(245, 158, 11, 0.28);
+    --camera-node-chip-text: #b45309;
+}
+
+.camera-node-card.is-motion-detecting {
+    --camera-node-status: #0ea5e9;
+    --camera-node-border: rgba(14, 165, 233, 0.44);
+    --camera-node-glow: rgba(14, 165, 233, 0.28);
+    --camera-node-pulse: rgba(14, 165, 233, 0.14);
+    --camera-node-chip-bg: rgba(240, 249, 255, 0.78);
+    --camera-node-chip-border: rgba(14, 165, 233, 0.24);
+    --camera-node-chip-text: #0284c7;
+}
+
+.camera-node-card.is-record-error {
+    --camera-node-status: #f43f5e;
+    --camera-node-border: rgba(244, 63, 94, 0.5);
+    --camera-node-glow: rgba(225, 29, 72, 0.3);
+    --camera-node-pulse: rgba(244, 63, 94, 0.14);
+    --camera-node-chip-bg: rgba(255, 241, 242, 0.84);
+    --camera-node-chip-border: rgba(244, 63, 94, 0.28);
+    --camera-node-chip-text: #be123c;
+}
+
+.camera-node-card.is-idle {
+    --camera-node-status: #cbd5e1;
+}
+
+.camera-node-card.is-override-start {
+    --camera-node-status: #10b981;
+    --camera-node-border: rgba(16, 185, 129, 0.54);
+    --camera-node-glow: rgba(5, 150, 105, 0.42);
+    --camera-node-pulse: rgba(16, 185, 129, 0.2);
+    --camera-node-chip-bg: rgba(236, 253, 245, 0.86);
+    --camera-node-chip-border: rgba(16, 185, 129, 0.32);
+    --camera-node-chip-text: #047857;
+}
+
+.camera-node-card.is-override-stop {
+    --camera-node-status: #f43f5e;
+    --camera-node-border: rgba(244, 63, 94, 0.56);
+    --camera-node-glow: rgba(225, 29, 72, 0.38);
+    --camera-node-pulse: rgba(244, 63, 94, 0.16);
+    --camera-node-chip-bg: rgba(255, 241, 242, 0.86);
+    --camera-node-chip-border: rgba(244, 63, 94, 0.3);
+    --camera-node-chip-text: #be123c;
+}
+
+.camera-node-card.is-recording::before,
+.camera-node-card.is-motion-recording::before,
+.camera-node-card.is-override-start::before {
+    animation: camera-node-status-pulse 1.8s ease-in-out infinite;
+}
+
+.camera-node-card.is-override-stop::before {
+    animation: none;
+}
+
+.camera-node-record-chip {
+    --camera-node-chip-heartbeat-ring: var(--camera-node-pulse);
+    display: inline-flex;
+    height: 14px;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 3px;
+    padding: 0 5px;
+    border: 1px solid var(--camera-node-chip-border);
+    border-radius: 9999px;
+    background: var(--camera-node-chip-bg);
+    color: var(--camera-node-chip-text);
+    font-size: 7px;
+    font-weight: 900;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.camera-node-record-chip::before {
+    width: 5px;
+    height: 5px;
+    border-radius: 9999px;
+    background: currentColor;
+    content: "";
+}
+
+.camera-node-record-chip--recording,
+.camera-node-record-chip--motion-recording,
+.camera-node-record-chip--motion-detecting {
+    animation: camera-node-chip-heartbeat 1.55s ease-in-out infinite;
+}
+
+.camera-node-record-chip--recording::before,
+.camera-node-record-chip--motion-recording::before,
+.camera-node-record-chip--motion-detecting::before {
+    animation: camera-node-chip-dot-heartbeat 1.55s ease-in-out infinite;
+}
+
+.camera-node-card-footer {
+    min-height: 20px;
+    border-color: var(--camera-node-schedule-border, rgba(226, 232, 240, 0.68)) !important;
+    background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.16), transparent 42%),
+        var(--camera-node-schedule-bg, rgba(248, 250, 252, 0.46));
+}
+
+.camera-node-schedule-pill {
+    --camera-node-schedule-bg: rgba(255, 255, 255, 0.5);
+    --camera-node-schedule-border: rgba(203, 213, 225, 0.62);
+    --camera-node-schedule-icon: #94a3b8;
+    --camera-node-schedule-badge: #64748b;
+    --camera-node-schedule-text: #64748b;
+    border-color: var(--camera-node-schedule-border) !important;
+}
+
+.camera-node-schedule-pill--forced-start {
+    --camera-node-schedule-bg: rgba(236, 253, 245, 0.84);
+    --camera-node-schedule-border: rgba(16, 185, 129, 0.28);
+    --camera-node-schedule-icon: #059669;
+    --camera-node-schedule-badge: #047857;
+    --camera-node-schedule-text: #475569;
+}
+
+.camera-node-schedule-pill--forced-stop {
+    --camera-node-schedule-bg: rgba(255, 241, 242, 0.86);
+    --camera-node-schedule-border: rgba(244, 63, 94, 0.28);
+    --camera-node-schedule-icon: #e11d48;
+    --camera-node-schedule-badge: #be123c;
+    --camera-node-schedule-text: #be123c;
+}
+
+.camera-node-schedule-pill--active {
+    --camera-node-schedule-bg: rgba(236, 253, 245, 0.76);
+    --camera-node-schedule-border: rgba(16, 185, 129, 0.2);
+    --camera-node-schedule-icon: #10b981;
+    --camera-node-schedule-badge: #047857;
+    --camera-node-schedule-text: #475569;
+}
+
+.camera-node-schedule-pill--fallback {
+    --camera-node-schedule-bg: rgba(255, 251, 235, 0.82);
+    --camera-node-schedule-border: rgba(245, 158, 11, 0.22);
+    --camera-node-schedule-icon: #f59e0b;
+    --camera-node-schedule-badge: #b45309;
+    --camera-node-schedule-text: #b45309;
+}
+
+.camera-node-schedule-pill--inactive {
+    --camera-node-schedule-bg: rgba(248, 250, 252, 0.78);
+    --camera-node-schedule-border: rgba(203, 213, 225, 0.68);
+    --camera-node-schedule-icon: #94a3b8;
+    --camera-node-schedule-badge: #64748b;
+    --camera-node-schedule-text: #64748b;
+}
+
+.camera-node-schedule-icon {
+    color: var(--camera-node-schedule-icon) !important;
+}
+
+.camera-node-schedule-badge {
+    color: var(--camera-node-schedule-badge) !important;
+}
+
+.camera-node-schedule-text {
+    color: var(--camera-node-schedule-text) !important;
+}
+
+.camera-node-cover {
+    display: block;
+    flex: 0 0 88px;
+    width: 88px;
+    max-width: 42%;
+    overflow: hidden !important;
+    isolation: isolate;
+    background-color: rgba(241, 245, 249, 0.82) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.camera-node-cover img,
+.camera-node-cover > div:first-child {
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+}
+
+.camera-node-live-btn {
+    opacity: 0.72;
+}
+
+.camera-node-cover:hover .camera-node-live-btn,
+.camera-node-cover:focus-visible .camera-node-live-btn {
+    opacity: 0.9;
+}
+
+@media (min-width: 640px) {
+    .camera-node-cover {
+        flex-basis: 96px;
+        width: 96px;
+    }
+}
+
+@media (min-width: 1024px) {
+    .camera-node-cover {
+        flex-basis: 78px;
+        width: 78px;
+        max-width: 36%;
+    }
+}
+
+html.dark .camera-node-live-btn {
+    border-color: rgba(226, 232, 240, 0.18) !important;
+    background: rgba(15, 23, 42, 0.22) !important;
+    box-shadow: 0 12px 30px -22px rgba(0, 0, 0, 0.96) !important;
+}
+
+html.dark .camera-node-cover {
+    border-color: rgba(71, 85, 105, 0.5) !important;
+    background-color: rgba(15, 23, 42, 0.58) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.04),
+        0 8px 16px -14px rgba(0, 0, 0, 0.76);
+    --tw-ring-color: rgba(148, 163, 184, 0.14) !important;
+}
+
+html.dark .camera-node-cover:hover,
+html.dark .camera-node-cover:focus-visible {
+    border-color: rgba(96, 165, 250, 0.34) !important;
+    background-color: rgba(15, 23, 42, 0.72) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        0 10px 18px -15px rgba(37, 99, 235, 0.38);
+    --tw-ring-color: rgba(96, 165, 250, 0.18) !important;
+}
+
+html.dark .camera-node-empty {
+    border-color: rgba(71, 85, 105, 0.76);
+    background: rgba(15, 23, 42, 0.46);
+    color: #94a3b8;
+}
+
+html.dark .camera-node-empty strong {
+    color: #cbd5e1;
+}
+
+html.dark .camera-node-card {
+    --camera-node-chip-bg: rgba(15, 23, 42, 0.72);
+    --camera-node-chip-border: rgba(71, 85, 105, 0.72);
+    --camera-node-chip-text: #94a3b8;
+    background:
+        linear-gradient(90deg, rgba(17, 24, 39, 0.98), rgba(15, 23, 42, 0.94)),
+        radial-gradient(circle at 0 0, rgba(148, 163, 184, 0.12), transparent 36%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045), 0 14px 26px -22px rgba(0, 0, 0, 0.95);
+}
+
+html.dark .camera-node-card.has-cover-background {
+    background:
+        linear-gradient(90deg, rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.78)),
+        radial-gradient(circle at 0 0, rgba(148, 163, 184, 0.08), transparent 36%);
+}
+
+html.dark .camera-node-card.has-cover-background::after {
+    filter: blur(4px) saturate(1.01);
+    opacity: 0.28;
+}
+
+html.dark .camera-node-card.is-recording,
+html.dark .camera-node-card.is-override-start {
+    --camera-node-chip-bg: rgba(6, 78, 59, 0.42);
+    --camera-node-chip-border: rgba(52, 211, 153, 0.36);
+    --camera-node-chip-text: #6ee7b7;
+}
+
+html.dark .camera-node-card.is-motion-recording {
+    --camera-node-chip-bg: rgba(120, 53, 15, 0.38);
+    --camera-node-chip-border: rgba(251, 191, 36, 0.34);
+    --camera-node-chip-text: #fcd34d;
+}
+
+html.dark .camera-node-card.is-motion-detecting {
+    --camera-node-chip-bg: rgba(12, 74, 110, 0.3);
+    --camera-node-chip-border: rgba(56, 189, 248, 0.34);
+    --camera-node-chip-text: #7dd3fc;
+}
+
+html.dark .camera-node-card.is-record-error {
+    --camera-node-chip-bg: rgba(136, 19, 55, 0.36);
+    --camera-node-chip-border: rgba(251, 113, 133, 0.34);
+    --camera-node-chip-text: #fda4af;
+}
+
+html.dark .camera-node-card.is-override-stop {
+    --camera-node-chip-bg: rgba(136, 19, 55, 0.38);
+    --camera-node-chip-border: rgba(251, 113, 133, 0.36);
+    --camera-node-chip-text: #fda4af;
+}
+
+html.dark .camera-node-card:hover {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 16px 30px -22px var(--camera-node-glow);
+}
+
+html.dark .camera-node-card.is-selected {
+    --camera-node-border: rgba(96, 165, 250, 0.88);
+    background:
+        linear-gradient(90deg, rgba(30, 41, 59, 0.98), rgba(15, 23, 42, 0.92)),
+        radial-gradient(circle at 0 0, rgba(96, 165, 250, 0.26), transparent 44%);
+    box-shadow:
+        inset 0 0 0 1px rgba(96, 165, 250, 0.36),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06),
+        0 0 0 2px rgba(96, 165, 250, 0.2),
+        0 18px 34px -22px rgba(59, 130, 246, 0.92);
+}
+
+html.dark .camera-node-card.has-cover-background.is-selected::after {
+    opacity: 0.38;
+}
+
+html.dark .camera-node-card.is-selected .camera-node-card-footer {
+    border-color: rgba(96, 165, 250, 0.3) !important;
+}
+
+html.dark .camera-node-card-footer {
+    border-color: var(--camera-node-schedule-border, rgba(51, 65, 85, 0.82)) !important;
+    background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.04), transparent 42%),
+        var(--camera-node-schedule-bg, rgba(15, 23, 42, 0.42));
+}
+
+html.dark .camera-node-schedule-pill {
+    --camera-node-schedule-bg: rgba(15, 23, 42, 0.46);
+    --camera-node-schedule-border: rgba(71, 85, 105, 0.72);
+    --camera-node-schedule-icon: #94a3b8;
+    --camera-node-schedule-badge: #cbd5e1;
+    --camera-node-schedule-text: #94a3b8;
+}
+
+html.dark .camera-node-schedule-pill--forced-start {
+    --camera-node-schedule-bg: rgba(6, 78, 59, 0.34);
+    --camera-node-schedule-border: rgba(52, 211, 153, 0.32);
+    --camera-node-schedule-icon: #34d399;
+    --camera-node-schedule-badge: #6ee7b7;
+    --camera-node-schedule-text: #cbd5e1;
+}
+
+html.dark .camera-node-schedule-pill--forced-stop {
+    --camera-node-schedule-bg: rgba(136, 19, 55, 0.34);
+    --camera-node-schedule-border: rgba(251, 113, 133, 0.34);
+    --camera-node-schedule-icon: #fb7185;
+    --camera-node-schedule-badge: #fda4af;
+    --camera-node-schedule-text: #fda4af;
+}
+
+html.dark .camera-node-schedule-pill--active {
+    --camera-node-schedule-bg: rgba(6, 78, 59, 0.28);
+    --camera-node-schedule-border: rgba(52, 211, 153, 0.24);
+    --camera-node-schedule-icon: #34d399;
+    --camera-node-schedule-badge: #6ee7b7;
+    --camera-node-schedule-text: #cbd5e1;
+}
+
+html.dark .camera-node-schedule-pill--fallback {
+    --camera-node-schedule-bg: rgba(120, 53, 15, 0.32);
+    --camera-node-schedule-border: rgba(251, 191, 36, 0.28);
+    --camera-node-schedule-icon: #fbbf24;
+    --camera-node-schedule-badge: #fcd34d;
+    --camera-node-schedule-text: #fcd34d;
+}
+
+html.dark .camera-node-schedule-pill--inactive {
+    --camera-node-schedule-bg: rgba(15, 23, 42, 0.5);
+    --camera-node-schedule-border: rgba(71, 85, 105, 0.76);
+    --camera-node-schedule-icon: #64748b;
+    --camera-node-schedule-badge: #94a3b8;
+    --camera-node-schedule-text: #94a3b8;
+}
+
+html.dark .record24h-dock .record24h {
+    border-color: rgba(52, 211, 153, 0.32);
+    box-shadow: 0 20px 46px -30px rgba(0, 0, 0, 0.95);
+}
+
+html.dark .record24h-dock-action {
+    border-color: rgba(52, 211, 153, 0.28);
+    background: rgba(15, 23, 42, 0.88);
+    color: #6ee7b7;
+    box-shadow: 0 10px 20px -18px rgba(0, 0, 0, 0.95);
+}
+
+html.dark .record24h-dock-action:hover {
+    border-color: rgba(110, 231, 183, 0.56);
+    background: rgba(6, 78, 59, 0.5);
+    color: #a7f3d0;
+}
+
+html.dark .record24h-dock-action.is-active {
+    border-color: rgba(52, 211, 153, 0.72);
+    background: linear-gradient(180deg, #059669, #047857);
+    color: #ecfdf5;
+}
+
+.camera-node-action-btn {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96));
+}
+
+.camera-node-action-btn.is-active {
+    color: #ffffff !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 10px 18px -14px var(--camera-node-action-glow, rgba(15, 23, 42, 0.35));
+}
+
+.camera-node-action-btn--start.is-active {
+    --camera-node-action-glow: rgba(5, 150, 105, 0.72);
+    background: linear-gradient(180deg, #10b981, #047857) !important;
+}
+
+.camera-node-action-btn--stop.is-active {
+    --camera-node-action-glow: rgba(225, 29, 72, 0.72);
+    background: linear-gradient(180deg, #fb7185, #be123c) !important;
+}
+
+.camera-node-action-btn--auto.is-active {
+    --camera-node-action-glow: rgba(79, 70, 229, 0.66);
+    background: linear-gradient(180deg, #6366f1, #4338ca) !important;
+}
+
+.camera-node-action-btn:last-child {
+    border-right-width: 0;
+}
+
+.camera-node-action-label {
+    display: none;
+}
+
+.camera-node-card-actions {
+    width: auto;
+}
+
+html.dark .camera-node-card-actions {
+    border-color: rgba(71, 85, 105, 0.9) !important;
+    background: #0f172a !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 8px 18px -16px rgba(0, 0, 0, 0.95) !important;
+}
+
+html.dark .camera-node-action-btn {
+    border-color: rgba(71, 85, 105, 0.9) !important;
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.96), rgba(15, 23, 42, 0.96));
+}
+
+html.dark .camera-node-action-btn[class~="text-emerald-600"] {
+    color: #34d399 !important;
+}
+
+html.dark .camera-node-action-btn[class~="text-rose-600"] {
+    color: #fb7185 !important;
+}
+
+html.dark .camera-node-action-btn[class~="text-indigo-600"] {
+    color: #a5b4fc !important;
+}
+
+html.dark .camera-node-action-btn[class~="text-emerald-600"]:hover {
+    color: #ecfdf5 !important;
+    background: linear-gradient(180deg, #10b981, #047857) !important;
+}
+
+html.dark .camera-node-action-btn[class~="text-rose-600"]:hover {
+    color: #fff1f2 !important;
+    background: linear-gradient(180deg, #f43f5e, #be123c) !important;
+}
+
+html.dark .camera-node-action-btn[class~="text-indigo-600"]:hover {
+    color: #eef2ff !important;
+    background: linear-gradient(180deg, #6366f1, #4338ca) !important;
+}
+
+html.dark .camera-node-action-btn.is-active {
+    color: #ffffff !important;
+}
+
+html.dark .camera-node-action-btn--start.is-active {
+    background: linear-gradient(180deg, #10b981, #047857) !important;
+}
+
+html.dark .camera-node-action-btn--stop.is-active {
+    background: linear-gradient(180deg, #fb7185, #be123c) !important;
+}
+
+html.dark .camera-node-action-btn--auto.is-active {
+    background: linear-gradient(180deg, #6366f1, #4338ca) !important;
+}
+
+@keyframes camera-node-status-pulse {
+    0%,
+    100% {
+        opacity: 0.78;
+        box-shadow: 0 0 0 0 var(--camera-node-pulse);
+    }
+
+    50% {
+        opacity: 1;
+        box-shadow: 0 0 0 3px var(--camera-node-pulse);
+    }
+}
+
+@keyframes camera-node-chip-heartbeat {
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    38% {
+        transform: scale(1.045);
+    }
+
+    52% {
+        transform: scale(0.99);
+    }
+
+    68% {
+        transform: scale(1.025);
+    }
+}
+
+@keyframes camera-node-chip-dot-heartbeat {
+    0%,
+    100% {
+        opacity: 0.75;
+        box-shadow: 0 0 0 0 currentColor;
+    }
+
+    45% {
+        opacity: 1;
+        box-shadow: 0 0 0 3px var(--camera-node-chip-heartbeat-ring);
+    }
+}
+
+@media (max-width: 1024px) {
+    .camera-node-action-btn {
+        width: 60px !important;
+        height: 34px !important;
+        font-size: 10px;
+        font-weight: 800;
+    }
+
+    .camera-node-action-btn svg {
+        width: 18px !important;
+        height: 18px !important;
+    }
+}
+
+@media (max-width: 380px) {
+    .camera-node-cover {
+        flex-basis: 76px !important;
+        width: 76px !important;
+    }
+}
+
+/* Header right-side badge becomes an inset pill that matches the language */
+#camStatsSummary {
+    font-family: var(--nm-font-mono);
+    font-weight: 700;
+}
+
+/* The cam-list scroll area sits below the groove with a hairline top fade */
+#camList {
+    margin-top: 4px;
+    padding: 10px !important;
+    border: 1px solid transparent !important;
+    border-radius: var(--nm-r-lg) !important;
+    background:
+        linear-gradient(var(--nm-well), var(--nm-well)) padding-box,
+        linear-gradient(90deg, rgba(255, 255, 255, 0.42), rgba(15, 23, 42, 0.015)) border-box !important;
+    box-shadow: var(--nm-inset), var(--nm-edge) !important;
+    overflow-anchor: none;
+    scroll-padding: 10px;
+    -webkit-mask-image: none;
+            mask-image: none;
+}
+
+html.dark #camList {
+    background:
+        linear-gradient(var(--nm-well), var(--nm-well)) padding-box,
+        linear-gradient(90deg, rgba(38, 44, 61, 0.98), rgba(27, 31, 43, 0.96)) border-box !important;
+    box-shadow:
+        inset 4px 4px 11px rgba(0, 0, 0, 0.58),
+        inset -3px -3px 9px rgba(255, 255, 255, 0.045),
+        var(--nm-edge) !important;
+}
+
+/* ---- 5. Camera status sidebar ------------------------------------------- */
+#camStatsPanel.live-stats-panel {
+    --live-stat-online: 0%;
+    --live-stat-idle: 0%;
+    --live-stat-offline: 0%;
+    display: grid !important;
+    grid-template-columns: 72px minmax(0, 1fr) !important;
+    gap: 7px !important;
+    margin-bottom: 8px !important;
+    padding: 7px !important;
+    border: 0 !important;
+    border-radius: var(--nm-r-lg) !important;
+    background:
+        radial-gradient(circle at 12% 8%, rgba(255, 255, 255, 0.34), transparent 34%),
+        var(--nm-well) !important;
+    box-shadow: var(--nm-inset-sm), var(--nm-edge) !important;
+}
+
+.live-stats-total,
+.live-stat-item {
+    appearance: none;
+    position: relative;
+    min-width: 0;
+    overflow: hidden;
+    border: 0 !important;
+    background: var(--nm-surface) !important;
+    background: color-mix(in srgb, var(--nm-surface) 84%, var(--nm-well)) !important;
+    color: inherit;
+    cursor: pointer;
+    box-shadow: var(--nm-raise-sm), var(--nm-edge) !important;
+    text-align: left;
+    transition: box-shadow 160ms ease, transform 160ms ease, color 160ms ease;
+}
+
+.live-stats-total:hover,
+.live-stat-item:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--nm-raise), var(--nm-edge) !important;
+}
+
+.live-stats-total:focus-visible,
+.live-stat-item:focus-visible {
+    outline: none;
+    box-shadow: var(--nm-raise), 0 0 0 2px var(--nm-accent-glow) !important;
+}
+
+.live-stats-total.is-active,
+.live-stat-item.is-active {
+    box-shadow: var(--nm-inset-sm), 0 0 0 1px var(--nm-accent-glow) !important;
+    transform: none;
+}
+
+.live-stat-item.is-active .live-stat-name,
+.live-stats-total.is-active .live-stats-kicker {
+    color: var(--live-stat-color, var(--nm-accent));
+}
+
+.live-stats-total {
+    display: flex;
+    min-height: 58px;
+    flex-direction: column;
+    justify-content: center;
+    border-radius: var(--nm-r-sm) !important;
+    padding: 8px 7px;
+}
+
+.live-stats-kicker {
+    color: var(--nm-text-faint);
+    font-size: 8px;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    line-height: 1;
+}
+
+.live-stats-total-row {
+    display: flex;
+    min-width: 0;
+    align-items: flex-end;
+    gap: 3px;
+    margin-top: 5px;
+}
+
+.live-stats-total-row strong {
+    min-width: 0;
+    color: var(--nm-text);
+    font-family: var(--nm-font-mono);
+    font-size: 21px;
+    font-weight: 900;
+    letter-spacing: 0;
+    line-height: 0.9;
+}
+
+.live-stats-total-row span {
+    flex: 0 0 auto;
+    color: var(--nm-text-faint);
+    font-size: 9px;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.live-stats-main {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.live-stats-distribution {
+    display: flex;
+    height: 6px;
+    overflow: hidden;
+    border-radius: 9999px;
+    background: var(--nm-well);
+    box-shadow: var(--nm-inset-sm);
+}
+
+.live-stats-segment {
+    flex: 0 0 0%;
+    min-width: 0;
+    height: 100%;
+    transition: flex-basis 180ms ease;
+}
+
+.live-stats-segment--online {
+    flex-basis: var(--live-stat-online);
+    background: linear-gradient(90deg, var(--nm-online), #34d399);
+}
+
+.live-stats-segment--idle {
+    flex-basis: var(--live-stat-idle);
+    background: linear-gradient(90deg, var(--nm-idle), #60a5fa);
+}
+
+.live-stats-segment--offline {
+    flex-basis: var(--live-stat-offline);
+    background: linear-gradient(90deg, #fb7185, var(--nm-offline));
+}
+
+.live-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+}
+
+.live-stat-item {
+    --live-stat-color: var(--nm-text-faint);
+    display: grid;
+    min-height: 24px;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 4px;
+    border-radius: 9px !important;
+    padding: 0 6px;
+    color: var(--nm-text-soft);
+}
+
+.live-stat-item--online { --live-stat-color: var(--nm-online); }
+.live-stat-item--idle { --live-stat-color: var(--nm-idle); }
+.live-stat-item--recording { --live-stat-color: var(--nm-recording); }
+.live-stat-item--offline { --live-stat-color: var(--nm-offline); }
+
+.live-stat-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 9999px;
+    background: var(--live-stat-color);
+    box-shadow: 0 0 8px var(--live-stat-color);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--live-stat-color) 58%, transparent);
+}
+
+.live-stat-name {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--nm-text-soft);
+    font-size: 9px;
+    font-weight: 800;
+    line-height: 1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.live-stat-item strong {
+    color: var(--live-stat-color);
+    font-family: var(--nm-font-mono);
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 0;
+    line-height: 1;
+}
+
+#camStatsSummary {
+    border: 0 !important;
+    background: var(--nm-well) !important;
+    box-shadow: var(--nm-inset-sm) !important;
+    color: var(--nm-text-soft) !important;
+}
+
+#camStatsSummary[data-state="ok"] {
+    color: var(--nm-online) !important;
+}
+
+#camStatsSummary[data-state="active"] {
+    color: var(--nm-recording) !important;
+}
+
+#camStatsSummary[data-state="warning"],
+#camStatsSummary[data-state="failed"] {
+    color: var(--nm-offline) !important;
+}
+
+/* camera node cards → raised soft tiles with top-left status pill */
+.camera-node-card {
+    border: 0 !important;
+    border-radius: var(--nm-r) !important;
+    background: var(--nm-surface) !important;
+    box-shadow:
+        4px 4px 10px var(--nm-dark),
+        -3px -3px 9px var(--nm-light),
+        var(--nm-edge) !important;
+    transition: box-shadow 220ms ease, transform 200ms ease, background 220ms ease;
+}
+html.dark .camera-node-card {
+    background: var(--nm-surface) !important;
+    box-shadow:
+        4px 4px 10px var(--nm-dark),
+        -3px -3px 9px var(--nm-light),
+        var(--nm-edge) !important;
+}
+
+/* The colored "题标" pill in the top-left corner (replaces the old left rail) */
+.camera-node-card::before {
+    top: 9px !important;
+    left: 9px !important;
+    bottom: auto !important;
+    width: 22px !important;
+    height: 5px !important;
+    border-radius: 9999px !important;
+    background: var(--camera-node-status) !important;
+    opacity: 1 !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.55),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+        0 1px 3px rgba(0, 0, 0, 0.22),
+        0 0 0 0 var(--camera-node-pulse) !important;
+    transition: width 220ms ease, box-shadow 220ms ease;
+}
+
+/* Hover: subtle lift + deeper raise */
+.camera-node-card:hover {
+    transform: translateY(-1px);
+    box-shadow:
+        6px 6px 16px var(--nm-dark),
+        -5px -5px 14px var(--nm-light),
+        var(--nm-edge) !important;
+}
+.camera-node-card:hover::before {
+    width: 26px !important;
+}
+
+/* Active recording states — add an ambient colored shadow under the card */
+.camera-node-card.is-recording,
+.camera-node-card.is-motion-recording,
+.camera-node-card.is-motion-detecting,
+.camera-node-card.is-override-start {
+    box-shadow:
+        4px 4px 10px var(--nm-dark),
+        -3px -3px 9px var(--nm-light),
+        0 10px 22px -10px var(--camera-node-glow),
+        var(--nm-edge) !important;
+}
+.camera-node-card.is-recording:hover,
+.camera-node-card.is-motion-recording:hover,
+.camera-node-card.is-motion-detecting:hover,
+.camera-node-card.is-override-start:hover {
+    box-shadow:
+        6px 6px 16px var(--nm-dark),
+        -5px -5px 14px var(--nm-light),
+        0 14px 28px -10px var(--camera-node-glow),
+        var(--nm-edge) !important;
+}
+
+/* Pulse animation rewrites the badge box-shadow each frame, so we must
+   redefine it here to preserve the inset emboss while halo expands. */
+.camera-node-card.is-recording::before,
+.camera-node-card.is-motion-recording::before,
+.camera-node-card.is-motion-detecting::before,
+.camera-node-card.is-override-start::before {
+    animation: nm-status-pulse 1.8s ease-in-out infinite !important;
+}
+.camera-node-card.is-override-stop::before {
+    animation: none !important;
+}
+@keyframes nm-status-pulse {
+    0%, 100% {
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.55),
+            inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+            0 1px 3px rgba(0, 0, 0, 0.22),
+            0 0 0 0 var(--camera-node-pulse);
+    }
+    50% {
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.6),
+            inset 0 -1px 0 rgba(0, 0, 0, 0.2),
+            0 1px 3px rgba(0, 0, 0, 0.22),
+            0 0 0 5px var(--camera-node-pulse);
+    }
+}
+
+/* Selected: soft inset/raised neumorphic state with a muted accent wash */
+.camera-node-card.is-selected {
+    transform: translateY(-2px);
+    background:
+        radial-gradient(circle at 16px 14px, rgba(59, 111, 224, 0.26), transparent 42%),
+        linear-gradient(145deg, rgba(255, 255, 255, 0.62), rgba(59, 111, 224, 0.12)),
+        var(--nm-surface) !important;
+    box-shadow:
+        inset 3px 3px 8px rgba(96, 119, 158, 0.30),
+        inset -3px -3px 8px rgba(255, 255, 255, 0.84),
+        7px 7px 18px var(--nm-dark),
+        -6px -6px 16px var(--nm-light),
+        0 0 0 1px rgba(59, 111, 224, 0.24),
+        0 16px 34px -14px var(--nm-accent-glow),
+        0 12px 28px -16px var(--camera-node-glow),
+        var(--nm-edge) !important;
+}
+html.dark .camera-node-card.is-selected {
+    background:
+        radial-gradient(circle at 16px 14px, rgba(91, 134, 236, 0.34), transparent 42%),
+        linear-gradient(145deg, rgba(45, 53, 73, 0.98), rgba(27, 31, 43, 0.98)),
+        var(--nm-surface) !important;
+    box-shadow:
+        inset 3px 3px 9px rgba(0, 0, 0, 0.50),
+        inset -3px -3px 8px rgba(255, 255, 255, 0.075),
+        7px 7px 18px var(--nm-dark),
+        -6px -6px 16px var(--nm-light),
+        0 0 0 1px rgba(96, 165, 250, 0.34),
+        0 18px 38px -16px var(--nm-accent-glow),
+        0 14px 30px -18px var(--camera-node-glow),
+        var(--nm-edge) !important;
+}
+.camera-node-card.is-selected::before {
+    width: 38px !important;
+    height: 7px !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.72),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.24),
+        0 2px 6px rgba(0, 0, 0, 0.32),
+        0 0 14px var(--camera-node-status),
+        0 0 0 3px var(--camera-node-pulse) !important;
+}
+
+.camera-node-card-footer {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: inset 0 1px 0 var(--nm-dark);
+}
+.camera-node-cover {
+    border: 0 !important;
+    border-radius: var(--nm-r-sm) !important;
+    box-shadow: var(--nm-inset-sm) !important;
+}
+
+/* ---- Play button overlay on each camera cover --------------------------- */
+/* Default: nearly invisible — let the cover thumbnail breathe. Just a faint
+   ringed disc with a soft blurred triangle so it's still discoverable.
+   Hover: blooms into a solid convex blue disc with a halo.
+   Active: presses in with an inset depression. */
+.camera-node-live-btn {
+    border: 0 !important;
+    background: rgba(15, 23, 42, 0.18) !important;
+    backdrop-filter: blur(3px) !important;
+    -webkit-backdrop-filter: blur(3px) !important;
+    opacity: 0.55 !important;
+    box-shadow:
+        0 2px 10px rgba(0, 0, 0, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.22),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.18) !important;
+    transition: transform 220ms ease, box-shadow 220ms ease,
+                background 220ms ease, opacity 220ms ease !important;
+}
+/* Flatten the inner-ring decoration — let the triangle ride directly on the disc */
+.camera-node-live-btn > span {
+    background: transparent !important;
+    box-shadow: none !important;
+    --tw-ring-color: transparent !important;
+    --tw-ring-shadow: 0 0 #0000 !important;
+}
+.camera-node-live-btn svg {
+    color: #ffffff !important;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
+    transform: translateX(1px);
+    transition: color 220ms ease, transform 90ms ease;
+}
+
+/* Hover / focus: blue bloom */
+.camera-node-cover:hover .camera-node-live-btn,
+.camera-node-cover:focus-visible .camera-node-live-btn,
+.group\/cover:hover .camera-node-live-btn {
+    opacity: 1 !important;
+    transform: translate(-50%, -50%) scale(1.1) !important;
+    background: linear-gradient(145deg, var(--nm-accent), var(--nm-accent-strong)) !important;
+    box-shadow:
+        3px 3px 10px rgba(0, 0, 0, 0.55),
+        -2px -2px 8px rgba(255, 255, 255, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.35),
+        0 0 24px var(--nm-accent-glow),
+        0 0 0 4px rgba(59, 111, 224, 0.18) !important;
+}
+.camera-node-cover:hover .camera-node-live-btn svg,
+.camera-node-cover:focus-visible .camera-node-live-btn svg,
+.group\/cover:hover .camera-node-live-btn svg {
+    color: #ffffff !important;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
+}
+
+.camera-node-cover:active .camera-node-live-btn,
+.group\/cover:active .camera-node-live-btn {
+    transform: translate(-50%, -50%) scale(0.92) !important;
+    box-shadow:
+        inset 3px 3px 7px rgba(0, 0, 0, 0.55),
+        inset -2px -2px 6px rgba(255, 255, 255, 0.18),
+        0 0 14px var(--nm-accent-glow) !important;
+}
+.camera-node-cover:active .camera-node-live-btn svg,
+.group\/cover:active .camera-node-live-btn svg {
+    transform: translateX(1px) scale(0.96);
+}
+
+/* Dark mode: identical resting treatment works, just tweak hover glow slightly */
+html.dark .camera-node-live-btn {
+    background: rgba(15, 23, 42, 0.28) !important;
+    box-shadow:
+        0 2px 10px rgba(0, 0, 0, 0.6),
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.10) !important;
+}
+html.dark .camera-node-live-btn svg {
+    color: #ffffff !important;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));
+}
+
+/* action buttons on each node (start/stop/auto) */
+.camera-node-card-actions {
+    border: 0 !important;
+    border-radius: var(--nm-r-sm) !important;
+    background: var(--nm-surface) !important;
+    box-shadow: var(--nm-raise-sm) !important;
+    overflow: hidden;
+}
+.camera-node-action-btn {
+    background: transparent !important;
+    border: 0 !important;
+}
+.camera-node-action-btn:active {
+    box-shadow: var(--nm-inset-sm) !important;
+}
