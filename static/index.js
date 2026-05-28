@@ -193,7 +193,7 @@ function renderVersionStatus(data) {
         return;
     }
 
-    if (statusText) statusText.textContent = latest ? `已是最新 ${latest}` : '已是最新';
+    if (statusText) statusText.textContent = '最新版';
     badge.title = data.message || (latest ? `当前已是最新稳定版 ${latest}` : '当前已是最新版本');
     badge.classList.add('is-current');
 }
