@@ -285,6 +285,8 @@
     --camera-node-chip-text: #94a3b8;
     position: relative;
     isolation: isolate;
+    overflow: hidden;
+    contain: paint;
     border-color: var(--camera-node-border) !important;
     background:
         linear-gradient(90deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.94)),
@@ -305,19 +307,42 @@
 
 .camera-node-card.has-cover-background::after {
     position: absolute;
-    inset: -6px;
+    inset: 0;
     z-index: 0;
+    border-radius: inherit;
     background: var(--camera-node-cover-bg) center / cover no-repeat;
     content: "";
-    filter: blur(3px) saturate(1.02);
+    filter: blur(4px) saturate(1.02);
     opacity: 0.2;
     pointer-events: none;
-    transform: scale(1.015);
+    transform: scale(1.06);
 }
 
 #camList {
     padding-top: 1px;
     scroll-padding-top: 1px;
+}
+
+.camera-node-empty {
+    display: grid;
+    gap: 5px;
+    border: 1px dashed rgba(203, 213, 225, 0.9);
+    border-radius: 10px;
+    background: rgba(248, 250, 252, 0.78);
+    color: #94a3b8;
+    padding: 22px 12px;
+    text-align: center;
+}
+
+.camera-node-empty strong {
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 950;
+}
+
+.camera-node-empty span {
+    font-size: 11px;
+    font-weight: 750;
 }
 
 .camera-node-card::before {
@@ -548,8 +573,22 @@
 }
 
 .camera-node-cover {
+    display: block;
+    flex: 0 0 88px;
+    width: 88px;
+    max-width: 42%;
+    overflow: hidden !important;
+    isolation: isolate;
     background-color: rgba(241, 245, 249, 0.82) !important;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.camera-node-cover img,
+.camera-node-cover > div:first-child {
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
 }
 
 .camera-node-live-btn {
@@ -559,6 +598,21 @@
 .camera-node-cover:hover .camera-node-live-btn,
 .camera-node-cover:focus-visible .camera-node-live-btn {
     opacity: 0.9;
+}
+
+@media (min-width: 640px) {
+    .camera-node-cover {
+        flex-basis: 96px;
+        width: 96px;
+    }
+}
+
+@media (min-width: 1024px) {
+    .camera-node-cover {
+        flex-basis: 78px;
+        width: 78px;
+        max-width: 36%;
+    }
 }
 
 html.dark .camera-node-live-btn {
@@ -584,6 +638,16 @@ html.dark .camera-node-cover:focus-visible {
         inset 0 1px 0 rgba(255, 255, 255, 0.05),
         0 10px 18px -15px rgba(37, 99, 235, 0.38);
     --tw-ring-color: rgba(96, 165, 250, 0.18) !important;
+}
+
+html.dark .camera-node-empty {
+    border-color: rgba(71, 85, 105, 0.76);
+    background: rgba(15, 23, 42, 0.46);
+    color: #94a3b8;
+}
+
+html.dark .camera-node-empty strong {
+    color: #cbd5e1;
 }
 
 html.dark .camera-node-card {
@@ -1035,6 +1099,7 @@ html.dark .camera-node-action-btn--auto.is-active {
 
 @media (max-width: 380px) {
     .camera-node-cover {
+        flex-basis: 76px !important;
         width: 76px !important;
     }
 }

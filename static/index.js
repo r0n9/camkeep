@@ -21,6 +21,8 @@ const cameraCoverObjectURLs = new Map();
 const cameraCoverRequested = new Set();
 const cameraCoverFailed = new Set();
 const cameraCardRenderKeys = new Map();
+let latestCameraStatusEntries = [];
+let activeCameraStatusFilter = 'all';
 const authState = window.CAMKEEP_AUTH || {
     auth_enabled: false,
     can_admin: true,
@@ -1382,8 +1384,8 @@ function buildCameraCoverMarkup(camId, cam, streamState) {
 
     return `
         <button type="button"
-                data-cam-id="${escapeHtml(camId)}"
-                onclick="event.stopPropagation(); previewLive(this.dataset.camId)"
+                data-preview-cam-id="${escapeHtml(camId)}"
+                onclick="event.stopPropagation(); previewLive(this.dataset.previewCamId)"
                 class="camera-node-cover group/cover relative aspect-video w-[88px] shrink-0 overflow-hidden rounded-md border border-slate-200 bg-slate-100 text-white ring-1 ring-white/70 transition-all hover:border-blue-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:w-[96px] lg:w-[78px]"
                 title="点击预览直播"
                 aria-label="预览 ${escapeHtml(camId)} 直播">
@@ -1593,13 +1595,148 @@ function buildRecordOverrideCardClass(overrideState) {
     return 'is-override-auto';
 }
 
+const cameraStatusFilters = new Set(['all', 'online', 'idle', 'recording', 'offline']);
+
+function setCameraStatusFilter(filter) {
+    const nextFilter = cameraStatusFilters.has(filter) ? filter : 'all';
+    activeCameraStatusFilter = activeCameraStatusFilter === nextFilter && nextFilter !== 'all' ? 'all' : nextFilter;
+    updateCameraStats(latestCameraStatusEntries.map(entry => [entry.id, entry.cam]));
+    renderCameraListFromState();
+}
+
+function normalizeCameraStreamState(cam) {
+    const state = String(cam?.stream_state || 'offline').toLowerCase();
+    return state === 'online' || state === 'idle' || state === 'offline' ? state : 'offline';
+}
+
+function normalizeCameraRecordState(cam) {
+    return String(cam?.record_state || (cam?.is_running ? 'recording' : 'idle')).toLowerCase();
+}
+
+function cameraRecordStateIsActive(recordState) {
+    return recordState === 'recording' || recordState === 'motion_detecting' || recordState === 'motion_recording';
+}
+
+function cameraMatchesStatusFilter(cam, filter) {
+    if (filter === 'all') return true;
+
+    const streamState = normalizeCameraStreamState(cam);
+    if (filter === 'recording') return cameraRecordStateIsActive(normalizeCameraRecordState(cam));
+    return streamState === filter;
+}
+
+function filteredCameraStatusEntries() {
+    return latestCameraStatusEntries.filter(entry => cameraMatchesStatusFilter(entry.cam, activeCameraStatusFilter));
+}
+
+function syncCameraStatusFilterControls(visibleCount = 0, totalCount = 0) {
+    document.querySelectorAll('[data-camera-status-filter]').forEach(control => {
+        const active = control.dataset.cameraStatusFilter === activeCameraStatusFilter;
+        control.classList.toggle('is-active', active);
+        control.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+
+    const summary = document.getElementById('camStatsSummary');
+    if (!summary || activeCameraStatusFilter === 'all' || totalCount === 0) return;
+    summary.innerText = `${cameraStatusFilterLabel(activeCameraStatusFilter)} ${visibleCount}/${totalCount}`;
+    summary.dataset.state = visibleCount > 0 ? 'active' : 'empty';
+}
+
+function cameraStatusFilterLabel(filter) {
+    switch (filter) {
+    case 'online':
+        return '在线';
+    case 'idle':
+        return '待连接';
+    case 'recording':
+        return '录制';
+    case 'offline':
+        return '离线';
+    default:
+        return '全部';
+    }
+}
+
+function renderCameraListMessage(list, key, message, detail = '') {
+    if (list.dataset.messageKey === key) return;
+    list.dataset.messageKey = key;
+    list.innerHTML = `
+        <div class="camera-node-empty">
+            <strong>${escapeHtml(message)}</strong>
+            ${detail ? `<span>${escapeHtml(detail)}</span>` : ''}
+        </div>
+    `;
+}
+
+function renderCameraListFromState() {
+    const list = document.getElementById('camList');
+    if (!list) return;
+
+    const totalCount = latestCameraStatusEntries.length;
+    const entries = filteredCameraStatusEntries();
+    syncCameraStatusFilterControls(entries.length, totalCount);
+
+    if (totalCount === 0) {
+        renderCameraListMessage(list, 'empty-all', '暂无可访问的实时节点');
+        return;
+    }
+    if (entries.length === 0) {
+        renderCameraListMessage(list, `empty-filter-${activeCameraStatusFilter}`, `暂无${cameraStatusFilterLabel(activeCameraStatusFilter)}节点`, '点击 TOTAL 可恢复全部节点');
+        return;
+    }
+
+    delete list.dataset.messageKey;
+    Array.from(list.children).forEach(child => {
+        if (!child.dataset.camId) child.remove();
+    });
+
+    const visibleCamIds = new Set();
+    const existingItems = new Map();
+    Array.from(list.children).forEach(item => {
+        if (!item.dataset.camId) return;
+        existingItems.set(item.dataset.camId, item);
+    });
+
+    entries.forEach((entry, index) => {
+        const {id, cam} = entry;
+        visibleCamIds.add(id);
+
+        const view = buildCameraCardView(id, cam);
+        let item = existingItems.get(id);
+        const created = !item;
+        if (!item) {
+            item = document.createElement('div');
+            item.dataset.camId = id;
+            item.onclick = () => selectCamera(id);
+        }
+        item.className = view.className;
+        if (view.style) {
+            item.setAttribute('style', view.style);
+        } else {
+            item.removeAttribute('style');
+        }
+        if (created || cameraCardRenderKeys.get(id) !== view.html) {
+            item.innerHTML = view.html;
+            cameraCardRenderKeys.set(id, view.html);
+        }
+        if (list.children[index] !== item) {
+            list.insertBefore(item, list.children[index] || null);
+        }
+    });
+
+    Array.from(list.children).forEach(item => {
+        if (!item.dataset.camId) return;
+        if (!visibleCamIds.has(item.dataset.camId)) item.remove();
+    });
+}
+
 // --- 状态加载 ---
 async function loadStatus() {
     try {
         const resp = await fetch('/api/status');
         const data = await resp.json();
-        const list = document.getElementById('camList');
         const cameras = Object.entries(data || {});
+        latestCameraStatusEntries = cameras.map(([id, cam], index) => ({id, cam, index}));
         updateCameraStats(cameras);
         const visibleCamIds = new Set(cameras.map(([id]) => id));
         if (currentSelectedCam && !visibleCamIds.has(currentSelectedCam)) {
@@ -1609,59 +1746,21 @@ async function loadStatus() {
             renderRecordSelectionPrompt('当前账号不可访问原选中的摄像头');
         }
 
-        if (cameras.length === 0) {
-            list.innerHTML = `
-                <div class="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-8 text-center text-sm font-bold text-slate-400">
-                    暂无可访问的实时节点
-                </div>
-            `;
-            if (!currentSelectedCam) renderRecordSelectionPrompt('当前账号暂无可访问摄像头');
-            return;
-        }
-
-        const seenCamIds = new Set();
-        Array.from(list.children).forEach(child => {
-            if (!child.dataset.camId) child.remove();
+        Array.from(cameraCardRenderKeys.keys()).forEach(id => {
+            if (!visibleCamIds.has(id)) cameraCardRenderKeys.delete(id);
         });
 
-        cameras.forEach(([id, cam], index) => {
-            seenCamIds.add(id);
+        latestCameraStatusEntries.forEach(({id, cam}) => {
             window.cameraCapabilityCache.set(id, {
                 onvif_enabled: cam.onvif_enabled === true,
                 capability_state: cam.onvif_capability_state || cam.capability_state || '',
                 ptz_state: cam.ptz_state || '',
                 imaging_state: cam.imaging_state || ''
             });
-
-            const view = buildCameraCardView(id, cam);
-            let item = Array.from(list.children).find(child => child.dataset.camId === id);
-            if (!item) {
-                item = document.createElement('div');
-                item.dataset.camId = id;
-                item.onclick = () => selectCamera(id);
-            }
-            item.className = view.className;
-            if (view.style) {
-                item.setAttribute('style', view.style);
-            } else {
-                item.removeAttribute('style');
-            }
-            if (cameraCardRenderKeys.get(id) !== view.html) {
-                item.innerHTML = view.html;
-                cameraCardRenderKeys.set(id, view.html);
-            }
-            const desiredIndex = list.children[index]?.dataset?.camId === id ? index : -1;
-            if (desiredIndex === -1) {
-                list.insertBefore(item, list.children[index] || null);
-            }
         });
 
-        Array.from(list.querySelectorAll('[data-cam-id]')).forEach(item => {
-            if (!seenCamIds.has(item.dataset.camId)) {
-                cameraCardRenderKeys.delete(item.dataset.camId);
-                item.remove();
-            }
-        });
+        renderCameraListFromState();
+        if (cameras.length === 0 && !currentSelectedCam) renderRecordSelectionPrompt('当前账号暂无可访问摄像头');
 
         refreshPTZPanel();
     } catch (e) {

@@ -433,13 +433,13 @@
                 <span id="camStatsSummary" data-state="empty" class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-500 border border-slate-200">0 节点</span>
             </div>
             <div id="camStatsPanel" class="live-stats-panel" aria-label="实时节点统计">
-                <div class="live-stats-total">
+                <button type="button" class="live-stats-total is-active" data-camera-status-filter="all" onclick="setCameraStatusFilter('all')" aria-pressed="true" title="显示全部实时节点">
                     <span class="live-stats-kicker">TOTAL</span>
                     <div class="live-stats-total-row">
                         <strong id="camStatsTotal" class="tabular-nums">0</strong>
                         <span>节点</span>
                     </div>
-                </div>
+                </button>
                 <div class="live-stats-main">
                     <div class="live-stats-distribution" aria-hidden="true">
                         <span class="live-stats-segment live-stats-segment--online"></span>
@@ -447,26 +447,26 @@
                         <span class="live-stats-segment live-stats-segment--offline"></span>
                     </div>
                     <div class="live-stats-grid">
-                        <div class="live-stat-item live-stat-item--online">
+                        <button type="button" class="live-stat-item live-stat-item--online" data-camera-status-filter="online" onclick="setCameraStatusFilter('online')" aria-pressed="false" title="只显示在线节点">
                             <span class="live-stat-dot"></span>
                             <span class="live-stat-name">在线</span>
                             <strong id="camStatsOnline" class="tabular-nums">0</strong>
-                        </div>
-                        <div class="live-stat-item live-stat-item--idle">
+                        </button>
+                        <button type="button" class="live-stat-item live-stat-item--idle" data-camera-status-filter="idle" onclick="setCameraStatusFilter('idle')" aria-pressed="false" title="只显示待连接节点">
                             <span class="live-stat-dot"></span>
                             <span class="live-stat-name">待连接</span>
                             <strong id="camStatsIdle" class="tabular-nums">0</strong>
-                        </div>
-                        <div class="live-stat-item live-stat-item--recording">
+                        </button>
+                        <button type="button" class="live-stat-item live-stat-item--recording" data-camera-status-filter="recording" onclick="setCameraStatusFilter('recording')" aria-pressed="false" title="只显示录制中节点">
                             <span class="live-stat-dot"></span>
                             <span class="live-stat-name">录制</span>
                             <strong id="camStatsRecording" class="tabular-nums">0</strong>
-                        </div>
-                        <div class="live-stat-item live-stat-item--offline">
+                        </button>
+                        <button type="button" class="live-stat-item live-stat-item--offline" data-camera-status-filter="offline" onclick="setCameraStatusFilter('offline')" aria-pressed="false" title="只显示离线节点">
                             <span class="live-stat-dot"></span>
                             <span class="live-stat-name">离线</span>
                             <strong id="camStatsOffline" class="tabular-nums">0</strong>
-                        </div>
+                        </button>
                     </div>
                 </div>
             </div>

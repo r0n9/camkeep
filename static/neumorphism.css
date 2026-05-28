@@ -506,13 +506,41 @@ html.dark .version-status-badge.is-unknown #versionStatusText {
 
 .live-stats-total,
 .live-stat-item {
+    appearance: none;
     position: relative;
     min-width: 0;
     overflow: hidden;
     border: 0 !important;
     background: var(--nm-surface) !important;
     background: color-mix(in srgb, var(--nm-surface) 84%, var(--nm-well)) !important;
+    color: inherit;
+    cursor: pointer;
     box-shadow: var(--nm-raise-sm), var(--nm-edge) !important;
+    text-align: left;
+    transition: box-shadow 160ms ease, transform 160ms ease, color 160ms ease;
+}
+
+.live-stats-total:hover,
+.live-stat-item:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--nm-raise), var(--nm-edge) !important;
+}
+
+.live-stats-total:focus-visible,
+.live-stat-item:focus-visible {
+    outline: none;
+    box-shadow: var(--nm-raise), 0 0 0 2px var(--nm-accent-glow) !important;
+}
+
+.live-stats-total.is-active,
+.live-stat-item.is-active {
+    box-shadow: var(--nm-inset-sm), 0 0 0 1px var(--nm-accent-glow) !important;
+    transform: none;
+}
+
+.live-stat-item.is-active .live-stat-name,
+.live-stats-total.is-active .live-stats-kicker {
+    color: var(--live-stat-color, var(--nm-accent));
 }
 
 .live-stats-total {
