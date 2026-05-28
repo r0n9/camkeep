@@ -66,7 +66,7 @@
             const stageHeight = axisTop + 42;
             const viewportWidth = Math.max(0, wrapper.getBoundingClientRect().width || wrapper.clientWidth || initialViewportWidth || 0);
             const scale = effectiveScale(zoom, viewportWidth);
-            const stageWidth = scale.trackWidth + SIDE_PADDING * 2;
+            const stageWidth = scale.trackWidth + axisPadding(scale) * 2;
 
             const stage = document.createElement('div');
             stage.className = 'record24h-stage';
@@ -76,14 +76,13 @@
             drawGrid(stage, scale, axisTop, stageHeight);
             drawSegments(stage, layout.segments, scale, selectedRecordPath);
 
-            const pointer = createPointer(state.pointerSeconds, scale, axisTop);
-            stage.appendChild(pointer.el);
+            const pointer = createPointer(state.pointerSeconds, axisTop);
+            const timelineShell = document.createElement('div');
+            timelineShell.className = 'record24h-timeline-shell';
 
             const updatePointer = (seconds) => {
                 const nextSeconds = clampSeconds(seconds);
                 state.pointerSeconds = nextSeconds;
-                const x = secondsToX(nextSeconds, scale);
-                pointer.el.style.left = `${x}px`;
                 pointer.label.textContent = formatClock(nextSeconds, true);
                 const hit = findSegmentAt(segments, nextSeconds);
                 updateStatus(status, nextSeconds, hit);
@@ -120,24 +119,24 @@
                 commitPointer
             });
             viewport.appendChild(stage);
+            timelineShell.appendChild(viewport);
+            timelineShell.appendChild(pointer.el);
             wrapper.appendChild(status.el);
-            wrapper.appendChild(viewport);
+            wrapper.appendChild(timelineShell);
             wrapper.appendChild(createFooter());
 
             requestAnimationFrame(() => {
                 if (!viewport.isConnected) return;
-                if (scale.fitToViewport) {
-                    viewport.scrollLeft = 0;
-                    updatePointer(state.pointerSeconds);
-                    return;
-                }
                 const anchorSeconds = Number.isFinite(state.scrollAnchorSeconds)
                     ? state.scrollAnchorSeconds
                     : state.pointerSeconds;
-                const anchorRatio = Number.isFinite(state.scrollAnchorRatio) ? state.scrollAnchorRatio : 0.42;
+                const anchorRatio = Number.isFinite(state.scrollAnchorRatio) ? state.scrollAnchorRatio : 0.5;
                 const anchorX = secondsToX(anchorSeconds, scale);
-                viewport.scrollLeft = Math.max(0, anchorX - viewport.clientWidth * anchorRatio);
-                updatePointer(state.pointerSeconds);
+                const maxScrollLeft = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
+                viewport.scrollLeft = clamp(anchorX - viewport.clientWidth * anchorRatio, 0, maxScrollLeft);
+                updatePointer(viewportCenterSeconds(viewport, scale));
+                state.scrollAnchorSeconds = state.pointerSeconds;
+                state.scrollAnchorRatio = 0.5;
             });
         };
 
@@ -158,9 +157,11 @@
     }
 
     function effectiveScale(zoom, viewportWidth) {
-        if (zoom.label !== '24H') return zoom;
+        // 留出半个视口的左右空白，让 00:00 和 24:00 也能滚到中心指针下。
+        const sidePadding = Math.max(SIDE_PADDING, Math.round(viewportWidth / 2));
+        if (zoom.label !== '24H') return {...zoom, sidePadding};
         const availableTrackWidth = Math.max(320, viewportWidth - SIDE_PADDING * 2 - 2);
-        return {...zoom, trackWidth: availableTrackWidth, fitToViewport: true};
+        return {...zoom, trackWidth: availableTrackWidth, fitToViewport: true, sidePadding};
     }
 
     function createHeader(date, segments, unknownCount, state, render) {
@@ -233,7 +234,7 @@
 
         const hint = document.createElement('div');
         hint.className = 'record24h-hint';
-        hint.textContent = '拖动平移 · 点击定位播放 · 拖动指针精确定位 · 滚轮/双指缩放';
+        hint.textContent = '中线指针固定 · 拖动时间轴定位播放 · 点击定位播放 · 滚轮/双指缩放';
 
         el.appendChild(hit);
         el.appendChild(hint);
@@ -284,7 +285,7 @@
 
         const axis = document.createElement('div');
         axis.className = 'record24h-axis';
-        axis.style.left = `${SIDE_PADDING}px`;
+        axis.style.left = `${axisPadding(zoom)}px`;
         axis.style.top = `${axisTop}px`;
         axis.style.width = `${zoom.trackWidth}px`;
         stage.appendChild(axis);
@@ -363,23 +364,19 @@
         });
     }
 
-    function createPointer(seconds, zoom, axisTop) {
+    function createPointer(seconds, axisTop) {
         const el = document.createElement('div');
         el.className = 'record24h-pointer';
         el.style.top = '30px';
         el.style.height = `${Math.max(42, axisTop - 24)}px`;
-        el.style.left = `${secondsToX(seconds, zoom)}px`;
 
         const label = document.createElement('div');
         label.className = 'record24h-pointer-label';
         label.textContent = formatClock(seconds, true);
 
-        const handle = document.createElement('button');
-        handle.type = 'button';
+        const handle = document.createElement('span');
         handle.className = 'record24h-pointer-handle';
-        handle.dataset.record24hPointerHandle = 'true';
-        handle.title = '拖动播放指针';
-        handle.setAttribute('aria-label', '拖动播放指针');
+        handle.title = '播放指针固定在时间轴窗口中心';
 
         el.appendChild(label);
         el.appendChild(handle);
@@ -402,6 +399,7 @@
         let wheelZoomDelta = 0;
         let wheelZoomTimer = null;
         let elasticPanOffset = 0;
+        let scrollSyncFrame = 0;
 
         const setElasticPanOffset = (offset) => {
             const nextOffset = Math.abs(offset) < 0.5 ? 0 : offset;
@@ -415,11 +413,27 @@
             setElasticPanOffset(0);
         };
 
+        const syncPointerToViewportCenter = () => {
+            const centerSeconds = viewportCenterSeconds(viewport, zoom);
+            updatePointer(centerSeconds);
+            state.scrollAnchorSeconds = centerSeconds;
+            state.scrollAnchorRatio = 0.5;
+        };
+
+        const schedulePointerCenterSync = () => {
+            if (scrollSyncFrame) return;
+            scrollSyncFrame = requestAnimationFrame(() => {
+                scrollSyncFrame = 0;
+                if (viewport.isConnected) syncPointerToViewportCenter();
+            });
+        };
+
         const applyPanDrag = (deltaX) => {
             const maxScrollLeft = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
             const desiredScrollLeft = drag.startScrollLeft - deltaX;
             const nextScrollLeft = clamp(desiredScrollLeft, 0, maxScrollLeft);
             viewport.scrollLeft = nextScrollLeft;
+            syncPointerToViewportCenter();
 
             const boundaryOverflow = nextScrollLeft - desiredScrollLeft;
             setElasticPanOffset(rubberbandPanOffset(boundaryOverflow, viewport.clientWidth));
@@ -453,6 +467,7 @@
                 event.preventDefault();
                 const panDelta = normalizeWheelDelta(event, event.deltaX || event.deltaY, viewport.clientWidth);
                 viewport.scrollLeft += panDelta;
+                syncPointerToViewportCenter();
                 rememberViewportCenter();
                 return;
             }
@@ -470,6 +485,8 @@
                 wheelZoomTimer = null;
             }, 180);
         }, {passive: false});
+
+        viewport.addEventListener('scroll', schedulePointerCenterSync, {passive: true});
 
         stage.addEventListener('pointerdown', event => {
             if (event.button !== 0 && event.pointerType === 'mouse') return;
@@ -494,10 +511,9 @@
                 return;
             }
 
-            const pointerHandle = event.target.closest('[data-record24h-pointer-handle="true"]');
             drag = {
                 pointerId: event.pointerId,
-                mode: pointerHandle ? 'pointer' : 'pan',
+                mode: 'pan',
                 startX: event.clientX,
                 startY: event.clientY,
                 startScrollLeft: viewport.scrollLeft,
@@ -527,13 +543,9 @@
             if (!drag.active) {
                 if (Math.hypot(deltaX, deltaY) < DRAG_START_THRESHOLD) return;
                 drag.active = true;
-                stage.classList.add(drag.mode === 'pointer' ? 'is-scrubbing' : 'is-dragging');
+                stage.classList.add('is-dragging');
             }
-            if (drag.mode === 'pointer') {
-                updatePointer(eventSeconds(event, stage, zoom));
-            } else {
-                applyPanDrag(deltaX);
-            }
+            applyPanDrag(deltaX);
             event.preventDefault();
         });
 
@@ -570,14 +582,15 @@
             stage.classList.remove('is-dragging', 'is-scrubbing');
             settleElasticPanOffset();
             const seconds = eventSeconds(event, stage, zoom);
-            if (wasDrag.mode === 'pointer') {
-                if (wasDrag.active) updatePointer(seconds);
-                if (!cancelled && wasDrag.active) commitPointer(seconds);
-            } else if (!cancelled && !wasDrag.active) {
-                rememberViewportAnchor(event.clientX, seconds);
-                commitPointer(seconds);
-            } else if (!cancelled && wasDrag.active) {
+            if (!cancelled && !wasDrag.active) {
+                centerViewportOnSeconds(viewport, seconds, zoom);
+                syncPointerToViewportCenter();
                 rememberViewportCenter();
+                commitPointer(state.pointerSeconds);
+            } else if (!cancelled && wasDrag.active) {
+                syncPointerToViewportCenter();
+                rememberViewportCenter();
+                commitPointer(state.pointerSeconds);
             }
             event.preventDefault();
         };
@@ -676,15 +689,26 @@
     function eventSeconds(event, stage, zoom) {
         const rect = stage.getBoundingClientRect();
         const x = event.clientX - rect.left;
-        const ratio = (x - SIDE_PADDING) / zoom.trackWidth;
+        const ratio = (x - axisPadding(zoom)) / zoom.trackWidth;
         return Math.round(clamp(ratio, 0, 1) * DAY_SECONDS);
     }
 
     function viewportClientXToSeconds(clientX, viewport, zoom) {
         const rect = viewport.getBoundingClientRect();
         const x = clientX - rect.left + viewport.scrollLeft;
-        const ratio = (x - SIDE_PADDING) / zoom.trackWidth;
+        const ratio = (x - axisPadding(zoom)) / zoom.trackWidth;
         return Math.round(clamp(ratio, 0, 1) * DAY_SECONDS);
+    }
+
+    function viewportCenterSeconds(viewport, zoom) {
+        const rect = viewport.getBoundingClientRect();
+        return viewportClientXToSeconds(rect.left + rect.width / 2, viewport, zoom);
+    }
+
+    function centerViewportOnSeconds(viewport, seconds, zoom) {
+        const maxScrollLeft = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
+        const targetLeft = secondsToX(seconds, zoom) - viewport.clientWidth / 2;
+        viewport.scrollLeft = clamp(targetLeft, 0, maxScrollLeft);
     }
 
     function viewportClientXToRatio(clientX, viewport) {
@@ -693,7 +717,11 @@
     }
 
     function secondsToX(seconds, zoom) {
-        return SIDE_PADDING + (clampSeconds(seconds) / DAY_SECONDS) * zoom.trackWidth;
+        return axisPadding(zoom) + (clampSeconds(seconds) / DAY_SECONDS) * zoom.trackWidth;
+    }
+
+    function axisPadding(zoom) {
+        return Number.isFinite(zoom && zoom.sidePadding) ? zoom.sidePadding : SIDE_PADDING;
     }
 
     function setZoomIndex(state, zoomIndex) {

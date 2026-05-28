@@ -149,6 +149,10 @@
     color: #94a3b8;
 }
 
+.record24h-timeline-shell {
+    position: relative;
+}
+
 .record24h-viewport {
     position: relative;
     overflow-x: auto;
@@ -306,6 +310,7 @@
 .record24h-pointer {
     position: absolute;
     z-index: 8;
+    left: 50%;
     width: 2px;
     transform: translateX(-50%);
     border-radius: 9999px;
@@ -328,8 +333,8 @@
     border-radius: 4px;
     background: var(--record24h-pointer);
     box-shadow: 0 4px 10px rgba(37, 99, 235, 0.24);
-    cursor: ew-resize;
-    pointer-events: auto;
+    cursor: default;
+    pointer-events: none;
     touch-action: none;
     transition: box-shadow 0.16s ease, transform 0.16s ease;
 }
