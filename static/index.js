@@ -264,6 +264,13 @@ async function executeConfirmAction() {
 
 // --- 系统配置相关 ---
 const DEFAULT_RECORD_FORMAT = 'mp4';
+const DEFAULT_CAMERA_MODE = 'normal';
+const DEFAULT_RECORD_TIME = '00:00-23:59';
+const DEFAULT_RETENTION_DAYS = 7;
+const DEFAULT_SEGMENT_DURATION = 600;
+const DEFAULT_MIN_SIZE_KB = 1024;
+const DEFAULT_CAPTURE_INTERVAL = 1;
+const DEFAULT_MOTION_RATIO_THRESHOLD = 0.01;
 let configEditMode = 'form';
 let configFormState = {daily_merge: {enabled: false, time: '03:30'}, cameras: []};
 let configFormInitialCameras = [];
@@ -594,25 +601,25 @@ function normalizeConfigCamera(cam) {
     const streamURL = readConfigValue(cam, ['stream_url', 'StreamURL'], '');
     const legacyRTSPURL = readConfigValue(cam, ['rtsp_url', 'RTSPUrl'], '');
     const effectiveStreamURL = String(streamURL || '').trim() !== '' ? streamURL : legacyRTSPURL;
-    const segmentDuration = readConfigNumber(cam, ['segment_duration', 'SegmentDuration'], 600);
-    const minSizeKb = readConfigNumber(cam, ['min_size_kb', 'MinSizeKb'], 1024);
-    const captureInterval = readConfigNumber(cam, ['capture_interval', 'CaptureInterval'], 1);
-    const motionRatio = readConfigNumber(cam, ['motionDetectRatioThreshold', 'MotionDetectRatioThreshold'], 0.01);
+    const segmentDuration = readConfigNumber(cam, ['segment_duration', 'SegmentDuration'], DEFAULT_SEGMENT_DURATION);
+    const minSizeKb = readConfigNumber(cam, ['min_size_kb', 'MinSizeKb'], DEFAULT_MIN_SIZE_KB);
+    const captureInterval = readConfigNumber(cam, ['capture_interval', 'CaptureInterval'], DEFAULT_CAPTURE_INTERVAL);
+    const motionRatio = readConfigNumber(cam, ['motionDetectRatioThreshold', 'MotionDetectRatioThreshold'], DEFAULT_MOTION_RATIO_THRESHOLD);
 
     return {
         id: readConfigValue(cam, ['id', 'ID'], ''),
         order: readConfigNumber(cam, ['order', 'Order'], 0),
         stream_url: effectiveStreamURL,
         motion_url: readConfigValue(cam, ['motion_url', 'MotionURL'], ''),
-        retention_days: readConfigNumber(cam, ['retention_days', 'RetentionDays'], 7),
-        segment_duration: segmentDuration > 0 ? segmentDuration : 600,
+        retention_days: readConfigNumber(cam, ['retention_days', 'RetentionDays'], DEFAULT_RETENTION_DAYS),
+        segment_duration: segmentDuration > 0 ? segmentDuration : DEFAULT_SEGMENT_DURATION,
         format: readConfigValue(cam, ['format', 'Format'], DEFAULT_RECORD_FORMAT) || DEFAULT_RECORD_FORMAT,
-        min_size_kb: minSizeKb > 0 ? minSizeKb : 1024,
-        record_time: readConfigValue(cam, ['record_time', 'RecordTime'], '00:00-23:59') || '00:00-23:59',
-        mode: readConfigValue(cam, ['mode', 'Mode'], 'normal') || 'normal',
-        capture_interval: captureInterval > 0 ? captureInterval : 1,
+        min_size_kb: minSizeKb > 0 ? minSizeKb : DEFAULT_MIN_SIZE_KB,
+        record_time: readConfigValue(cam, ['record_time', 'RecordTime'], DEFAULT_RECORD_TIME) || DEFAULT_RECORD_TIME,
+        mode: readConfigValue(cam, ['mode', 'Mode'], DEFAULT_CAMERA_MODE) || DEFAULT_CAMERA_MODE,
+        capture_interval: captureInterval > 0 ? captureInterval : DEFAULT_CAPTURE_INTERVAL,
         motion_detect: Boolean(readConfigValue(cam, ['motion_detect', 'MotionDetect'], false)),
-        motionDetectRatioThreshold: motionRatio > 0 ? motionRatio : 0.01,
+        motionDetectRatioThreshold: motionRatio > 0 ? motionRatio : DEFAULT_MOTION_RATIO_THRESHOLD,
         auto_discovered: isManagedByGo2rtcURL(effectiveStreamURL) || Boolean(readConfigValue(cam, ['auto_discovered', 'AutoDiscovered'], false))
     };
 }
@@ -872,7 +879,7 @@ function collectConfigForm(options = {}) {
     };
 
     document.querySelectorAll('.config-camera-card').forEach((card, index) => {
-        const mode = readCardField(card, 'mode') || 'normal';
+        const mode = readCardField(card, 'mode') || DEFAULT_CAMERA_MODE;
         const cam = {
             id: readCardField(card, 'id').trim(),
             order: readCardNumber(card, 'order', 0),
@@ -882,7 +889,7 @@ function collectConfigForm(options = {}) {
             segment_duration: readCardNumber(card, 'segment_duration', 0),
             format: readCardField(card, 'format') || DEFAULT_RECORD_FORMAT,
             min_size_kb: readCardNumber(card, 'min_size_kb', 0),
-            record_time: readCardField(card, 'record_time').trim() || '00:00-23:59',
+            record_time: readCardField(card, 'record_time').trim() || DEFAULT_RECORD_TIME,
             mode,
             capture_interval: readCardNumber(card, 'capture_interval', 0),
             motion_detect: mode === 'normal' && readCardCheckbox(card, 'motion_detect'),
@@ -918,26 +925,30 @@ function readCardCheckbox(card, field) {
     return Boolean(card.querySelector(`[data-field="${field}"]`)?.checked);
 }
 
-function addConfigCamera(seed = {}) {
-    syncConfigCameraExpandedStateFromDom();
-    configFormState = collectConfigForm({allowEmptyID: true});
-    const nextCam = normalizeConfigCamera({
+function defaultConfigCameraSeed(overrides = {}) {
+    return {
         id: '',
         order: 0,
         stream_url: '',
         motion_url: '',
-        retention_days: 7,
-        segment_duration: 600,
+        retention_days: DEFAULT_RETENTION_DAYS,
+        segment_duration: DEFAULT_SEGMENT_DURATION,
         format: DEFAULT_RECORD_FORMAT,
-        min_size_kb: 1024,
-        record_time: '00:00-23:59',
-        mode: 'normal',
-        capture_interval: 1,
+        min_size_kb: DEFAULT_MIN_SIZE_KB,
+        record_time: DEFAULT_RECORD_TIME,
+        mode: DEFAULT_CAMERA_MODE,
+        capture_interval: DEFAULT_CAPTURE_INTERVAL,
         motion_detect: false,
-        motionDetectRatioThreshold: 0.01,
+        motionDetectRatioThreshold: DEFAULT_MOTION_RATIO_THRESHOLD,
         auto_discovered: false,
-        ...seed
-    });
+        ...overrides
+    };
+}
+
+function addConfigCamera(seed = {}) {
+    syncConfigCameraExpandedStateFromDom();
+    configFormState = collectConfigForm({allowEmptyID: true});
+    const nextCam = normalizeConfigCamera(defaultConfigCameraSeed(seed));
     const uiKey = ensureConfigCameraUiKey(nextCam);
     configFormState.cameras.unshift(nextCam);
     configCameraExpandedKeys.add(uiKey);
@@ -967,25 +978,76 @@ function renderBatchCameraPreview() {
     latestBatchCameraPreview = parseBatchCameraInput(input.value);
     const validCount = latestBatchCameraPreview.valid.length;
     const invalidCount = latestBatchCameraPreview.invalid.length;
+    const defaults = readBatchCameraDefaults();
 
     applyBtn.disabled = validCount === 0 || invalidCount > 0;
-    summary.innerHTML = renderBatchCameraSummary(validCount, invalidCount);
+    summary.innerHTML = renderBatchCameraSummary(validCount, invalidCount, defaults);
 
     preview.classList.toggle('hidden', validCount === 0 && invalidCount === 0);
     preview.innerHTML = renderBatchCameraPreviewMarkup(latestBatchCameraPreview);
 }
 
-function renderBatchCameraSummary(validCount, invalidCount) {
+function renderBatchCameraSummary(validCount, invalidCount, defaults = readBatchCameraDefaults()) {
+    const defaultText = escapeHtml(formatBatchCameraDefaults(defaults));
     if (validCount === 0 && invalidCount === 0) {
         return `
             <strong>等待输入</strong>
-            <span>粘贴多行接入源后会实时解析。</span>
+            <span>粘贴多行接入源后会实时解析；${defaultText}</span>
         `;
     }
     return `
         <strong>${validCount} 个可添加</strong>
-        <span>${invalidCount ? `${invalidCount} 行需要修正后才能添加` : '检查无误，确认后追加到列表顶部。'}</span>
+        <span>${invalidCount ? `${invalidCount} 行需要修正后才能添加` : `检查无误，确认后追加到列表顶部；${defaultText}`}</span>
     `;
+}
+
+// 批量添加的默认配置只作用于本次新增的摄像头，不会覆盖已有摄像头。
+function readBatchCameraDefaults() {
+    const mode = readBatchCameraChoice('batchCameraDefaultMode', ['normal', 'timelapse'], DEFAULT_CAMERA_MODE);
+    const format = readBatchCameraChoice('batchCameraDefaultFormat', ['mp4', 'ts'], DEFAULT_RECORD_FORMAT);
+    const recordTime = (document.getElementById('batchCameraDefaultRecordTime')?.value || '').trim() || DEFAULT_RECORD_TIME;
+    const segmentDuration = readBatchCameraInteger('batchCameraDefaultSegmentDuration', DEFAULT_SEGMENT_DURATION, 1);
+    const retentionDays = readBatchCameraInteger('batchCameraDefaultRetentionDays', DEFAULT_RETENTION_DAYS, -1);
+    return {
+        mode,
+        format,
+        record_time: recordTime,
+        segment_duration: segmentDuration,
+        retention_days: retentionDays
+    };
+}
+
+function readBatchCameraChoice(id, allowed, fallback) {
+    const value = String(document.getElementById(id)?.value || '').trim();
+    return allowed.includes(value) ? value : fallback;
+}
+
+function readBatchCameraInteger(id, fallback, minValue = null) {
+    const rawValue = String(document.getElementById(id)?.value || '').trim();
+    if (rawValue === '') return fallback;
+
+    const parsed = Number.parseInt(rawValue, 10);
+    if (!Number.isFinite(parsed)) return fallback;
+    if (minValue !== null && parsed < minValue) return minValue;
+    return parsed;
+}
+
+function formatBatchCameraDefaults(defaults) {
+    const mode = defaults.mode === 'timelapse' ? '延时' : '普通';
+    const format = String(defaults.format || DEFAULT_RECORD_FORMAT).toUpperCase();
+    const schedule = isAllDayRecordTime(defaults.record_time) ? '全天录像' : defaults.record_time;
+    const segmentDuration = Number(defaults.segment_duration) || DEFAULT_SEGMENT_DURATION;
+    return `默认 ${mode} / ${format} / ${schedule} / 切片 ${segmentDuration} 秒 / ${formatBatchRetentionDays(defaults.retention_days)}`;
+}
+
+function isAllDayRecordTime(recordTime) {
+    const text = String(recordTime || '').trim();
+    return text === '' || text === DEFAULT_RECORD_TIME || text === '00:00-24:00';
+}
+
+function formatBatchRetentionDays(retentionDays) {
+    if (retentionDays < 0) return '不自动清理';
+    return `保留 ${retentionDays || DEFAULT_RETENTION_DAYS} 天`;
 }
 
 function renderBatchCameraPreviewMarkup(result) {
@@ -1124,6 +1186,7 @@ function applyBatchAddCameras() {
     const input = document.getElementById('batchCameraInput');
     if (!input) return;
 
+    const defaults = readBatchCameraDefaults();
     const parsed = parseBatchCameraInput(input.value);
     latestBatchCameraPreview = parsed;
     renderBatchCameraPreview();
@@ -1131,22 +1194,11 @@ function applyBatchAddCameras() {
 
     syncConfigCameraExpandedStateFromDom();
     configFormState = collectConfigForm({allowEmptyID: true});
-    const nextCameras = parsed.valid.map(item => normalizeConfigCamera({
+    const nextCameras = parsed.valid.map(item => normalizeConfigCamera(defaultConfigCameraSeed({
+        ...defaults,
         id: item.id,
-        order: 0,
-        stream_url: item.stream_url,
-        motion_url: '',
-        retention_days: 7,
-        segment_duration: 600,
-        format: DEFAULT_RECORD_FORMAT,
-        min_size_kb: 1024,
-        record_time: '00:00-23:59',
-        mode: 'normal',
-        capture_interval: 1,
-        motion_detect: false,
-        motionDetectRatioThreshold: 0.01,
-        auto_discovered: false
-    }));
+        stream_url: item.stream_url
+    })));
 
     nextCameras.forEach(cam => ensureConfigCameraUiKey(cam));
     configFormState.cameras = [...nextCameras, ...configFormState.cameras];

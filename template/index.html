@@ -283,10 +283,32 @@
                                     <div class="config-batch-camera-side">
                                         <div id="batchCameraSummary" class="config-batch-camera-summary">粘贴多行接入源后会在这里预览。</div>
                                         <div class="config-batch-camera-defaults">
-                                            <span>默认 normal</span>
-                                            <span>默认 MP4</span>
-                                            <span>全天录像</span>
-                                            <span>保留 7 天</span>
+                                            <label class="config-batch-camera-default-field">
+                                                <span>默认模式</span>
+                                                <select id="batchCameraDefaultMode" onchange="renderBatchCameraPreview()">
+                                                    <option value="normal" selected>普通 normal</option>
+                                                    <option value="timelapse">延时 timelapse</option>
+                                                </select>
+                                            </label>
+                                            <label class="config-batch-camera-default-field">
+                                                <span>默认格式</span>
+                                                <select id="batchCameraDefaultFormat" onchange="renderBatchCameraPreview()">
+                                                    <option value="mp4" selected>MP4</option>
+                                                    <option value="ts">TS</option>
+                                                </select>
+                                            </label>
+                                            <label class="config-batch-camera-default-field">
+                                                <span>录像时段</span>
+                                                <input id="batchCameraDefaultRecordTime" type="text" value="00:00-23:59" placeholder="00:00-23:59" oninput="renderBatchCameraPreview()">
+                                            </label>
+                                            <label class="config-batch-camera-default-field">
+                                                <span>切片秒数</span>
+                                                <input id="batchCameraDefaultSegmentDuration" type="number" min="1" step="1" value="600" placeholder="600" oninput="renderBatchCameraPreview()">
+                                            </label>
+                                            <label class="config-batch-camera-default-field">
+                                                <span>保留天数</span>
+                                                <input id="batchCameraDefaultRetentionDays" type="number" min="-1" step="1" value="7" placeholder="7" oninput="renderBatchCameraPreview()">
+                                            </label>
                                         </div>
                                         <div id="batchCameraFeedback" class="config-batch-camera-feedback hidden"></div>
                                         <button id="batchCameraApplyBtn" onclick="applyBatchAddCameras()" class="config-batch-camera-apply" type="button" disabled>确认添加</button>

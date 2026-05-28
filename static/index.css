@@ -3607,15 +3607,13 @@ html.dark .record-timeline-card-action-delete:hover {
     box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
 }
 
-.config-batch-camera-format,
-.config-batch-camera-defaults {
+.config-batch-camera-format {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
 }
 
-.config-batch-camera-format span,
-.config-batch-camera-defaults span {
+.config-batch-camera-format span {
     display: inline-flex;
     align-items: center;
     border-radius: 9999px;
@@ -3633,6 +3631,45 @@ html.dark .record-timeline-card-action-delete:hover {
 .config-batch-camera-format code {
     color: #1d4ed8;
     font-weight: 950;
+}
+
+.config-batch-camera-defaults {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.config-batch-camera-default-field {
+    display: grid;
+    min-width: 0;
+    gap: 4px;
+}
+
+.config-batch-camera-default-field span {
+    color: #1d4ed8;
+    font-size: 10px;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.config-batch-camera-default-field input,
+.config-batch-camera-default-field select {
+    min-width: 0;
+    min-height: 30px;
+    border: 1px solid rgba(147, 197, 253, 0.72);
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.88);
+    color: #0f172a;
+    padding: 0 8px;
+    font-size: 11px;
+    font-weight: 850;
+    outline: none;
+}
+
+.config-batch-camera-default-field input:focus,
+.config-batch-camera-default-field select:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
 }
 
 .config-batch-camera-side {
@@ -3659,11 +3696,6 @@ html.dark .record-timeline-card-action-delete:hover {
 
 .config-batch-camera-summary span {
     line-height: 1.35;
-}
-
-.config-batch-camera-defaults span {
-    background: rgba(219, 234, 254, 0.7);
-    color: #1d4ed8;
 }
 
 .config-batch-camera-feedback {
@@ -4404,9 +4436,15 @@ html.dark .config-batch-camera-format code {
     color: #93c5fd;
 }
 
-html.dark .config-batch-camera-defaults span {
-    background: rgba(30, 64, 175, 0.38);
+html.dark .config-batch-camera-default-field span {
     color: #bfdbfe;
+}
+
+html.dark .config-batch-camera-default-field input,
+html.dark .config-batch-camera-default-field select {
+    border-color: rgba(96, 165, 250, 0.3);
+    background: rgba(15, 23, 42, 0.72);
+    color: #e5e7eb;
 }
 
 html.dark .config-batch-camera-feedback {
