@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/r0n9/camkeep/constant"
@@ -22,6 +23,25 @@ import (
 var httpClient = &http.Client{
 	Timeout: 3 * time.Second, // 3秒超时，防止任何请求卡死
 }
+
+const (
+	streamRecoveryProbeWindow = 15 * time.Second
+	streamRecoveryBaseBackoff = 30 * time.Second
+	streamRecoveryMaxBackoff  = 5 * time.Minute
+)
+
+// streamRecoveryState 只用于处理“TCP 已恢复但 RTSP/媒体流仍不可用”的灰色状态。
+// ProbeUntil 是允许业务侧重新拉流的短窗口；窗口结束仍未 online 时进入 NextRetryAfter 退避。
+type streamRecoveryState struct {
+	ProbeUntil     time.Time
+	NextRetryAfter time.Time
+	Failures       int
+}
+
+var (
+	streamRecoveryMux sync.Mutex
+	streamRecoveries  = make(map[string]streamRecoveryState)
+)
 
 // StartGo2rtcDaemon 负责启动并守护底层流媒体引擎。
 // 返回的 channel 会在守护 goroutine 退出后关闭。
@@ -311,118 +331,182 @@ func PollGo2rtcStatus(cfg *constant.Config) {
 		// === 自愈逻辑结束 ===
 
 		constant.ConfigMux.RLock()
-		var camIDs []string
-		for _, cam := range cfg.Cameras {
-			camIDs = append(camIDs, cam.ID)
-		}
+		camSnapshot := append([]constant.Camera(nil), cfg.Cameras...)
 		constant.ConfigMux.RUnlock()
 
-		for _, id := range camIDs {
-			streamState := "offline" // 默认假设为离线
-			isIdle := false          // 标记是否进入了“薛定谔”的待机状态
-			var probeURL string      // 存放真实的探活物理地址
-
-			if camData, exists := streams[id]; exists {
-				if data, ok := camData.(map[string]interface{}); ok {
-					producers, hasProducers := data["producers"].([]interface{})
-					consumers, hasConsumers := data["consumers"].([]interface{})
-
-					consumerCount := 0
-					if hasConsumers && consumers != nil {
-						consumerCount = len(consumers)
-					}
-
-					// go2rtc 只要注册了流，hasProducers 就是 true，且至少包含一条 {"url": "..."}
-					if hasProducers && len(producers) > 0 {
-						isActive := false // 是否有真实数据在流动
-						hasError := false // 是否有明确的拉流报错 (如 i/o timeout)
-
-						for _, p := range producers {
-							if prod, ok := p.(map[string]interface{}); ok {
-								// 优先从 go2rtc 底层状态中提取真实物理 URL
-								if u, hasU := prod["url"].(string); hasU && u != "" {
-									probeURL = u
-								}
-
-								// 1. 检查是否存在明确报错（只有在有人看，且拉流失败时才会出现）
-								if errStr, hasErr := prod["error"].(string); hasErr && errStr != "" {
-									hasError = true
-									continue
-								}
-
-								// 2. 检查是否正在真实收发数据
-								bytesRecv, _ := prod["bytes_recv"].(float64)
-								medias, hasMedias := prod["medias"].([]interface{})
-
-								if bytesRecv > 0 || (hasMedias && len(medias) > 0) {
-									isActive = true
-									break
-								}
-							}
-						}
-
-						// 状态仲裁
-						if isActive {
-							streamState = "online" // 数据流转中，绝对健康
-						} else if hasError {
-							streamState = "offline" // 有明确报错，离线
-						} else {
-							// 既没报错也没数据，说明 `producer` 里只剩下一个干瘪的 {"url": "..."}
-							if consumerCount > 0 {
-								// 有人在请求，但还没拿到数据/也没报错，说明“正在握手建联中”
-								streamState = "online"
-							} else {
-								// 没人请求，也没数据。进入了 go2rtc 无法分辨的盲区
-								isIdle = true
-							}
-						}
-					}
-				}
+		for _, cam := range camSnapshot {
+			service.StatusMux.RLock()
+			prevState := "offline"
+			if status, exists := service.StatusMap[cam.ID]; exists {
+				prevState = status.StreamState
 			}
-			if isIdle {
-				// 1. 安全地读取该摄像头上一次的状态
-				service.StatusMux.RLock()
-				prevState := "offline"
-				if status, exists := service.StatusMap[id]; exists {
-					prevState = status.StreamState
-				}
-				service.StatusMux.RUnlock()
+			service.StatusMux.RUnlock()
 
-				// 2. 根据历史状态决定是否需要发起真实探活
-				if prevState == "idle" {
-					// 如果之前已经是休眠状态，直接继承，跳过 TCP 探活。
-					// 如果它真的在此期间断电了，等到下次有业务拉流时，
-					// go2rtc 会报错产生 error 进而被上面的逻辑打回 offline。
-					streamState = "idle"
-				} else {
-					// 如果 go2rtc 里真没给 URL，才去 conf.yaml 兜底
-					if probeURL == "" {
-						constant.ConfigMux.RLock()
-						for _, c := range cfg.Cameras {
-							if c.ID == id {
-								probeURL = c.EffectiveStreamURL()
-								break
-							}
-						}
-						constant.ConfigMux.RUnlock()
-					}
-
-					if strings.HasPrefix(probeURL, "exec") || strings.HasPrefix(probeURL, "ffmpeg") {
-						streamState = "idle" // 端口通，才是真休眠
-					} else {
-						// 发起毫秒级轻量探活
-						if checkCameraTCPAlive(probeURL) {
-							streamState = "idle" // 端口通，才是真休眠
-						} else {
-							streamState = "offline" // 端口不通（如断网/断电），伪装成休眠也没用，标记为离线
-						}
-					}
-				}
-			}
-
-			service.UpdateOnlineStatus(id, streamState)
+			streamState := go2rtcStreamState(cam.ID, streams[cam.ID], cam.EffectiveStreamURL(), prevState, time.Now(), checkCameraTCPAlive)
+			service.UpdateOnlineStatus(cam.ID, streamState)
 		}
 	}
+}
+
+func go2rtcStreamState(camID string, camData interface{}, configuredURL string, prevState string, now time.Time, tcpAlive func(string) bool) string {
+	if now.IsZero() {
+		now = time.Now()
+	}
+
+	streamState := "offline" // 默认假设为离线
+	isIdle := false          // 标记是否进入了 go2rtc 无法分辨的待机状态
+	var producerURL string   // 存放 go2rtc 返回的物理地址
+
+	if data, ok := camData.(map[string]interface{}); ok {
+		producers, hasProducers := data["producers"].([]interface{})
+		consumers, hasConsumers := data["consumers"].([]interface{})
+
+		consumerCount := 0
+		if hasConsumers && consumers != nil {
+			consumerCount = len(consumers)
+		}
+
+		// go2rtc 只要注册了流，hasProducers 就是 true，且至少包含一条 {"url": "..."}
+		if hasProducers && len(producers) > 0 {
+			isActive := false // 是否有真实数据在流动
+			hasError := false // 是否有明确的拉流报错 (如 i/o timeout)
+
+			for _, p := range producers {
+				if prod, ok := p.(map[string]interface{}); ok {
+					if u, hasU := prod["url"].(string); hasU && u != "" {
+						producerURL = u
+					}
+
+					// 1. 检查是否存在明确报错（只有在有人看，且拉流失败时才会出现）
+					if errStr, hasErr := prod["error"].(string); hasErr && errStr != "" {
+						hasError = true
+						continue
+					}
+
+					// 2. 检查是否正在真实收发数据
+					bytesRecv, _ := prod["bytes_recv"].(float64)
+					medias, hasMedias := prod["medias"].([]interface{})
+
+					if bytesRecv > 0 || (hasMedias && len(medias) > 0) {
+						isActive = true
+						break
+					}
+				}
+			}
+
+			// 状态仲裁
+			if isActive {
+				clearStreamRecovery(camID)
+				return "online" // 数据流转中，绝对健康
+			}
+			if hasError {
+				// go2rtc 可能保留旧的 producer error。这里先用配置里的真实流地址做轻量 TCP 探活，
+				// 但 TCP 通只代表设备端口恢复，不代表 RTSP/媒体流可用，因此后面还会套恢复窗口和退避。
+				probeURL := strings.TrimSpace(configuredURL)
+				if probeURL == "" {
+					probeURL = producerURL
+				}
+				if streamProbeAlive(probeURL, tcpAlive) {
+					return streamStateForReachableProducerError(camID, now)
+				}
+				clearStreamRecovery(camID)
+				return "offline"
+			}
+			// 既没报错也没数据，说明 `producer` 里只剩下一个干瘪的 {"url": "..."}
+			if consumerCount > 0 {
+				clearStreamRecovery(camID)
+				return "online" // 有人在请求，但还没拿到数据/也没报错，说明“正在握手建联中”
+			}
+			clearStreamRecovery(camID)
+			isIdle = true // 没人请求，也没数据。进入了 go2rtc 无法分辨的盲区
+		}
+	}
+
+	if isIdle {
+		// 如果之前已经是休眠状态，直接继承，跳过 TCP 探活。
+		// 如果它真的在此期间断电了，等到下次有业务拉流时，
+		// go2rtc 会报错产生 error 进而被上面的逻辑打回 offline。
+		if prevState == "idle" {
+			return "idle"
+		}
+
+		// 优先沿用 go2rtc 给出的物理地址，没有才回退到配置地址。
+		probeURL := producerURL
+		if probeURL == "" {
+			probeURL = strings.TrimSpace(configuredURL)
+		}
+		if streamProbeAlive(probeURL, tcpAlive) {
+			streamState = "idle" // 端口通，才是真休眠
+		}
+	}
+
+	return streamState
+}
+
+func streamStateForReachableProducerError(camID string, now time.Time) string {
+	streamRecoveryMux.Lock()
+	defer streamRecoveryMux.Unlock()
+
+	state := streamRecoveries[camID]
+
+	// 退避期内继续保持 offline，避免 FFmpeg 因为 TCP 端口已通而高频重启。
+	if !state.NextRetryAfter.IsZero() && now.Before(state.NextRetryAfter) {
+		return "offline"
+	}
+
+	// 到达退避截止时间后，再给一个短暂的 idle 窗口，让业务侧有机会重新拉流验证。
+	if state.ProbeUntil.IsZero() || (!state.NextRetryAfter.IsZero() && !now.Before(state.NextRetryAfter)) {
+		state.ProbeUntil = now.Add(streamRecoveryProbeWindow)
+		state.NextRetryAfter = time.Time{}
+		streamRecoveries[camID] = state
+		return "idle"
+	}
+
+	// 窗口期内返回 idle，录制任务可以发起一次或少量重试来刷新 go2rtc 的真实流状态。
+	if now.Before(state.ProbeUntil) {
+		return "idle"
+	}
+
+	// 恢复窗口结束后仍然只有 producer.error，说明端口通但媒体流不可用，进入指数退避。
+	state.Failures++
+	state.NextRetryAfter = now.Add(streamRecoveryBackoff(state.Failures))
+	state.ProbeUntil = time.Time{}
+	streamRecoveries[camID] = state
+	return "offline"
+}
+
+func clearStreamRecovery(camID string) {
+	streamRecoveryMux.Lock()
+	delete(streamRecoveries, camID)
+	streamRecoveryMux.Unlock()
+}
+
+func streamRecoveryBackoff(failures int) time.Duration {
+	if failures <= 0 {
+		return streamRecoveryBaseBackoff
+	}
+	backoff := streamRecoveryBaseBackoff
+	for i := 1; i < failures; i++ {
+		backoff *= 2
+		if backoff >= streamRecoveryMaxBackoff {
+			return streamRecoveryMaxBackoff
+		}
+	}
+	return backoff
+}
+
+func streamProbeAlive(probeURL string, tcpAlive func(string) bool) bool {
+	probeURL = strings.TrimSpace(probeURL)
+	if probeURL == "" {
+		return false
+	}
+	if strings.HasPrefix(probeURL, "exec") || strings.HasPrefix(probeURL, "ffmpeg") {
+		return true
+	}
+	if tcpAlive == nil {
+		tcpAlive = checkCameraTCPAlive
+	}
+	return tcpAlive(probeURL)
 }
 
 // checkCameraTCPAlive 极低损耗的旁路探活：仅验证主码流地址对应的 TCP 端口是否存活
