@@ -43,6 +43,7 @@ WORKDIR /app
 
 # 从前面的阶段拷贝文件
 COPY --from=builder /app/camkeep .
+COPY --from=builder /app/conf_usage.md .
 COPY --from=builder /app/static ./static
 COPY --from=builder /app/template ./template
 COPY --from=go2rtc-downloader /go2rtc ./go2rtc

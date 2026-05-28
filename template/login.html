@@ -21,10 +21,11 @@
     <script src="/static/tailwindcss.min.js"></script>
     <link rel="icon" href="/static/camkeep_w200.png">
     <link rel="stylesheet" href="/static/index.css">
+    <link rel="stylesheet" href="/static/neumorphism.css">
 </head>
 <body class="min-h-screen bg-slate-100 p-4 transition-colors duration-200">
 <main class="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-md items-center justify-center">
-    <section class="w-full rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section class="nm-login-card w-full rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div class="mb-6 flex items-center gap-3">
             <img src="/static/camkeep_w80.png" alt="CamKeep" class="h-10 w-10 object-contain">
             <div>
@@ -49,7 +50,7 @@
                 <span class="mb-1 block text-xs font-extrabold text-slate-500">密码</span>
                 <input name="password" type="password" autocomplete="current-password" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10">
             </label>
-            <button type="submit" class="flex h-10 w-full items-center justify-center rounded-lg bg-blue-600 px-4 text-sm font-extrabold text-white shadow-[0_4px_12px_rgba(37,99,235,0.25)] transition-all hover:bg-blue-700 active:scale-[0.99]">
+            <button type="submit" class="nm-btn--accent flex h-10 w-full items-center justify-center rounded-lg bg-blue-600 px-4 text-sm font-extrabold text-white shadow-[0_4px_12px_rgba(37,99,235,0.25)] transition-all hover:bg-blue-700 active:scale-[0.99]">
                 登录
             </button>
         </form>

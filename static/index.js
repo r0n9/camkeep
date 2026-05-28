@@ -16,6 +16,7 @@ let latestBatchCameraPreview = {valid: [], invalid: []};
 let activeRecordTimeline24hDockKey = '';
 let matrixToolbarTimer = null;
 let configPageVisible = false;
+let recordListHeightLockToken = 0;
 const cameraCoverObjectURLs = new Map();
 const cameraCoverRequested = new Set();
 const cameraCoverFailed = new Set();
@@ -123,48 +124,78 @@ function syncThemeToggleIcon() {
 }
 
 async function initUpdateBadge() {
-    const badge = document.getElementById('updateBadge');
+    const badge = document.getElementById('versionStatusBadge');
     if (!badge) return;
+    const current = document.getElementById('appVersionText')?.textContent?.trim() || '';
+    renderVersionStatus({
+        status: canAdmin() ? 'checking' : 'current',
+        current
+    });
     if (!canAdmin()) return;
 
     try {
         const resp = await fetch('/api/update/check');
-        if (!resp.ok) return;
+        if (!resp.ok) {
+            renderVersionStatus({status: 'unknown', current});
+            return;
+        }
 
         const data = await resp.json();
-        renderUpdateBadge(data);
+        renderVersionStatus(data);
     } catch (e) {
+        renderVersionStatus({status: 'unknown', current});
         console.warn('检查更新失败:', e);
     }
 }
 
-function renderUpdateBadge(data) {
-    const badge = document.getElementById('updateBadge');
+function renderVersionStatus(data) {
+    const badge = document.getElementById('versionStatusBadge');
     if (!badge || !data) return;
 
+    const current = String(data.current_version || data.currentVersion || document.getElementById('appVersionText')?.textContent || '').trim();
     const latest = String(data.latest_stable_version || '').trim();
     const releaseURL = String(data.release_url || 'https://github.com/r0n9/camkeep/releases/latest').trim();
     const channel = String(data.channel || '').trim().toLowerCase();
+    const statusText = document.getElementById('versionStatusText');
 
-    badge.classList.add('hidden');
-    badge.classList.remove('is-reference');
-    badge.textContent = '';
+    badge.href = releaseURL;
+    badge.classList.remove('is-checking', 'is-current', 'is-update', 'is-reference', 'is-unknown');
+    if (current) {
+        const versionText = document.getElementById('appVersionText');
+        if (versionText) versionText.textContent = current;
+    }
 
     if (data.update_available && latest) {
-        badge.href = releaseURL;
-        badge.textContent = `有新版本 ${latest}`;
+        if (statusText) statusText.textContent = `可更新到 ${latest}`;
         badge.title = data.message || `发现新版本 ${latest}`;
-        badge.classList.remove('hidden');
+        badge.classList.add('is-update');
         return;
     }
 
     if ((channel === 'dev' || channel === 'test') && latest) {
-        badge.href = releaseURL;
-        badge.textContent = `最新稳定版 ${latest}`;
+        if (statusText) statusText.textContent = `稳定版 ${latest}`;
         badge.title = data.message || '当前为开发/测试版本，不参与稳定版更新判断';
         badge.classList.add('is-reference');
-        badge.classList.remove('hidden');
+        return;
     }
+
+    if (data.status === 'checking') {
+        if (statusText) statusText.textContent = '检查中';
+        badge.title = '正在检查最新版本';
+        badge.classList.add('is-checking');
+        return;
+    }
+
+    if (data.status === 'unknown') {
+        if (statusText) statusText.textContent = latest ? `最新 ${latest}` : '更新未知';
+        badge.title = '暂时无法确认最新版本';
+        badge.classList.add('is-unknown');
+        return;
+    }
+
+    if (statusText) statusText.textContent = latest ? `已是最新 ${latest}` : '已是最新';
+    badge.title = data.message || (latest ? `当前已是最新稳定版 ${latest}` : '当前已是最新版本');
+    badge.classList.add('is-current');
 }
 
 // --- 控制面板动作弹窗 ---
@@ -1577,6 +1608,7 @@ async function loadStatus() {
 
 function updateCameraStats(cameras, failed = false) {
     const summary = document.getElementById('camStatsSummary');
+    const panel = document.getElementById('camStatsPanel');
     const totalEl = document.getElementById('camStatsTotal');
     const onlineEl = document.getElementById('camStatsOnline');
     const idleEl = document.getElementById('camStatsIdle');
@@ -1584,7 +1616,11 @@ function updateCameraStats(cameras, failed = false) {
     const offlineEl = document.getElementById('camStatsOffline');
 
     if (failed) {
-        if (summary) summary.innerText = '同步失败';
+        if (summary) {
+            summary.innerText = '同步失败';
+            summary.dataset.state = 'failed';
+        }
+        updateCameraStatsDistribution(panel, {total: 0, online: 0, idle: 0, offline: 0});
         [totalEl, onlineEl, idleEl, recordingEl, offlineEl].forEach(el => {
             if (el) el.innerText = '-';
         });
@@ -1602,12 +1638,41 @@ function updateCameraStats(cameras, failed = false) {
         return result;
     }, {total: 0, online: 0, idle: 0, recording: 0, offline: 0});
 
-    if (summary) summary.innerText = `${stats.total} 节点`;
+    updateCameraStatsDistribution(panel, stats);
+
+    if (summary) {
+        if (stats.total === 0) {
+            summary.innerText = '0 节点';
+            summary.dataset.state = 'empty';
+        } else if (stats.offline > 0) {
+            summary.innerText = `${stats.offline} 离线`;
+            summary.dataset.state = 'warning';
+        } else if (stats.recording > 0) {
+            summary.innerText = `${stats.recording} 录制中`;
+            summary.dataset.state = 'active';
+        } else {
+            summary.innerText = `${stats.total} 节点`;
+            summary.dataset.state = 'ok';
+        }
+    }
     if (totalEl) totalEl.innerText = stats.total;
     if (onlineEl) onlineEl.innerText = stats.online;
     if (idleEl) idleEl.innerText = stats.idle;
     if (recordingEl) recordingEl.innerText = stats.recording;
     if (offlineEl) offlineEl.innerText = stats.offline;
+}
+
+function updateCameraStatsDistribution(panel, stats) {
+    if (!panel) return;
+    const total = Math.max(0, Number(stats.total) || 0);
+    const share = value => {
+        if (!total) return '0%';
+        const percent = Math.max(0, Math.min(100, ((Number(value) || 0) / total) * 100));
+        return `${percent.toFixed(2)}%`;
+    };
+    panel.style.setProperty('--live-stat-online', share(stats.online));
+    panel.style.setProperty('--live-stat-idle', share(stats.idle));
+    panel.style.setProperty('--live-stat-offline', share(stats.offline));
 }
 
 function buildRecordScheduleDisplay(recordTime, override) {
@@ -1834,7 +1899,7 @@ function renderGrid() {
             ? 'w-full h-full border-0 hidden'
             : 'w-full h-full border-0 hidden pointer-events-none';
         const cellHtml = `
-            <div id="cell-${i}" onclick="setActiveCell(${i})" ondblclick="toggleCellFullscreen(${i})" class="relative w-full h-full bg-gray-900 border-[2px] transition-colors overflow-hidden group cursor-pointer ${activeCellClass} ${cellFocusClass}">
+            <div id="cell-${i}" onclick="setActiveCell(${i})" ondblclick="toggleCellFullscreen(${i})" class="matrix-cell relative w-full h-full bg-gray-900 border-[2px] transition-colors overflow-hidden group cursor-pointer ${activeCellClass} ${cellFocusClass}">
                 <iframe id="live-iframe-${i}" class="${liveIframeClass}" allow="autoplay; fullscreen; microphone; camera"></iframe>
                 <div id="dplayer-${i}" class="w-full h-full hidden"></div>
                 <video id="native-player-${i}" class="w-full h-full object-contain hidden bg-black" playsinline controls></video>
@@ -1993,16 +2058,45 @@ function updateFocusUI() {
 function selectCamera(camId) {
     currentSelectedCam = camId;
     updateSelectedRecordCameraBadge(camId);
-    loadStatus();
+    applySelectedCameraCardStyles();
+    refreshPTZPanel();
     loadRecords(camId);
 }
 
 function previewLive(camId) {
     currentSelectedCam = camId;
     updateSelectedRecordCameraBadge(camId);
-    loadStatus();
+    applySelectedCameraCardStyles();
+    refreshPTZPanel();
     playVideo(camId, true, `🟢 直播: ${camId}`);
     loadRecords(camId);
+}
+
+function applySelectedCameraCardStyles() {
+    const list = document.getElementById('camList');
+    if (!list) return;
+    Array.from(list.children).forEach(item => {
+        if (!item.dataset.camId) return;
+        item.classList.toggle('is-selected', item.dataset.camId === currentSelectedCam);
+    });
+}
+
+function lockRecordListHeightDuringRender(list) {
+    if (!list || window.scrollY <= 0 || list.children.length === 0) return () => {};
+    const height = list.getBoundingClientRect().height;
+    if (!Number.isFinite(height) || height <= 0) return () => {};
+
+    const token = ++recordListHeightLockToken;
+    list.style.minHeight = `${Math.ceil(height)}px`;
+    return () => {
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                if (recordListHeightLockToken === token && list.isConnected) {
+                    list.style.minHeight = '';
+                }
+            });
+        });
+    };
 }
 
 function playVideo(source, isLive, title) {
@@ -2811,7 +2905,7 @@ function snapRecordTimeline24hDockBelowPlayer() {
 function renderRecordDateContent(content, camId, date, entries, viewMode, onUpdate = () => {}) {
     content.innerHTML = '';
     if (viewMode === 'timeline') {
-        content.className = 'record-watermark-window bg-slate-50/70 p-2 custom-scrollbar';
+        content.className = 'record-watermark-window record-archive-content-shell record-archive-timeline-well bg-slate-50/70 p-2 custom-scrollbar';
         if (!window.RecordTimeline) {
             const error = document.createElement('div');
             error.className = 'rounded-lg border border-red-100 bg-red-50 px-4 py-8 text-center text-sm font-bold text-red-400';
@@ -2838,7 +2932,7 @@ function renderRecordDateContent(content, camId, date, entries, viewMode, onUpda
     if (activeRecordTimeline24hDockKey === getRecordArchiveGroupKey(camId, date)) {
         renderRecordTimeline24hDock(camId, date, entries, selectedRecordPath);
     }
-    content.className = 'record-watermark-window max-h-[360px] overflow-y-auto bg-slate-50/60 p-2 custom-scrollbar sm:max-h-[460px]';
+    content.className = 'record-watermark-window record-archive-content-shell record-archive-file-well max-h-[360px] overflow-y-auto bg-slate-50/60 p-2 custom-scrollbar sm:max-h-[460px]';
     const fileGrid = document.createElement('div');
     fileGrid.className = 'relative z-[1] grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5';
 
@@ -2872,6 +2966,7 @@ function dateKeyToUTC(dateKey) {
 async function loadRecords(camId) {
     const list = document.getElementById('recordList');
     const countBadge = document.getElementById('recordCount');
+    const releaseRecordListHeight = lockRecordListHeightDuringRender(list);
     updateSelectedRecordCameraBadge(camId);
     clearRecordTimeline24hDock();
     updateRecordRangeStatus();
@@ -2925,7 +3020,7 @@ async function loadRecords(camId) {
             if (isOpen) recordArchiveOpenDates.add(groupKey);
 
             const groupDiv = document.createElement('div');
-            groupDiv.className = 'overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md';
+            groupDiv.className = `record-archive-group ${isOpen ? 'is-open' : 'is-collapsed'} overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md`;
 
             const dateBytes = entries.reduce((sum, entry) => sum + parseRecordSizeBytes(entry.file.size), 0);
             const header = document.createElement('div');
@@ -2933,6 +3028,7 @@ async function loadRecords(camId) {
 
             const summaryBtn = document.createElement('button');
             summaryBtn.type = 'button';
+            summaryBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
             summaryBtn.className = 'record-archive-group-summary flex min-w-0 flex-1 items-center gap-3 px-3 py-2 text-left';
             summaryBtn.innerHTML = `
                 <div class="min-w-0">
@@ -2959,6 +3055,7 @@ async function loadRecords(camId) {
 
             const collapseBtn = document.createElement('button');
             collapseBtn.type = 'button';
+            collapseBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
             collapseBtn.className = 'record-archive-group-collapse flex h-full items-center px-2 text-slate-400 transition-colors hover:text-slate-700';
             collapseBtn.title = isOpen ? '收起该日录像' : '展开该日录像';
             collapseBtn.innerHTML = `
@@ -2974,6 +3071,10 @@ async function loadRecords(camId) {
             rightTools.appendChild(collapseBtn);
 
             const setOpen = (nextOpen) => {
+                groupDiv.classList.toggle('is-open', nextOpen);
+                groupDiv.classList.toggle('is-collapsed', !nextOpen);
+                summaryBtn.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
+                collapseBtn.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
                 content.classList.toggle('hidden', !nextOpen);
                 collapseBtn.querySelector('svg').classList.toggle('rotate-90', nextOpen);
                 collapseBtn.title = nextOpen ? '收起该日录像' : '展开该日录像';
@@ -3011,6 +3112,8 @@ async function loadRecords(camId) {
         errorDiv.className = 'rounded-xl border border-red-100 bg-red-50 px-5 py-10 text-center text-sm font-bold text-red-400';
         errorDiv.textContent = e.message || '获取录像列表失败';
         list.appendChild(errorDiv);
+    } finally {
+        releaseRecordListHeight();
     }
 }
 

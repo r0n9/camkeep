@@ -27,6 +27,31 @@
     object-fit: contain;
 }
 
+#video-stage {
+    overflow: hidden;
+    border-top-left-radius: inherit;
+    border-top-right-radius: inherit;
+    border-bottom-right-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+#video-grid {
+    overflow: hidden;
+}
+
+.matrix-cell {
+    border-radius: 10px;
+}
+
+.matrix-cell iframe,
+.matrix-cell video,
+.matrix-cell .dplayer,
+.matrix-cell .dplayer-video-wrap,
+.matrix-cell .dplayer-video-current {
+    overflow: hidden;
+    border-radius: inherit;
+}
+
 #focusIndicator {
     width: fit-content;
     max-width: min(52vw, 420px);
@@ -840,7 +865,7 @@ html.dark .camera-node-action-btn--auto.is-active {
     width: 100vw;
     height: 100vh;
     max-height: none;
-    border-radius: 0;
+    border-radius: 0 !important;
 }
 
 #video-wrapper:fullscreen #video-toolbar,
@@ -892,6 +917,27 @@ html.dark .camera-node-action-btn--auto.is-active {
 #video-wrapper:-webkit-full-screen #video-grid {
     padding: 0;
     gap: 0;
+}
+
+#video-wrapper:fullscreen #video-stage,
+#video-wrapper:-webkit-full-screen #video-stage,
+#video-wrapper:fullscreen #video-grid,
+#video-wrapper:-webkit-full-screen #video-grid,
+#video-wrapper:fullscreen .matrix-cell,
+#video-wrapper:-webkit-full-screen .matrix-cell,
+[id^="cell-"]:fullscreen,
+[id^="cell-"]:-webkit-full-screen,
+[id^="cell-"]:fullscreen iframe,
+[id^="cell-"]:-webkit-full-screen iframe,
+[id^="cell-"]:fullscreen video,
+[id^="cell-"]:-webkit-full-screen video,
+[id^="cell-"]:fullscreen .dplayer,
+[id^="cell-"]:-webkit-full-screen .dplayer,
+[id^="cell-"]:fullscreen .dplayer-video-wrap,
+[id^="cell-"]:-webkit-full-screen .dplayer-video-wrap,
+[id^="cell-"]:fullscreen .dplayer-video-current,
+[id^="cell-"]:-webkit-full-screen .dplayer-video-current {
+    border-radius: 0 !important;
 }
 
 [id^="cell-"]:fullscreen,
@@ -2267,6 +2313,10 @@ html.dark .record-timeline-card-action-delete:hover {
     box-shadow: 0 26px 70px -42px rgba(15, 23, 42, 0.42);
 }
 
+.config-page-card--with-actionbar {
+    padding-bottom: 20px;
+}
+
 .config-page-card::before {
     content: "";
     position: absolute;
@@ -3014,7 +3064,7 @@ html.dark .record-timeline-card-action-delete:hover {
     align-items: center;
     justify-content: space-between;
     gap: 14px;
-    margin: 0 18px 18px;
+    margin: 0 18px;
     border: 1px solid rgba(203, 213, 225, 0.86);
     border-radius: 18px;
     background: rgba(255, 255, 255, 0.92);
@@ -3830,6 +3880,10 @@ html.dark .record-timeline-card-action-delete:hover {
         border-radius: 18px;
     }
 
+    .config-page-card--with-actionbar {
+        padding-bottom: 14px;
+    }
+
     .config-page-hero,
     .config-daily-merge-card,
     .config-section-head,
@@ -3966,7 +4020,7 @@ html.dark .record-timeline-card-action-delete:hover {
 
     .config-page-actionbar {
         bottom: 8px;
-        margin: 0 12px 12px;
+        margin: 0 12px;
     }
 
     .config-page-actionbar-note span {
