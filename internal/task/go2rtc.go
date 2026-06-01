@@ -567,17 +567,26 @@ func checkCameraTCPAlive(rawURL string) bool {
 		return false
 	}
 
-	host := u.Hostname()
-	if host == "" {
-		return false
-	}
-
 	port := u.Port()
 	if port == "" {
 		port = defaultPortForScheme(u.Scheme)
-		if port == "" {
-			return false
+	}
+	if port == "" {
+		// xiaomi:// / tapo:// / gb28181:// 等 go2rtc 原生应用层 scheme 没有可拨的标准
+		// TCP 端口，无法用端口探活证明设备是否可达。这里若直接判 false，会让流在设备
+		// 断电恢复后永久卡在 offline：探活失败 → 不录制 → go2rtc 无消费者 → 不去连设备
+		// → producer 始终干瘪 → 探活仍失败……形成死锁，普通录制与动检录制都无法自动恢复。
+		// 与上面的 exec/ffmpeg 前缀保持一致：对无法 TCP 探活的 scheme 视为可达，
+		// 交给业务层用真实拉流去裁决（拉流失败时 go2rtc 会暴露 producer error，再走退避）。
+		if u.Scheme != "" {
+			return true
 		}
+		return false
+	}
+
+	host := u.Hostname()
+	if host == "" {
+		return false
 	}
 
 	// 1秒超时，不占用 CPU，只进行 TCP 握手

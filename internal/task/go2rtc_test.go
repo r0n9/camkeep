@@ -11,6 +11,46 @@ func TestDefaultPortForSchemeSupportsONVIF(t *testing.T) {
 	}
 }
 
+func TestCheckCameraTCPAliveAssumesReachableForGo2rtcNativeScheme(t *testing.T) {
+	// xiaomi:// 等 go2rtc 原生 scheme 没有标准 TCP 端口，应视为可达交给真实拉流裁决，
+	// 否则设备断电恢复后会永久卡在 offline、无法自动续录。
+	nativeURLs := []string{
+		"xiaomi://1234567890:cn@192.168.1.123?did=9876543210&model=isa.camera.hlc7",
+		"tapo://admin:pass@192.168.1.50",
+		"gb28181://192.168.1.60",
+	}
+	for _, raw := range nativeURLs {
+		if !checkCameraTCPAlive(raw) {
+			t.Fatalf("expected go2rtc-native scheme to be assumed reachable, got false for %q", raw)
+		}
+	}
+
+	// 没有 scheme 的非法地址仍判不可达。
+	if checkCameraTCPAlive("not-a-valid-url") {
+		t.Fatal("expected schemeless garbage URL to be unreachable")
+	}
+}
+
+func TestGo2rtcStreamStateXiaomiIdleProducerRecovers(t *testing.T) {
+	resetStreamRecoveryForTest(t)
+
+	// 复现小米接入：设备断电恢复后，go2rtc 上只剩一个干瘪的 xiaomi:// producer、无消费者、无数据。
+	// 此前由于无法对 xiaomi scheme 做端口探活，会一直判 offline，导致普通/动检录制无法自动续上。
+	camData := map[string]interface{}{
+		"producers": []interface{}{
+			map[string]interface{}{
+				"url": "xiaomi://1234567890:cn@192.168.1.123?did=9876543210&model=isa.camera.hlc7",
+			},
+		},
+	}
+	now := time.Date(2026, 5, 28, 10, 0, 0, 0, time.UTC)
+
+	got := go2rtcStreamState("xiaomiCam", camData, "managed_by_go2rtc", "offline", now, checkCameraTCPAlive)
+	if got != "idle" {
+		t.Fatalf("expected xiaomi idle producer to become idle so recording can re-pull, got %q", got)
+	}
+}
+
 func TestGo2rtcStreamStateUsesConfiguredProbeWhenProducerHasError(t *testing.T) {
 	resetStreamRecoveryForTest(t)
 
