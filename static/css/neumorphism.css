@@ -1395,7 +1395,36 @@ textarea:focus,
     outline-offset: 2px;
 }
 
-/* ---- 15. Motion preference ---------------------------------------------- */
+/* ---- 15. Theme menu (neu skin) ------------------------------------------ */
+/* 触发按钮已被 .nm-toolbar button 接管，这里只软化弹层与分段控件。
+   变量随 html.dark 自动适配明暗，故无需单独写暗色分支。 */
+.theme-menu-panel {
+    border: 0 !important;
+    border-radius: var(--nm-r-lg) !important;
+    background: var(--nm-surface) !important;
+    box-shadow: var(--nm-raise), var(--nm-edge) !important;
+}
+.theme-menu-label {
+    color: var(--nm-text-faint) !important;
+}
+.theme-seg {
+    background: var(--nm-well) !important;
+    box-shadow: var(--nm-inset-sm) !important;
+    border-radius: var(--nm-r-sm) !important;
+}
+.theme-seg-btn {
+    color: var(--nm-text-soft) !important;
+}
+.theme-seg-btn:hover {
+    color: var(--nm-text) !important;
+}
+.theme-seg-btn.is-active {
+    background: var(--nm-surface) !important;
+    color: var(--nm-accent-strong) !important;
+    box-shadow: var(--nm-raise-sm) !important;
+}
+
+/* ---- 16. Motion preference ---------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
         animation-duration: 0.001ms !important;

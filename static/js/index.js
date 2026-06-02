@@ -88,35 +88,99 @@ function setAccountMenuOpen(open) {
     button.setAttribute('aria-expanded', open ? 'true' : 'false');
 }
 
-function initThemeControls() {
-    syncThemeToggleIcon();
-    if (window.matchMedia) {
-        const media = window.matchMedia('(prefers-color-scheme: dark)');
-        media.addEventListener('change', () => {
-            if (!localStorage.getItem('camkeep-theme')) {
-                document.documentElement.classList.toggle('dark', media.matches);
-                syncThemeToggleIcon();
-            }
-        });
+// 主题有两条独立的轴：
+//   模式 mode  -> html.dark 类，取值 light / dark / system(跟随系统)
+//   风格 skin  -> html[data-skin] 属性，取值 neu(新拟态) / classic(原始)，
+//                classic 时整张禁用 neumorphism.css。
+// 预绘制脚本（模板 <head>）已在首帧前应用初始值，这里只负责运行时切换与控件同步。
+function getStoredMode() {
+    const saved = localStorage.getItem('camkeep-theme');
+    return saved === 'dark' || saved === 'light' ? saved : 'system';
+}
+
+function getStoredSkin() {
+    return document.documentElement.dataset.skin === 'classic' ? 'classic' : 'neu';
+}
+
+function applyMode(mode) {
+    const root = document.documentElement;
+    if (mode === 'system') {
+        localStorage.removeItem('camkeep-theme');
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        root.classList.toggle('dark', !!prefersDark);
+    } else {
+        const isDark = mode === 'dark';
+        root.classList.toggle('dark', isDark);
+        localStorage.setItem('camkeep-theme', isDark ? 'dark' : 'light');
     }
 }
 
-function toggleTheme() {
-    const nextIsDark = !document.documentElement.classList.contains('dark');
-    document.documentElement.classList.toggle('dark', nextIsDark);
-    localStorage.setItem('camkeep-theme', nextIsDark ? 'dark' : 'light');
-    syncThemeToggleIcon();
+function applySkin(skin) {
+    const normalized = skin === 'classic' ? 'classic' : 'neu';
+    document.documentElement.dataset.skin = normalized;
+    const link = document.getElementById('neuStyle');
+    if (link) link.disabled = normalized === 'classic';
+    localStorage.setItem('camkeep-skin', normalized);
 }
 
-function syncThemeToggleIcon() {
-    const isDark = document.documentElement.classList.contains('dark');
-    const lightIcon = document.getElementById('themeIconLight');
-    const darkIcon = document.getElementById('themeIconDark');
-    const button = document.getElementById('themeToggleBtn');
-    if (lightIcon) lightIcon.classList.toggle('hidden', !isDark);
-    if (darkIcon) darkIcon.classList.toggle('hidden', isDark);
-    if (button) button.title = isDark ? '切换到浅色模式' : '切换到深色模式';
-    if (button) button.setAttribute('aria-label', button.title);
+function setMode(mode) {
+    applyMode(mode);
+    syncThemeSegments();
+}
+
+function setSkin(skin) {
+    applySkin(skin);
+    syncThemeSegments();
+}
+
+function syncThemeSegments() {
+    const mode = getStoredMode();
+    const skin = getStoredSkin();
+    document.querySelectorAll('#themeMenuPanel .theme-seg-btn').forEach(btn => {
+        const active = btn.dataset.mode === mode || btn.dataset.skin === skin;
+        btn.classList.toggle('is-active', active);
+        btn.setAttribute('aria-checked', active ? 'true' : 'false');
+    });
+}
+
+function toggleThemeMenu(event) {
+    event?.stopPropagation();
+    const panel = document.getElementById('themeMenuPanel');
+    const willOpen = panel ? panel.classList.contains('hidden') : false;
+    setThemeMenuOpen(willOpen);
+}
+
+function setThemeMenuOpen(open) {
+    const button = document.getElementById('themeMenuButton');
+    const panel = document.getElementById('themeMenuPanel');
+    if (!button || !panel) return;
+    panel.classList.toggle('hidden', !open);
+    button.classList.toggle('is-open', open);
+    button.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function initThemeControls() {
+    syncThemeSegments();
+
+    const menu = document.getElementById('themeMenu');
+    if (menu) {
+        document.addEventListener('click', event => {
+            if (!menu.contains(event.target)) setThemeMenuOpen(false);
+        });
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape') setThemeMenuOpen(false);
+        });
+    }
+
+    // 仅在「跟随系统」时响应系统配色变化。
+    if (window.matchMedia) {
+        const media = window.matchMedia('(prefers-color-scheme: dark)');
+        media.addEventListener('change', () => {
+            if (getStoredMode() === 'system') {
+                document.documentElement.classList.toggle('dark', media.matches);
+            }
+        });
+    }
 }
 
 async function initUpdateBadge() {

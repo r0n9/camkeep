@@ -8,11 +8,14 @@
         window.tailwind.config = {darkMode: 'class'};
         (function () {
             try {
+                var root = document.documentElement;
                 var savedTheme = localStorage.getItem('camkeep-theme');
                 var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
                 if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
-                    document.documentElement.classList.add('dark');
+                    root.classList.add('dark');
                 }
+                // skin: neu(默认,新拟态) / classic(原始)。预绘制阶段写入，避免切换闪烁。
+                root.dataset.skin = localStorage.getItem('camkeep-skin') || 'neu';
             } catch (e) {
             }
         })();
@@ -26,7 +29,19 @@
     <link rel="stylesheet" href="/static/css/user-management.css">
     <link rel="stylesheet" href="/static/css/record-timeline-24h.css">
     <link rel="stylesheet" href="/static/css/ptz.css">
-    <link rel="stylesheet" href="/static/css/neumorphism.css">
+    <link id="neuStyle" rel="stylesheet" href="/static/css/neumorphism.css">
+    <script>
+        // 原始皮肤(classic)下整张禁用新拟态样式；脚本紧随 link 之后，首帧前生效，无闪烁。
+        (function () {
+            try {
+                if (document.documentElement.dataset.skin === 'classic') {
+                    var l = document.getElementById('neuStyle');
+                    if (l) l.disabled = true;
+                }
+            } catch (e) {
+            }
+        })();
+    </script>
     <link rel="stylesheet" href="/static/css/camera-nodes.css">
     <script>
         window.CAMKEEP_AUTH = {{ .AuthJSON }};
@@ -60,15 +75,51 @@
         </h1>
         <div class="flex w-full items-center justify-end sm:w-auto">
             <div class="nm-toolbar flex items-center gap-0.5 rounded-xl border border-gray-200 bg-white p-0.5 shadow-sm">
-                <button id="themeToggleBtn" onclick="toggleTheme()" class="group flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-500 transition-all hover:bg-gray-50 hover:text-gray-900 active:scale-95" title="切换深浅色模式" aria-label="切换深浅色模式">
-                    <svg id="themeIconLight" class="hidden h-4 w-4 transition-all duration-500 group-hover:rotate-45 group-hover:scale-110 group-hover:text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m8.66-13.66l-.7.7M4.04 19.96l-.7.7M21 12h-1M4 12H3m16.96 7.96l-.7-.7M4.04 4.04l-.7-.7"></path>
-                        <circle cx="12" cy="12" r="4" stroke-width="2"></circle>
-                    </svg>
-                    <svg id="themeIconDark" class="hidden h-4 w-4 transition-all duration-300 group-hover:-translate-y-0.5 group-hover:scale-110 group-hover:text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12.79A8.5 8.5 0 1111.21 3 6.5 6.5 0 0021 12.79z"></path>
-                    </svg>
-                </button>
+                <div id="themeMenu" class="theme-menu">
+                    <button id="themeMenuButton" onclick="toggleThemeMenu(event)" type="button" class="group flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-500 transition-all hover:bg-gray-50 hover:text-gray-900 active:scale-95" title="主题" aria-label="主题设置" aria-haspopup="menu" aria-expanded="false" aria-controls="themeMenuPanel">
+                        <svg class="h-4 w-4 transition-transform duration-500 group-hover:rotate-12 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <circle cx="13.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"></circle>
+                            <circle cx="17.5" cy="10.5" r="1.2" fill="currentColor" stroke="none"></circle>
+                            <circle cx="8.5" cy="7.5" r="1.2" fill="currentColor" stroke="none"></circle>
+                            <circle cx="6.5" cy="12.5" r="1.2" fill="currentColor" stroke="none"></circle>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3a9 9 0 100 18c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.39-.62-.39-1 0-.83.67-1.5 1.5-1.5H16a5 5 0 005-5c0-4.42-4.03-8-9-8z"></path>
+                        </svg>
+                    </button>
+                    <div id="themeMenuPanel" class="theme-menu-panel hidden" role="menu" aria-labelledby="themeMenuButton">
+                        <div class="theme-menu-group">
+                            <span class="theme-menu-label">风格</span>
+                            <div class="theme-seg" role="radiogroup" aria-label="界面风格">
+                                <button type="button" class="theme-seg-btn" data-skin="classic" onclick="setSkin('classic')" role="radio" aria-checked="false">原始</button>
+                                <button type="button" class="theme-seg-btn" data-skin="neu" onclick="setSkin('neu')" role="radio" aria-checked="false">拟态</button>
+                            </div>
+                        </div>
+                        <div class="theme-menu-group">
+                            <span class="theme-menu-label">模式</span>
+                            <div class="theme-seg" role="radiogroup" aria-label="明暗模式">
+                                <button type="button" class="theme-seg-btn theme-seg-btn--icon" data-mode="light" onclick="setMode('light')" role="radio" aria-checked="false" title="浅色">
+                                    <svg class="theme-seg-ico" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                        <circle cx="12" cy="12" r="4"></circle>
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m8.66-13.66l-.7.7M4.04 19.96l-.7.7M21 12h-1M4 12H3m16.96 7.96l-.7-.7M4.04 4.04l-.7-.7"></path>
+                                    </svg>
+                                    <span>浅色</span>
+                                </button>
+                                <button type="button" class="theme-seg-btn theme-seg-btn--icon" data-mode="dark" onclick="setMode('dark')" role="radio" aria-checked="false" title="深色">
+                                    <svg class="theme-seg-ico" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A8.5 8.5 0 1111.21 3 6.5 6.5 0 0021 12.79z"></path>
+                                    </svg>
+                                    <span>深色</span>
+                                </button>
+                                <button type="button" class="theme-seg-btn theme-seg-btn--icon" data-mode="system" onclick="setMode('system')" role="radio" aria-checked="false" title="跟随系统">
+                                    <svg class="theme-seg-ico" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                        <rect x="3" y="4.5" width="18" height="12" rx="2"></rect>
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.5 20h7M12 16.5V20"></path>
+                                    </svg>
+                                    <span>系统</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 {{ if .CanAdmin }}
                 <span class="h-4 w-px bg-gray-200"></span>
                 <button id="configNavBtn" onclick="openConfig()" class="group flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold text-gray-700 transition-all hover:bg-gray-50 hover:text-gray-900 active:scale-95">

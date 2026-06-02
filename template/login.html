@@ -9,11 +9,13 @@
         window.tailwind.config = {darkMode: 'class'};
         (function () {
             try {
+                var root = document.documentElement;
                 var savedTheme = localStorage.getItem('camkeep-theme');
                 var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
                 if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
-                    document.documentElement.classList.add('dark');
+                    root.classList.add('dark');
                 }
+                root.dataset.skin = localStorage.getItem('camkeep-skin') || 'neu';
             } catch (e) {
             }
         })();
@@ -21,7 +23,18 @@
     <script src="/static/js/tailwindcss.min.js"></script>
     <link rel="icon" href="/static/image/camkeep_w200.png">
     <link rel="stylesheet" href="/static/css/index.css">
-    <link rel="stylesheet" href="/static/css/neumorphism.css">
+    <link id="neuStyle" rel="stylesheet" href="/static/css/neumorphism.css">
+    <script>
+        (function () {
+            try {
+                if (document.documentElement.dataset.skin === 'classic') {
+                    var l = document.getElementById('neuStyle');
+                    if (l) l.disabled = true;
+                }
+            } catch (e) {
+            }
+        })();
+    </script>
 </head>
 <body class="min-h-screen bg-slate-100 p-4 transition-colors duration-200">
 <main class="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-md items-center justify-center">

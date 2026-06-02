@@ -1175,3 +1175,105 @@ html.dark .camera-node-live-btn svg {
 .camera-node-action-btn:active {
     box-shadow: var(--nm-inset-sm) !important;
 }
+
+/* ==========================================================================
+   原始(classic)皮肤优化
+   实时节点统计面板与节点录制控制按钮原本完全依赖 neumorphism.css 的 --nm-* token；
+   classic 皮肤会禁用 neumorphism.css，导致这些 token 失效、统计格子失去底色/阴影。
+   这里仅在 classic 作用域内、且仅针对这两个组件子树补一套「扁平」token 取值，
+   从而复用上面所有既有布局/hover/active 规则，无需重写，也不影响新拟态皮肤。
+   ========================================================================== */
+html[data-skin="classic"] #camStatsPanel.live-stats-panel,
+html[data-skin="classic"] .camera-node-card-actions {
+    --nm-surface: #ffffff;
+    --nm-surface-2: #f8fafc;
+    --nm-well: #eef2f7;
+    --nm-text: #1e293b;
+    --nm-text-soft: #475569;
+    --nm-text-faint: #94a3b8;
+    --nm-online: #10b981;
+    --nm-idle: #3b82f6;
+    --nm-recording: #f59e0b;
+    --nm-offline: #f43f5e;
+    --nm-accent: #3b6fe0;
+    --nm-accent-strong: #2456c8;
+    --nm-accent-glow: rgba(59, 111, 224, 0.30);
+    --nm-r-sm: 10px;
+    --nm-r: 12px;
+    --nm-r-lg: 14px;
+    --nm-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+                    "Liberation Mono", "Courier New", monospace;
+    /* 扁平阴影：单向柔和投影替代新拟态的双向高光/暗影 */
+    --nm-edge: 0 0 #0000;
+    --nm-raise-sm: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 1px rgba(15, 23, 42, 0.04);
+    --nm-raise: 0 8px 18px -10px rgba(15, 23, 42, 0.28);
+    --nm-inset-sm: inset 0 1px 2px rgba(15, 23, 42, 0.08);
+    --nm-inset: inset 0 2px 5px rgba(15, 23, 42, 0.10);
+}
+
+html[data-skin="classic"].dark #camStatsPanel.live-stats-panel,
+html[data-skin="classic"].dark .camera-node-card-actions {
+    --nm-surface: #1f2937;
+    --nm-surface-2: #243044;
+    --nm-well: #131a27;
+    --nm-text: #e5e9f0;
+    --nm-text-soft: #9aa6b8;
+    --nm-text-faint: #6b7688;
+    --nm-accent: #5b86ec;
+    --nm-accent-strong: #3b6fe0;
+    --nm-accent-glow: rgba(91, 134, 236, 0.34);
+    --nm-edge: 0 0 #0000;
+    --nm-raise-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
+    --nm-raise: 0 10px 22px -10px rgba(0, 0, 0, 0.66);
+    --nm-inset-sm: inset 0 1px 2px rgba(0, 0, 0, 0.45);
+    --nm-inset: inset 0 2px 5px rgba(0, 0, 0, 0.5);
+}
+
+/* 统计面板容器：扁平描边卡片 */
+html[data-skin="classic"] #camStatsPanel.live-stats-panel {
+    border: 1px solid #e2e8f0 !important;
+}
+
+html[data-skin="classic"].dark #camStatsPanel.live-stats-panel {
+    border-color: #2b3344 !important;
+}
+
+/* 统计格子：补一条按下(mousedown)的物理反馈，hover 抬升沿用既有规则 */
+html[data-skin="classic"] .live-stats-total:active,
+html[data-skin="classic"] .live-stat-item:active {
+    transform: translateY(0) scale(0.985);
+    box-shadow: var(--nm-inset-sm) !important;
+}
+
+/* 录制控制按钮：扁平容器 + 彩色 hover + 按下内陷 */
+html[data-skin="classic"] .camera-node-card-actions {
+    border: 1px solid #e2e8f0 !important;
+}
+
+html[data-skin="classic"].dark .camera-node-card-actions {
+    border-color: #2b3344 !important;
+}
+
+html[data-skin="classic"] .camera-node-action-btn--start:hover {
+    background: #10b981 !important;
+    color: #ffffff !important;
+}
+
+html[data-skin="classic"] .camera-node-action-btn--stop:hover {
+    background: #f43f5e !important;
+    color: #ffffff !important;
+}
+
+html[data-skin="classic"] .camera-node-action-btn--auto:hover {
+    background: #6366f1 !important;
+    color: #ffffff !important;
+}
+
+html[data-skin="classic"] .camera-node-action-btn:active {
+    transform: scale(0.9);
+    box-shadow: inset 0 2px 4px rgba(15, 23, 42, 0.20) !important;
+}
+
+html[data-skin="classic"].dark .camera-node-action-btn:active {
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5) !important;
+}
