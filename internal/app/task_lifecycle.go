@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/r0n9/camkeep/constant"
+	"github.com/r0n9/camkeep/internal/onvif"
 	"github.com/r0n9/camkeep/internal/service"
 	"github.com/r0n9/camkeep/internal/task"
 )
@@ -26,6 +27,7 @@ func startTasks() {
 	taskWg.Add(1)
 	go task.DailyMergeTask(ctx, &taskWg, cfg)
 
+	configSources := loadGo2rtcConfigStreamSources(constant.Go2rtcConfigFilePath, constant.LegacyGo2rtcConfigFilePath)
 	for _, cam := range cams {
 		taskWg.Add(1)
 		go task.CameraTask(ctx, &taskWg, cam)
@@ -33,6 +35,11 @@ func startTasks() {
 		if cam.MotionDetect && (cam.Mode == "" || cam.Mode == "normal") {
 			taskWg.Add(1)
 			go task.MotionDetectTask(ctx, &taskWg, cam)
+
+			if candidate, ok := onvif.CandidateFromCamera(cam, configSources[cam.ID]); ok {
+				taskWg.Add(1)
+				go task.OnvifEventTask(ctx, &taskWg, cam, candidate)
+			}
 		}
 	}
 }
