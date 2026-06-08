@@ -95,6 +95,45 @@ func TestUpdateOnvifLastEventStoresAndPreservesAcrossCandidateRefresh(t *testing
 	}
 }
 
+func TestUpdateOnvifLastEventKeepsRecentEventsNewestFirst(t *testing.T) {
+	candidate := onvif.Candidate{
+		ID:        "front-recent",
+		SourceURL: "onvif://admin:secret@example/onvif/device_service",
+		Endpoint:  "http://example/onvif/device_service",
+	}
+	ReplaceOnvifCandidates([]onvif.Candidate{candidate})
+	t.Cleanup(func() { ReplaceOnvifCandidates(nil) })
+
+	base := time.Date(2026, 6, 8, 10, 30, 0, 0, time.UTC)
+	for i, topic := range []string{"topic-1", "topic-2", "topic-3", "topic-4"} {
+		UpdateOnvifLastEvent("front-recent", OnvifEventSnapshot{
+			Topic:      topic,
+			At:         base.Add(time.Duration(i) * time.Second),
+			ReceivedAt: base.Add(time.Duration(i) * time.Second),
+		})
+	}
+
+	status, ok := GetOnvifStatus("front-recent")
+	if !ok {
+		t.Fatal("expected ONVIF status")
+	}
+	if len(status.RecentEvents) != 3 {
+		t.Fatalf("expected 3 recent events, got %d", len(status.RecentEvents))
+	}
+	if got := status.RecentEvents[0].Topic; got != "topic-4" {
+		t.Fatalf("expected newest event first, got %q", got)
+	}
+	if got := status.RecentEvents[2].Topic; got != "topic-2" {
+		t.Fatalf("expected oldest retained event topic-2, got %q", got)
+	}
+
+	ReplaceOnvifCandidates([]onvif.Candidate{candidate})
+	status, ok = GetOnvifStatus("front-recent")
+	if !ok || len(status.RecentEvents) != 3 {
+		t.Fatalf("expected recent events to survive candidate refresh, got %+v", status.RecentEvents)
+	}
+}
+
 func TestOnvifEventSourceUsableRequiresHealthyListener(t *testing.T) {
 	candidate := onvif.Candidate{
 		ID:        "event-source",

@@ -79,13 +79,15 @@ type statusResponseEntry struct {
 }
 
 type onvifEventSummaryResponse struct {
-	ID                     string                      `json:"id"`
-	OnvifEnabled           bool                        `json:"onvif_enabled"`
-	EventState             string                      `json:"event_state"`
-	PullPointSupport       bool                        `json:"pull_point_support"`
-	EventListenerState     string                      `json:"event_listener_state"`
-	EventPullLastSuccessAt time.Time                   `json:"event_pull_last_success_at,omitempty"`
-	LastEvent              *onvifEventSummaryLastEvent `json:"last_event,omitempty"`
+	ID                     string                       `json:"id"`
+	OnvifEnabled           bool                         `json:"onvif_enabled"`
+	EventState             string                       `json:"event_state"`
+	PullPointSupport       bool                         `json:"pull_point_support"`
+	EventListenerState     string                       `json:"event_listener_state"`
+	EventPullLastSuccessAt time.Time                    `json:"event_pull_last_success_at,omitempty"`
+	ListenerLeaseExpiresAt time.Time                    `json:"listener_lease_expires_at,omitempty"`
+	LastEvent              *onvifEventSummaryLastEvent  `json:"last_event,omitempty"`
+	RecentEvents           []onvifEventSummaryLastEvent `json:"recent_events,omitempty"`
 }
 
 type onvifEventSummaryLastEvent struct {
@@ -480,6 +482,34 @@ func handleCameraOnvifEventSummary(c *gin.Context) {
 		return
 	}
 
+	var leaseExpiresAt time.Time
+	if c.Query("ensure_listener") == "1" {
+		clientID := normalizeOnvifEventSummaryClientID(c.Query("client_id"))
+		if clientID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "缺少事件叠层 client_id"})
+			return
+		}
+		if status.EventState != service.OnvifStateAvailable || status.EventXAddr == "" {
+			c.JSON(http.StatusConflict, gin.H{"error": "该摄像头 ONVIF Event 尚不可用"})
+			return
+		}
+		if !status.PullPointSupport {
+			c.JSON(http.StatusConflict, gin.H{"error": "该摄像头不支持 ONVIF PullPoint"})
+			return
+		}
+		cam, ok := currentCameraConfig(id)
+		if !ok {
+			c.JSON(http.StatusNotFound, gin.H{"error": "找不到该摄像头"})
+			return
+		}
+		candidate, ok := currentOnvifCandidate(id)
+		if !ok {
+			c.JSON(http.StatusConflict, gin.H{"error": "无法解析该摄像头的 ONVIF 连接信息"})
+			return
+		}
+		leaseExpiresAt = onvifEventSummaryLeases.refresh(cam, candidate, clientID, onvifEventSummaryLeaseTTL)
+	}
+
 	resp := onvifEventSummaryResponse{
 		ID:                     status.ID,
 		OnvifEnabled:           status.Enabled,
@@ -487,6 +517,7 @@ func handleCameraOnvifEventSummary(c *gin.Context) {
 		PullPointSupport:       status.PullPointSupport,
 		EventListenerState:     status.EventListenerState,
 		EventPullLastSuccessAt: status.EventPullLastSuccessAt,
+		ListenerLeaseExpiresAt: leaseExpiresAt,
 	}
 	if status.LastEvent != nil {
 		resp.LastEvent = &onvifEventSummaryLastEvent{
@@ -497,7 +528,39 @@ func handleCameraOnvifEventSummary(c *gin.Context) {
 			ReceivedAt:  status.LastEvent.ReceivedAt,
 		}
 	}
+	if len(status.RecentEvents) > 0 {
+		resp.RecentEvents = make([]onvifEventSummaryLastEvent, 0, len(status.RecentEvents))
+		for _, event := range status.RecentEvents {
+			resp.RecentEvents = append(resp.RecentEvents, onvifEventSummaryLastEvent{
+				Topic:       event.Topic,
+				Motion:      event.Motion,
+				MotionTopic: event.MotionTopic,
+				At:          event.At,
+				ReceivedAt:  event.ReceivedAt,
+			})
+		}
+	}
 	c.JSON(http.StatusOK, resp)
+}
+
+func handleReleaseCameraOnvifEventSummaryLease(c *gin.Context) {
+	id := c.Param("id")
+	if !cameraExists(id) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "找不到该摄像头"})
+		return
+	}
+	if !requestCanAccessCamera(c, id) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "无权访问该摄像头"})
+		return
+	}
+
+	clientID := normalizeOnvifEventSummaryClientID(c.Query("client_id"))
+	if clientID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "缺少事件叠层 client_id"})
+		return
+	}
+	onvifEventSummaryLeases.release(id, clientID)
+	c.JSON(http.StatusOK, gin.H{"released": true})
 }
 
 func handleOnvifEventTest(c *gin.Context) {
@@ -534,7 +597,7 @@ func handleOnvifEventTest(c *gin.Context) {
 		parent = context.Background()
 	}
 	testCtx, cancel := context.WithTimeout(parent, duration)
-	release := task.RequireOnvifMotionEvents(testCtx, cam, candidate, "event-diagnostics-test")
+	release := task.RequireOnvifEventStream(testCtx, cam, candidate, "event-diagnostics-test")
 	go func() {
 		<-testCtx.Done()
 		release()

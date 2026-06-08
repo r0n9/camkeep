@@ -21,36 +21,38 @@ const (
 	OnvifEventListenerError     = "error"
 
 	OnvifEventSourceHealthWindow = 90 * time.Second
+	onvifRecentEventLimit        = 3
 )
 
 type OnvifStatus struct {
-	ID                     string              `json:"id"`
-	Enabled                bool                `json:"enabled"`
-	SourceType             string              `json:"source_type"`
-	SourceURL              string              `json:"source_url"`
-	Endpoint               string              `json:"endpoint"`
-	Username               string              `json:"username,omitempty"`
-	ManagedByGo2rtc        bool                `json:"managed_by_go2rtc"`
-	CapabilityState        string              `json:"capability_state"`
-	PTZState               string              `json:"ptz_state"`
-	ImagingState           string              `json:"imaging_state"`
-	EventState             string              `json:"event_state"`
-	EventListenerState     string              `json:"event_listener_state"`
-	DeviceXAddr            string              `json:"device_xaddr,omitempty"`
-	MediaXAddr             string              `json:"media_xaddr,omitempty"`
-	PTZXAddr               string              `json:"ptz_xaddr,omitempty"`
-	ImagingXAddr           string              `json:"imaging_xaddr,omitempty"`
-	EventXAddr             string              `json:"event_xaddr,omitempty"`
-	PullPointSupport       bool                `json:"pull_point_support"`
-	ProfileToken           string              `json:"profile_token,omitempty"`
-	ProfileName            string              `json:"profile_name,omitempty"`
-	VideoSourceToken       string              `json:"video_source_token,omitempty"`
-	LastError              string              `json:"last_error,omitempty"`
-	EventListenerLastError string              `json:"event_listener_last_error,omitempty"`
-	EventPullLastSuccessAt time.Time           `json:"event_pull_last_success_at,omitempty"`
-	MotionEventVerified    bool                `json:"motion_event_verified"`
-	LastEvent              *OnvifEventSnapshot `json:"last_event,omitempty"`
-	UpdatedAt              time.Time           `json:"updated_at"`
+	ID                     string               `json:"id"`
+	Enabled                bool                 `json:"enabled"`
+	SourceType             string               `json:"source_type"`
+	SourceURL              string               `json:"source_url"`
+	Endpoint               string               `json:"endpoint"`
+	Username               string               `json:"username,omitempty"`
+	ManagedByGo2rtc        bool                 `json:"managed_by_go2rtc"`
+	CapabilityState        string               `json:"capability_state"`
+	PTZState               string               `json:"ptz_state"`
+	ImagingState           string               `json:"imaging_state"`
+	EventState             string               `json:"event_state"`
+	EventListenerState     string               `json:"event_listener_state"`
+	DeviceXAddr            string               `json:"device_xaddr,omitempty"`
+	MediaXAddr             string               `json:"media_xaddr,omitempty"`
+	PTZXAddr               string               `json:"ptz_xaddr,omitempty"`
+	ImagingXAddr           string               `json:"imaging_xaddr,omitempty"`
+	EventXAddr             string               `json:"event_xaddr,omitempty"`
+	PullPointSupport       bool                 `json:"pull_point_support"`
+	ProfileToken           string               `json:"profile_token,omitempty"`
+	ProfileName            string               `json:"profile_name,omitempty"`
+	VideoSourceToken       string               `json:"video_source_token,omitempty"`
+	LastError              string               `json:"last_error,omitempty"`
+	EventListenerLastError string               `json:"event_listener_last_error,omitempty"`
+	EventPullLastSuccessAt time.Time            `json:"event_pull_last_success_at,omitempty"`
+	MotionEventVerified    bool                 `json:"motion_event_verified"`
+	LastEvent              *OnvifEventSnapshot  `json:"last_event,omitempty"`
+	RecentEvents           []OnvifEventSnapshot `json:"recent_events,omitempty"`
+	UpdatedAt              time.Time            `json:"updated_at"`
 
 	sourceFingerprint string
 }
@@ -122,6 +124,7 @@ func ReplaceOnvifCandidates(candidates []onvif.Candidate) {
 			status.EventPullLastSuccessAt = prev.EventPullLastSuccessAt
 			status.MotionEventVerified = prev.MotionEventVerified
 			status.LastEvent = cloneOnvifEventSnapshot(prev.LastEvent)
+			status.RecentEvents = cloneOnvifEventSnapshots(prev.RecentEvents)
 		}
 		next[candidate.ID] = &status
 	}
@@ -237,6 +240,7 @@ func UpdateOnvifLastEvent(id string, event OnvifEventSnapshot) {
 		return
 	}
 	status.LastEvent = cloneOnvifEventSnapshot(&event)
+	status.RecentEvents = prependOnvifRecentEvent(status.RecentEvents, event)
 	if event.MotionTopic || event.Motion {
 		status.MotionEventVerified = true
 	}
@@ -269,6 +273,7 @@ func GetOnvifStatus(id string) (OnvifStatus, bool) {
 
 func cloneOnvifStatus(status OnvifStatus) OnvifStatus {
 	status.LastEvent = cloneOnvifEventSnapshot(status.LastEvent)
+	status.RecentEvents = cloneOnvifEventSnapshots(status.RecentEvents)
 	return status
 }
 
@@ -278,6 +283,35 @@ func cloneOnvifEventSnapshot(event *OnvifEventSnapshot) *OnvifEventSnapshot {
 	}
 	clone := *event
 	return &clone
+}
+
+func cloneOnvifEventSnapshots(events []OnvifEventSnapshot) []OnvifEventSnapshot {
+	if len(events) == 0 {
+		return nil
+	}
+	clone := make([]OnvifEventSnapshot, len(events))
+	copy(clone, events)
+	return clone
+}
+
+func prependOnvifRecentEvent(events []OnvifEventSnapshot, event OnvifEventSnapshot) []OnvifEventSnapshot {
+	key := onvifEventSnapshotKey(event)
+	next := make([]OnvifEventSnapshot, 0, onvifRecentEventLimit)
+	next = append(next, event)
+	for _, existing := range events {
+		if onvifEventSnapshotKey(existing) == key {
+			continue
+		}
+		next = append(next, existing)
+		if len(next) >= onvifRecentEventLimit {
+			break
+		}
+	}
+	return next
+}
+
+func onvifEventSnapshotKey(event OnvifEventSnapshot) string {
+	return event.Topic + "|" + event.ReceivedAt.UTC().Format(time.RFC3339Nano) + "|" + event.At.UTC().Format(time.RFC3339Nano)
 }
 
 func OnvifEventSourceUsable(id string, now time.Time) bool {

@@ -110,6 +110,10 @@ func TestHandleCameraOnvifEventSummary(t *testing.T) {
 	if got := lastEvent["motion"]; got != true {
 		t.Fatalf("expected motion event true, got %v", got)
 	}
+	recentEvents, ok := payload["recent_events"].([]any)
+	if !ok || len(recentEvents) != 1 {
+		t.Fatalf("expected one recent event, got %+v", payload["recent_events"])
+	}
 }
 
 func TestHandleStatusReturnsExplicitMode(t *testing.T) {

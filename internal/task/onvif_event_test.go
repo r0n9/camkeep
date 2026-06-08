@@ -32,6 +32,28 @@ func TestIsOnvifMotionNotification(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "field detector objects inside true",
+			notification: onvif.EventNotification{
+				Topic: "tns1:RuleEngine/FieldDetector/ObjectsInside",
+			},
+			want: true,
+		},
+		{
+			name: "any rule engine topic is motion",
+			notification: onvif.EventNotification{
+				Topic: "tns1:RuleEngine/LineDetector/Crossed",
+			},
+			want: true,
+		},
+		{
+			name: "count aggregation counter is not motion",
+			notification: onvif.EventNotification{
+				Topic: "tns1:RuleEngine/CountAggregation/Counter",
+				Data:  []onvif.EventItem{{Name: "State", Value: "true"}},
+			},
+			want: false,
+		},
+		{
 			name: "motion alarm false",
 			notification: onvif.EventNotification{
 				Topic: "tns1:VideoSource/MotionAlarm",

@@ -404,6 +404,8 @@ async function loadStatus() {
             if (!visibleCamIds.has(id)) {
                 window.cameraCapabilityCache.delete(id);
                 window.cameraOnvifEventSummaryCache?.delete?.(id);
+                window.cameraOnvifEventHistoryCache?.delete?.(id);
+                window.cameraOnvifEventOverlayNoticeCache?.delete?.(id);
             }
         });
 

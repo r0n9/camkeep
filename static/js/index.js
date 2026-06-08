@@ -26,10 +26,15 @@ const authState = window.CAMKEEP_AUTH || {
 
 window.cameraCapabilityCache = window.cameraCapabilityCache || new Map();
 window.cameraOnvifEventSummaryCache = window.cameraOnvifEventSummaryCache || new Map();
+window.cameraOnvifEventHistoryCache = window.cameraOnvifEventHistoryCache || new Map();
+window.cameraOnvifEventOverlayNoticeCache = window.cameraOnvifEventOverlayNoticeCache || new Map();
 window.onvifEventOverlayEnabledCameras = window.onvifEventOverlayEnabledCameras || new Set();
+window.onvifEventOverlayClientId = window.onvifEventOverlayClientId || createOnvifEventOverlayClientId();
 const ONVIF_EVENT_OVERLAY_POLL_INTERVAL_MS = 3000;
-const ONVIF_EVENT_OVERLAY_VISIBLE_MS = 10000;
+const ONVIF_EVENT_OVERLAY_VISIBLE_MS = 15000;
 const ONVIF_EVENT_OVERLAY_FADE_MS = 700;
+const ONVIF_EVENT_OVERLAY_MAX_ITEMS = 3;
+const ONVIF_EVENT_OVERLAY_NOTICE_VISIBLE_MS = 10000;
 let onvifEventOverlayPollTimer = null;
 let onvifEventOverlayPollCamId = '';
 let onvifEventOverlayHideTimer = null;
@@ -53,8 +58,10 @@ window.onload = function () {
     loadStatus();
     setInterval(loadStatus, 5000);
     window.addEventListener('pagehide', stopAllCellPlayback);
+    window.addEventListener('pagehide', () => stopOnvifEventSummaryPolling({beacon: true}));
     window.addEventListener('pagehide', releaseCameraCoverObjectURLs);
     window.addEventListener('beforeunload', stopAllCellPlayback);
+    window.addEventListener('beforeunload', () => stopOnvifEventSummaryPolling({beacon: true}));
     window.addEventListener('resize', () => {
         const nextCompactGrid = window.innerWidth < 640;
         if (nextCompactGrid !== compactGrid) {
@@ -1871,8 +1878,13 @@ function renderGrid() {
                 </div>
                 <div class="absolute top-2 left-1/2 z-10 max-w-[80%] -translate-x-1/2 bg-black/35 text-white/80 px-2.5 py-1 text-[10px] rounded backdrop-blur-sm border border-white/5 hidden pointer-events-none truncate opacity-55 transition-all duration-200 group-hover:bg-black/70 group-hover:text-white group-hover:border-white/10 group-hover:opacity-100" id="label-${i}"></div>
                 <div id="onvif-event-overlay-${i}" class="onvif-event-overlay hidden" aria-live="polite"></div>
-                <button onclick="event.stopPropagation(); toggleOnvifEventOverlay(${i})" class="onvif-event-toggle hidden" id="onvif-event-toggle-${i}" type="button" aria-pressed="false" aria-label="显示 ONVIF 事件叠层" title="显示 ONVIF 事件叠层">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M3 12h4l2-5 4 10 2-5h6"></path></svg>
+                <button onclick="event.stopPropagation(); toggleOnvifEventOverlay(${i})" onmouseenter="setOnvifEventOverlayHover(${i}, true)" onmouseleave="setOnvifEventOverlayHover(${i}, false)" onfocus="setOnvifEventOverlayHover(${i}, true)" onblur="setOnvifEventOverlayHover(${i}, false)" class="onvif-event-toggle hidden" id="onvif-event-toggle-${i}" type="button" aria-pressed="false" aria-label="显示 ONVIF 事件叠层" title="显示 ONVIF 事件叠层">
+                    <span class="onvif-event-toggle-glyph onvif-event-toggle-glyph-default" aria-hidden="true">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M3 12h4l2-5 4 10 2-5h6"></path></svg>
+                    </span>
+                    <span class="onvif-event-toggle-glyph onvif-event-toggle-glyph-event" aria-hidden="true">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1" d="M10.3 21a2 2 0 0 0 3.4 0M4 2c-1.3 1.8-2 3.8-2 6m20 0c0-2.2-.7-4.2-2-6M4.3 15.3A1 1 0 0 0 5 17h14a1 1 0 0 0 .7-1.7C18.5 14 17.5 12.4 17.5 8.5a5.5 5.5 0 0 0-11 0c0 3.9-1 5.5-2.2 6.8Z"></path></svg>
+                    </span>
                 </button>
                 <button onclick="event.stopPropagation(); clearCell(${i})" class="absolute top-2 right-2 z-20 hidden h-7 w-7 items-center justify-center rounded bg-black/65 text-white/80 border border-white/10 backdrop-blur-md opacity-0 pointer-events-none transition-all duration-200 group-hover:opacity-100 group-hover:pointer-events-auto hover:bg-red-500 hover:text-white" id="close-cell-${i}" title="关闭该窗口">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
@@ -2068,39 +2080,45 @@ function getActiveLiveCamId() {
 }
 
 function refreshOnvifEventOverlay(options = {}) {
+    const camId = getActiveLiveCamId();
+    const eligible = isOnvifEventOverlayEligible(camId);
+    const noticeView = buildOnvifEventOverlayNoticeView(camId);
     for (let i = 0; i < dpInstances.length; i++) {
-        clearOnvifEventOverlay(i);
+        if (i !== activeCell || (!eligible && !noticeView)) clearOnvifEventOverlay(i);
     }
     refreshOnvifEventOverlayControls();
 
-    const camId = getActiveLiveCamId();
-    if (!isOnvifEventOverlayEligible(camId)) {
+    const overlay = document.getElementById(`onvif-event-overlay-${activeCell}`);
+    if (!eligible) {
         stopOnvifEventSummaryPolling();
+        if (noticeView && overlay && isOnvifEventOverlayControlAvailable(camId)) {
+            renderOnvifEventOverlayNotice(overlay, noticeView);
+        }
         return;
     }
 
-    const overlay = document.getElementById(`onvif-event-overlay-${activeCell}`);
     if (!overlay) return;
 
     if (!options.skipPolling) ensureOnvifEventSummaryPolling(camId);
     const view = buildOnvifEventOverlayView(camId);
-    if (!view) return;
+    if (!view) {
+        if (noticeView) {
+            renderOnvifEventOverlayNotice(overlay, noticeView);
+        } else {
+            clearOnvifEventOverlay(activeCell);
+        }
+        return;
+    }
 
-    overlay.classList.toggle('is-motion', view.kind === 'motion');
-    overlay.classList.toggle('is-generic', view.kind === 'generic');
-    overlay.classList.toggle('is-waiting', view.kind === 'waiting');
-    overlay.classList.toggle('is-fading', view.remainingMs <= ONVIF_EVENT_OVERLAY_FADE_MS);
-    overlay.dataset.eventKey = view.eventKey;
-    overlay.innerHTML = `
-        <span class="onvif-event-overlay-status" aria-hidden="true"></span>
-        ${view.kind === 'motion'
-            ? '<span class="onvif-event-overlay-motion-icon" title="Motion"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M3 12h4l2-5 4 10 2-5h6"></path></svg></span>'
-            : `<span class="onvif-event-overlay-topic-icon" title="${escapeHtml(view.kindLabel)}"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1" d="M4 7h16M4 12h16M4 17h10"></path></svg></span>`}
-        <span class="onvif-event-overlay-topic" title="${escapeHtml(view.topicTitle)}">${escapeHtml(view.topicText)}</span>
-        ${view.timeText ? `<span class="onvif-event-overlay-time">${escapeHtml(view.timeText)}</span>` : ''}
-    `;
+    if (overlay.dataset.eventKey !== view.viewKey) {
+        overlay.dataset.eventKey = view.viewKey;
+        overlay.innerHTML = view.events.map(renderOnvifEventOverlayItem).join('');
+    }
+    overlay.classList.add('is-event-list');
+    overlay.classList.remove('is-notice-list');
     overlay.classList.remove('hidden');
-    scheduleOnvifEventOverlayExpiry(view.remainingMs);
+    scheduleOnvifEventOverlayExpiry(view.nextRefreshMs);
+    refreshOnvifEventOverlayControls();
 }
 
 function clearOnvifEventOverlay(index) {
@@ -2108,7 +2126,7 @@ function clearOnvifEventOverlay(index) {
     clearOnvifEventOverlayTimers();
     if (!overlay) return;
     overlay.classList.add('hidden');
-    overlay.classList.remove('is-motion', 'is-generic', 'is-waiting', 'is-fading');
+    overlay.classList.remove('is-motion', 'is-generic', 'is-waiting', 'is-fading', 'is-event-list', 'is-notice-list');
     delete overlay.dataset.eventKey;
     overlay.innerHTML = '';
 }
@@ -2116,19 +2134,33 @@ function clearOnvifEventOverlay(index) {
 function refreshOnvifEventOverlayControls() {
     for (let i = 0; i < dpInstances.length; i++) {
         const button = document.getElementById(`onvif-event-toggle-${i}`);
+        const cell = document.getElementById(`cell-${i}`);
         if (!button) continue;
 
         const data = cellData[i];
         const camId = data && data.isLive ? String(data.camId || data.source || '').trim() : '';
         const available = i === activeCell && isOnvifEventOverlayControlAvailable(camId);
         const enabled = available && isOnvifEventOverlayEnabled(camId);
+        const eventState = enabled ? getOnvifEventOverlayVisibleEventState(camId) : {hasAny: false, hasMotion: false};
+        const hasMotionEvent = enabled && eventState.hasMotion;
+        const hasAnyEvent = enabled && eventState.hasAny;
+        if (!available) setOnvifEventOverlayHover(i, false);
 
         button.classList.toggle('hidden', !available);
         button.classList.toggle('is-active', enabled);
+        button.classList.toggle('is-has-event', hasMotionEvent);
+        button.classList.toggle('is-has-topic', hasAnyEvent && !hasMotionEvent);
+        if (cell) cell.classList.toggle('is-onvif-motion-aura', hasMotionEvent);
         button.setAttribute('aria-pressed', enabled ? 'true' : 'false');
-        button.setAttribute('aria-label', enabled ? '隐藏 ONVIF 事件叠层' : '显示 ONVIF 事件叠层');
-        button.title = enabled ? '隐藏 ONVIF 事件叠层' : '显示 ONVIF 事件叠层';
+        button.setAttribute('aria-label', hasMotionEvent ? '关闭 ONVIF 事件叠层，当前有最近动检事件' : (hasAnyEvent ? '关闭 ONVIF 事件叠层，当前有最近普通事件' : (enabled ? '关闭 ONVIF 事件叠层' : '开启 ONVIF 事件叠层')));
+        button.title = hasAnyEvent ? '关闭 ONVIF 事件叠层，悬停查看事件' : (enabled ? '关闭 ONVIF 事件叠层' : '开启 ONVIF 事件叠层');
     }
+}
+
+function setOnvifEventOverlayHover(index, hovering) {
+    const cell = document.getElementById(`cell-${index}`);
+    if (!cell) return;
+    cell.classList.toggle('is-onvif-event-toggle-hover', Boolean(hovering));
 }
 
 function toggleOnvifEventOverlay(index) {
@@ -2140,7 +2172,11 @@ function toggleOnvifEventOverlay(index) {
     if (isOnvifEventOverlayEnabled(camId)) {
         window.onvifEventOverlayEnabledCameras.delete(camId);
         window.cameraOnvifEventSummaryCache.delete(camId);
+        window.cameraOnvifEventHistoryCache.delete(camId);
+        window.cameraOnvifEventOverlayNoticeCache.delete(camId);
+        setOnvifEventOverlayHover(index, false);
     } else {
+        window.cameraOnvifEventOverlayNoticeCache.delete(camId);
         window.onvifEventOverlayEnabledCameras.add(camId);
     }
     refreshOnvifEventOverlay();
@@ -2178,12 +2214,6 @@ function scheduleOnvifEventOverlayExpiry(remainingMs) {
     clearOnvifEventOverlayTimers();
     remainingMs = Math.max(0, Number(remainingMs) || 0);
 
-    const fadeDelay = Math.max(0, remainingMs - ONVIF_EVENT_OVERLAY_FADE_MS);
-    onvifEventOverlayFadeTimer = setTimeout(() => {
-        const overlay = document.getElementById(`onvif-event-overlay-${activeCell}`);
-        if (overlay) overlay.classList.add('is-fading');
-    }, fadeDelay);
-
     onvifEventOverlayHideTimer = setTimeout(() => {
         refreshOnvifEventOverlay({skipPolling: true});
     }, remainingMs);
@@ -2210,13 +2240,41 @@ function ensureOnvifEventSummaryPolling(camId) {
     }, ONVIF_EVENT_OVERLAY_POLL_INTERVAL_MS);
 }
 
-function stopOnvifEventSummaryPolling() {
+function stopOnvifEventSummaryPolling(options = {}) {
+    const camId = onvifEventOverlayPollCamId;
     if (onvifEventOverlayPollTimer) {
         clearInterval(onvifEventOverlayPollTimer);
         onvifEventOverlayPollTimer = null;
     }
     onvifEventOverlayPollCamId = '';
     clearOnvifEventOverlayTimers();
+    releaseOnvifEventOverlayListener(camId, options);
+}
+
+function releaseOnvifEventOverlayListener(camId, options = {}) {
+    camId = String(camId || '').trim();
+    if (!camId || !window.onvifEventOverlayClientId) return;
+
+    const url = `/api/camera/${encodeURIComponent(camId)}/onvif/event-summary/release?client_id=${encodeURIComponent(window.onvifEventOverlayClientId)}`;
+    if (options.beacon && navigator.sendBeacon) {
+        try {
+            navigator.sendBeacon(url);
+            return;
+        } catch (_) {
+        }
+    }
+
+    fetch(url, {
+        method: 'POST',
+        keepalive: Boolean(options.beacon)
+    }).catch(() => {});
+}
+
+function createOnvifEventOverlayClientId() {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+        return window.crypto.randomUUID();
+    }
+    return `overlay-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 async function fetchOnvifEventSummary(camId) {
@@ -2224,20 +2282,49 @@ async function fetchOnvifEventSummary(camId) {
     if (!isOnvifEventOverlayEligible(camId) || getActiveLiveCamId() !== camId) return;
 
     try {
-        const resp = await fetch(`/api/camera/${encodeURIComponent(camId)}/onvif/event-summary`);
+        const resp = await fetch(`/api/camera/${encodeURIComponent(camId)}/onvif/event-summary?ensure_listener=1&client_id=${encodeURIComponent(window.onvifEventOverlayClientId)}`);
         if (!isOnvifEventOverlayEligible(camId) || getActiveLiveCamId() !== camId) return;
 
         if (!resp.ok) {
+            const errorText = await readOnvifEventSummaryError(resp);
             window.cameraOnvifEventSummaryCache.delete(camId);
+            window.cameraOnvifEventHistoryCache.delete(camId);
+            window.onvifEventOverlayEnabledCameras.delete(camId);
+            setOnvifEventOverlayNotice(camId, errorText || 'ONVIF 事件监听不可用');
+            stopOnvifEventSummaryPolling();
             refreshOnvifEventOverlay({skipPolling: true});
             return;
         }
 
-        window.cameraOnvifEventSummaryCache.set(camId, await resp.json());
+        const summary = await resp.json();
+        window.cameraOnvifEventSummaryCache.set(camId, summary);
+        rememberOnvifEventSummaryEvents(camId, summary);
         refreshOnvifEventOverlay({skipPolling: true});
     } catch (e) {
         window.cameraOnvifEventSummaryCache.delete(camId);
+        window.cameraOnvifEventHistoryCache.delete(camId);
+        window.onvifEventOverlayEnabledCameras.delete(camId);
+        setOnvifEventOverlayNotice(camId, '事件叠层连接失败，可重新打开重试');
+        stopOnvifEventSummaryPolling();
         refreshOnvifEventOverlay({skipPolling: true});
+    }
+}
+
+async function readOnvifEventSummaryError(resp) {
+    try {
+        const payload = await resp.json();
+        if (payload && payload.error) return String(payload.error);
+    } catch (_) {
+    }
+    switch (resp.status) {
+        case 404:
+            return '该设备不是可用的 ONVIF 接入';
+        case 409:
+            return 'ONVIF Event 或 PullPoint 不可用';
+        case 403:
+            return '无权访问该设备事件';
+        default:
+            return 'ONVIF 事件监听不可用';
     }
 }
 
@@ -2248,17 +2335,134 @@ function buildOnvifEventOverlayView(camId) {
     if (status.pull_point_support !== true) return null;
     if (String(status.event_listener_state || '').toLowerCase() !== 'listening') return null;
 
-    const event = status.last_event || {};
+    rememberOnvifEventSummaryEvents(camId, status);
+    const history = pruneOnvifEventOverlayHistory(camId);
+    const events = history.map(event => {
+        const ageMs = Math.max(0, Date.now() - event.eventTimeMs);
+        return {
+            ...event,
+            remainingMs: ONVIF_EVENT_OVERLAY_VISIBLE_MS - ageMs
+        };
+    }).filter(event => event.remainingMs > 0).slice(0, ONVIF_EVENT_OVERLAY_MAX_ITEMS);
+    if (events.length === 0) return null;
+
+    const nextRefreshMs = nextOnvifEventOverlayRefreshMs(events);
+    const viewKey = events
+        .map(event => `${event.eventKey}:${event.remainingMs <= ONVIF_EVENT_OVERLAY_FADE_MS ? 'fade' : 'show'}`)
+        .join('~');
+    return {events, nextRefreshMs, viewKey};
+}
+
+function setOnvifEventOverlayNotice(camId, message) {
+    camId = String(camId || '').trim();
+    message = String(message || '').trim();
+    if (!camId || !message) return;
+    window.cameraOnvifEventOverlayNoticeCache.set(camId, {
+        message,
+        expiresAt: Date.now() + ONVIF_EVENT_OVERLAY_NOTICE_VISIBLE_MS
+    });
+}
+
+function buildOnvifEventOverlayNoticeView(camId) {
+    camId = String(camId || '').trim();
+    if (!camId) return null;
+    const notice = window.cameraOnvifEventOverlayNoticeCache.get(camId);
+    if (!notice) return null;
+
+    const remainingMs = Number(notice.expiresAt || 0) - Date.now();
+    if (!Number.isFinite(remainingMs) || remainingMs <= 0) {
+        window.cameraOnvifEventOverlayNoticeCache.delete(camId);
+        return null;
+    }
+    return {
+        message: notice.message,
+        remainingMs,
+        viewKey: `notice:${notice.message}:${remainingMs <= ONVIF_EVENT_OVERLAY_FADE_MS ? 'fade' : 'show'}`
+    };
+}
+
+function renderOnvifEventOverlayNotice(overlay, notice) {
+    if (!overlay || !notice) return;
+    if (overlay.dataset.eventKey !== notice.viewKey) {
+        overlay.dataset.eventKey = notice.viewKey;
+        overlay.innerHTML = `
+            <div class="onvif-event-overlay-item is-notice${notice.remainingMs <= ONVIF_EVENT_OVERLAY_FADE_MS ? ' is-fading' : ''}" style="--event-index:0">
+                <span class="onvif-event-overlay-status" aria-hidden="true"></span>
+                <span class="onvif-event-overlay-notice-icon" aria-hidden="true">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1" d="M12 9v4m0 4h.01M10.3 4.6 2.9 18a1.5 1.5 0 0 0 1.3 2.2h15.6a1.5 1.5 0 0 0 1.3-2.2L13.7 4.6a2 2 0 0 0-3.4 0Z"></path></svg>
+                </span>
+                <span class="onvif-event-overlay-topic" title="${escapeHtml(notice.message)}">${escapeHtml(notice.message)}</span>
+            </div>
+        `;
+    }
+    overlay.classList.remove('hidden');
+    overlay.classList.add('is-notice-list');
+    overlay.classList.remove('is-event-list');
+    scheduleOnvifEventOverlayExpiry(notice.remainingMs);
+}
+
+function getOnvifEventOverlayVisibleEventState(camId) {
+    const events = pruneOnvifEventOverlayHistory(camId);
+    return {
+        hasAny: events.length > 0,
+        hasMotion: events.some(event => event.kind === 'motion')
+    };
+}
+
+function rememberOnvifEventSummaryEvents(camId, status) {
+    camId = String(camId || '').trim();
+    if (!camId || !status) return;
+
+    const incoming = Array.isArray(status.recent_events) && status.recent_events.length > 0
+        ? status.recent_events
+        : (status.last_event ? [status.last_event] : []);
+    if (incoming.length === 0) {
+        pruneOnvifEventOverlayHistory(camId);
+        return;
+    }
+
+    const eventByKey = new Map();
+    const existing = window.cameraOnvifEventHistoryCache.get(camId) || [];
+    existing.forEach(event => eventByKey.set(event.eventKey, event));
+    incoming.forEach(event => {
+        const normalized = normalizeOnvifEventOverlayEvent(event);
+        if (normalized) eventByKey.set(normalized.eventKey, normalized);
+    });
+
+    const next = Array.from(eventByKey.values())
+        .filter(event => Date.now() - event.eventTimeMs <= ONVIF_EVENT_OVERLAY_VISIBLE_MS)
+        .sort((a, b) => b.eventTimeMs - a.eventTimeMs)
+        .slice(0, ONVIF_EVENT_OVERLAY_MAX_ITEMS);
+    if (next.length > 0) {
+        window.cameraOnvifEventHistoryCache.set(camId, next);
+    } else {
+        window.cameraOnvifEventHistoryCache.delete(camId);
+    }
+}
+
+function pruneOnvifEventOverlayHistory(camId) {
+    camId = String(camId || '').trim();
+    if (!camId) return [];
+    const history = (window.cameraOnvifEventHistoryCache.get(camId) || [])
+        .filter(event => Date.now() - event.eventTimeMs <= ONVIF_EVENT_OVERLAY_VISIBLE_MS)
+        .sort((a, b) => b.eventTimeMs - a.eventTimeMs)
+        .slice(0, ONVIF_EVENT_OVERLAY_MAX_ITEMS);
+    if (history.length > 0) {
+        window.cameraOnvifEventHistoryCache.set(camId, history);
+    } else {
+        window.cameraOnvifEventHistoryCache.delete(camId);
+    }
+    return history;
+}
+
+function normalizeOnvifEventOverlayEvent(event) {
+    event = event || {};
     const topic = String(event.topic || '').trim();
     if (!topic) return null;
 
     const eventTimeValue = event.received_at || event.at;
     const eventTimeMs = parseOnvifEventOverlayTimeMs(eventTimeValue);
     if (!Number.isFinite(eventTimeMs)) return null;
-
-    const ageMs = Math.max(0, Date.now() - eventTimeMs);
-    const remainingMs = ONVIF_EVENT_OVERLAY_VISIBLE_MS - ageMs;
-    if (remainingMs <= 0) return null;
 
     const isMotion = event.motion === true || event.motion_topic === true;
     return {
@@ -2268,8 +2472,29 @@ function buildOnvifEventOverlayView(camId) {
         topicTitle: topic,
         timeText: formatOnvifEventOverlayTime(eventTimeValue),
         eventKey: `${topic}|${eventTimeValue}|${isMotion ? 'motion' : 'topic'}`,
-        remainingMs
+        eventTimeMs
     };
+}
+
+function renderOnvifEventOverlayItem(event, index) {
+    const icon = event.kind === 'motion'
+        ? '<span class="onvif-event-overlay-motion-icon" title="Motion"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M3 12h4l2-5 4 10 2-5h6"></path></svg></span>'
+        : `<span class="onvif-event-overlay-topic-icon" title="${escapeHtml(event.kindLabel)}"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1" d="M4 7h16M4 12h16M4 17h10"></path></svg></span>`;
+    return `
+        <div class="onvif-event-overlay-item is-${event.kind}${event.remainingMs <= ONVIF_EVENT_OVERLAY_FADE_MS ? ' is-fading' : ''}" style="--event-index:${index}">
+            <span class="onvif-event-overlay-status" aria-hidden="true"></span>
+            ${icon}
+            <span class="onvif-event-overlay-topic" title="${escapeHtml(event.topicTitle)}">${escapeHtml(event.topicText)}</span>
+            ${event.timeText ? `<span class="onvif-event-overlay-time">${escapeHtml(event.timeText)}</span>` : ''}
+        </div>
+    `;
+}
+
+function nextOnvifEventOverlayRefreshMs(events) {
+    const next = events.flatMap(event => [event.remainingMs - ONVIF_EVENT_OVERLAY_FADE_MS, event.remainingMs])
+        .filter(value => Number.isFinite(value) && value > 0);
+    if (next.length === 0) return ONVIF_EVENT_OVERLAY_POLL_INTERVAL_MS;
+    return Math.max(100, Math.min(...next));
 }
 
 function parseOnvifEventOverlayTimeMs(value) {

@@ -37,10 +37,10 @@ type onvifEventHandleOptions struct {
 // notifications into the existing in-memory DetectionEvent model.
 func OnvifEventTask(ctx context.Context, wg *sync.WaitGroup, cam constant.Camera, candidate onvif.Candidate) {
 	defer wg.Done()
-	runOnvifEventWatcher(ctx, cam, candidate)
+	runOnvifEventWatcher(ctx, cam, candidate, func() bool { return true })
 }
 
-func runOnvifEventWatcher(ctx context.Context, cam constant.Camera, candidate onvif.Candidate) {
+func runOnvifEventWatcher(ctx context.Context, cam constant.Camera, candidate onvif.Candidate, shouldPublishMotion func() bool) {
 	service.UpdateOnvifEventListenerStarting(cam.ID)
 	reconnectDelay := onvifEventReconnectInitial
 	for {
@@ -51,7 +51,7 @@ func runOnvifEventWatcher(ctx context.Context, cam constant.Camera, candidate on
 		}
 
 		sessionStartedAt := time.Now()
-		err := runOnvifPullPointSession(ctx, cam, candidate, status)
+		err := runOnvifPullPointSession(ctx, cam, candidate, status, shouldPublishMotion)
 		if ctx.Err() != nil {
 			service.UpdateOnvifEventListenerInactive(cam.ID)
 			return
@@ -151,7 +151,7 @@ func refreshOnvifPullPointStatus(ctx context.Context, candidate onvif.Candidate)
 	return status, nil
 }
 
-func runOnvifPullPointSession(ctx context.Context, cam constant.Camera, candidate onvif.Candidate, status service.OnvifStatus) error {
+func runOnvifPullPointSession(ctx context.Context, cam constant.Camera, candidate onvif.Candidate, status service.OnvifStatus, shouldPublishMotion func() bool) error {
 	client := onvif.NewClient(candidate)
 	client.HTTPClient = &http.Client{Timeout: onvifEventHTTPTimeout}
 
@@ -196,7 +196,11 @@ func runOnvifPullPointSession(ctx context.Context, cam constant.Camera, candidat
 		service.UpdateOnvifEventListenerListening(cam.ID, pullCompletedAt)
 		for _, notification := range notifications {
 			options := onvifEventHandleOptions{}
-			if shouldSuppressInitialOnvifMotionPublish(notification, firstPull, subscriptionStartedAt, pullCompletedAt) {
+			publishMotion := shouldPublishMotion == nil || shouldPublishMotion()
+			if !publishMotion {
+				options.SuppressMotionPublish = true
+				options.SuppressReason = "当前监听租约不发布动检事件"
+			} else if shouldSuppressInitialOnvifMotionPublish(notification, firstPull, subscriptionStartedAt, pullCompletedAt) {
 				options.SuppressMotionPublish = true
 				options.SuppressReason = "订阅启动后的初始化状态事件"
 			}
@@ -295,8 +299,11 @@ func isOnvifMotionNotification(notification onvif.EventNotification) bool {
 
 func isOnvifMotionTopic(topic string) bool {
 	topic = strings.ToLower(strings.TrimSpace(topic))
+	if strings.Contains(topic, "ruleengine/countaggregation/counter") {
+		return false
+	}
 	return strings.Contains(topic, "videosource/motionalarm") ||
-		strings.Contains(topic, "ruleengine/cellmotiondetector/motion")
+		strings.Contains(topic, "ruleengine")
 }
 
 func onvifMotionState(items []onvif.EventItem) (bool, bool) {

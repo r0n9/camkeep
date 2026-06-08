@@ -15,13 +15,18 @@ type onvifEventManager struct {
 	mux         sync.Mutex
 	watchers    map[string]*onvifEventWatcher
 	nextLeaseID uint64
-	run         func(context.Context, constant.Camera, onvif.Candidate)
+	run         func(context.Context, constant.Camera, onvif.Candidate, func() bool)
 }
 
 type onvifEventWatcher struct {
 	cancel context.CancelFunc
 	done   chan struct{}
-	leases map[uint64]string
+	leases map[uint64]onvifEventLease
+}
+
+type onvifEventLease struct {
+	reason        string
+	publishMotion bool
 }
 
 func newOnvifEventManager() *onvifEventManager {
@@ -32,10 +37,14 @@ func newOnvifEventManager() *onvifEventManager {
 }
 
 func RequireOnvifMotionEvents(ctx context.Context, cam constant.Camera, candidate onvif.Candidate, reason string) func() {
-	return defaultOnvifEventManager.acquire(ctx, cam, candidate, reason)
+	return defaultOnvifEventManager.acquire(ctx, cam, candidate, reason, true)
 }
 
-func (m *onvifEventManager) acquire(ctx context.Context, cam constant.Camera, candidate onvif.Candidate, reason string) func() {
+func RequireOnvifEventStream(ctx context.Context, cam constant.Camera, candidate onvif.Candidate, reason string) func() {
+	return defaultOnvifEventManager.acquire(ctx, cam, candidate, reason, false)
+}
+
+func (m *onvifEventManager) acquire(ctx context.Context, cam constant.Camera, candidate onvif.Candidate, reason string, publishMotion bool) func() {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -53,7 +62,7 @@ func (m *onvifEventManager) acquire(ctx context.Context, cam constant.Camera, ca
 		watcher = &onvifEventWatcher{
 			cancel: cancel,
 			done:   make(chan struct{}),
-			leases: make(map[uint64]string),
+			leases: make(map[uint64]onvifEventLease),
 		}
 		m.watchers[cam.ID] = watcher
 
@@ -64,14 +73,19 @@ func (m *onvifEventManager) acquire(ctx context.Context, cam constant.Camera, ca
 		log.Printf("[%s] ONVIF PullPoint 事件源已启动: reason=%s", cam.ID, reason)
 		go func() {
 			defer close(watcher.done)
-			run(watcherCtx, cam, candidate)
+			run(watcherCtx, cam, candidate, func() bool {
+				return m.shouldPublishMotion(cam.ID)
+			})
 			m.removeWatcherIfCurrent(cam.ID, watcher)
 		}()
 	}
 
 	leaseID := m.nextLeaseID
 	m.nextLeaseID++
-	watcher.leases[leaseID] = reason
+	watcher.leases[leaseID] = onvifEventLease{
+		reason:        reason,
+		publishMotion: publishMotion,
+	}
 	m.mux.Unlock()
 
 	var once sync.Once
@@ -112,6 +126,22 @@ func (m *onvifEventManager) release(camID string, leaseID uint64, reason string)
 	log.Printf("[%s] ONVIF PullPoint 事件源不再需要，正在停止: reason=%s", camID, reason)
 	cancel()
 	<-done
+}
+
+func (m *onvifEventManager) shouldPublishMotion(camID string) bool {
+	m.mux.Lock()
+	defer m.mux.Unlock()
+
+	watcher := m.watchers[camID]
+	if watcher == nil {
+		return false
+	}
+	for _, lease := range watcher.leases {
+		if lease.publishMotion {
+			return true
+		}
+	}
+	return false
 }
 
 func (m *onvifEventManager) removeWatcherIfCurrent(camID string, watcher *onvifEventWatcher) {
