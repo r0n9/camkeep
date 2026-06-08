@@ -1,10 +1,12 @@
 package task
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/r0n9/camkeep/internal/onvif"
+	"github.com/r0n9/camkeep/internal/service"
 )
 
 func TestIsOnvifMotionNotification(t *testing.T) {
@@ -98,5 +100,55 @@ func TestHandleOnvifEventNotificationIgnoresMotionFalse(t *testing.T) {
 
 	if _, ok := RecentDetectionEvent("cam1", EventTypeMotion, time.Now(), 5*time.Second); ok {
 		t.Fatal("expected false motion event not to be published")
+	}
+}
+
+func TestWaitOnvifPullPointReadyUsesAvailableCapabilityStatus(t *testing.T) {
+	candidate := onvif.Candidate{
+		ID:        "onvif-ready",
+		SourceURL: "onvif://admin:secret@192.0.2.10",
+		Endpoint:  "http://192.0.2.10/onvif/device_service",
+	}
+	service.ReplaceOnvifCandidates([]onvif.Candidate{candidate})
+	t.Cleanup(func() {
+		service.ReplaceOnvifCandidates(nil)
+	})
+	service.UpdateOnvifProbeResult(candidate, onvif.Capabilities{
+		EventXAddr:       "http://192.0.2.10/onvif/events",
+		PullPointSupport: true,
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	status, ok := waitOnvifPullPointReady(ctx, candidate)
+	if !ok {
+		t.Fatal("expected PullPoint-ready status")
+	}
+	if status.EventXAddr != "http://192.0.2.10/onvif/events" {
+		t.Fatalf("expected event xaddr, got %q", status.EventXAddr)
+	}
+}
+
+func TestWaitOnvifPullPointReadyStopsForUnsupportedPullPoint(t *testing.T) {
+	candidate := onvif.Candidate{
+		ID:        "onvif-no-pullpoint",
+		SourceURL: "onvif://admin:secret@192.0.2.11",
+		Endpoint:  "http://192.0.2.11/onvif/device_service",
+	}
+	service.ReplaceOnvifCandidates([]onvif.Candidate{candidate})
+	t.Cleanup(func() {
+		service.ReplaceOnvifCandidates(nil)
+	})
+	service.UpdateOnvifProbeResult(candidate, onvif.Capabilities{
+		EventXAddr:       "http://192.0.2.11/onvif/events",
+		PullPointSupport: false,
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	if _, ok := waitOnvifPullPointReady(ctx, candidate); ok {
+		t.Fatal("expected unsupported PullPoint to stop watcher")
 	}
 }

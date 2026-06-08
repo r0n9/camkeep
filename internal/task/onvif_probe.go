@@ -20,29 +20,11 @@ func StartOnvifCapabilityProbes(ctx context.Context, candidates []onvif.Candidat
 			probeCtx, cancel := context.WithTimeout(ctx, onvifProbeTimeout)
 			defer cancel()
 
-			client := onvif.NewClient(candidate)
-			caps, err := client.GetCapabilities(probeCtx)
+			caps, err := probeOnvifCapabilities(probeCtx, candidate)
 			if err != nil {
 				service.UpdateOnvifProbeError(candidate, err)
 				log.Printf("[%s] ONVIF capability probe 失败: %v", candidate.ID, err)
 				return
-			}
-			if caps.MediaXAddr != "" && (caps.PTZXAddr != "" || caps.ImagingXAddr != "") {
-				profiles, err := client.GetProfiles(probeCtx, caps.MediaXAddr)
-				if err != nil {
-					log.Printf("[%s] ONVIF media profile probe 失败: %v", candidate.ID, err)
-				} else if profile, ok := onvif.SelectPTZProfile(profiles); ok {
-					caps.ProfileToken = profile.Token
-					caps.ProfileName = profile.Name
-					if profile.VideoSourceToken != "" {
-						caps.VideoSourceToken = profile.VideoSourceToken
-					}
-				}
-				if caps.VideoSourceToken == "" {
-					if profile, ok := onvif.SelectVideoSourceProfile(profiles); ok {
-						caps.VideoSourceToken = profile.VideoSourceToken
-					}
-				}
 			}
 
 			service.UpdateOnvifProbeResult(candidate, caps)
@@ -58,4 +40,30 @@ func StartOnvifCapabilityProbes(ctx context.Context, candidates []onvif.Candidat
 			)
 		}()
 	}
+}
+
+func probeOnvifCapabilities(ctx context.Context, candidate onvif.Candidate) (onvif.Capabilities, error) {
+	client := onvif.NewClient(candidate)
+	caps, err := client.GetCapabilities(ctx)
+	if err != nil {
+		return onvif.Capabilities{}, err
+	}
+	if caps.MediaXAddr != "" && (caps.PTZXAddr != "" || caps.ImagingXAddr != "") {
+		profiles, err := client.GetProfiles(ctx, caps.MediaXAddr)
+		if err != nil {
+			log.Printf("[%s] ONVIF media profile probe 失败: %v", candidate.ID, err)
+		} else if profile, ok := onvif.SelectPTZProfile(profiles); ok {
+			caps.ProfileToken = profile.Token
+			caps.ProfileName = profile.Name
+			if profile.VideoSourceToken != "" {
+				caps.VideoSourceToken = profile.VideoSourceToken
+			}
+		}
+		if caps.VideoSourceToken == "" {
+			if profile, ok := onvif.SelectVideoSourceProfile(profiles); ok {
+				caps.VideoSourceToken = profile.VideoSourceToken
+			}
+		}
+	}
+	return caps, nil
 }

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/r0n9/camkeep/constant"
+	"github.com/r0n9/camkeep/internal/onvif"
 	"github.com/r0n9/camkeep/internal/service"
 	"github.com/r0n9/camkeep/util"
 )
@@ -78,7 +79,7 @@ func recordingWindowEnabled(control string, inTimeRange bool) bool {
 }
 
 // CameraTask 负责单个摄像头的生命周期管理
-func CameraTask(ctx context.Context, wg *sync.WaitGroup, cam constant.Camera) {
+func CameraTask(ctx context.Context, wg *sync.WaitGroup, cam constant.Camera, eventCandidates ...onvif.Candidate) {
 	defer wg.Done()
 
 	camDir := filepath.Join(constant.DefaultRecordBaseDir, cam.ID)
@@ -87,10 +88,17 @@ func CameraTask(ctx context.Context, wg *sync.WaitGroup, cam constant.Camera) {
 	service.UpdateStatus(cam.ID, false, statusModeForCamera(cam), cam.RecordTime)
 
 	if motionRecordingEnabled(cam) {
-		runMotionCameraTask(ctx, cam, camDir)
+		runMotionCameraTask(ctx, cam, camDir, firstOnvifEventCandidate(eventCandidates))
 		return
 	}
 	runScheduledCameraTask(ctx, cam, camDir)
+}
+
+func firstOnvifEventCandidate(candidates []onvif.Candidate) *onvif.Candidate {
+	if len(candidates) == 0 {
+		return nil
+	}
+	return &candidates[0]
 }
 
 func runScheduledCameraTask(ctx context.Context, cam constant.Camera, camDir string) {
@@ -218,11 +226,30 @@ func runScheduledCameraTask(ctx context.Context, cam constant.Camera, camDir str
 	}
 }
 
-func runMotionCameraTask(ctx context.Context, cam constant.Camera, camDir string) {
+func runMotionCameraTask(ctx context.Context, cam constant.Camera, camDir string, eventCandidate *onvif.Candidate) {
 	var harvestCmd *exec.Cmd
 	var harvestCancel context.CancelFunc
 	var harvestDone chan error
 	var eventSession *eventRecordSession
+	var releaseOnvifMotionEvents func()
+
+	acquireOnvifMotionEvents := func() {
+		if eventCandidate == nil || releaseOnvifMotionEvents != nil {
+			return
+		}
+		releaseOnvifMotionEvents = RequireOnvifMotionEvents(ctx, cam, *eventCandidate, "motion-recording")
+	}
+
+	releaseOnvifMotionEventDemand := func(reason string) {
+		if releaseOnvifMotionEvents == nil {
+			return
+		}
+		if reason != "" {
+			log.Printf("[%s] %s，释放 ONVIF PullPoint motion 事件需求...", cam.ID, reason)
+		}
+		releaseOnvifMotionEvents()
+		releaseOnvifMotionEvents = nil
+	}
 
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
@@ -230,6 +257,7 @@ func runMotionCameraTask(ctx context.Context, cam constant.Camera, camDir string
 	for {
 		select {
 		case <-ctx.Done():
+			releaseOnvifMotionEventDemand("")
 			if harvestCancel != nil {
 				harvestCancel()
 				if harvestDone != nil {
@@ -254,6 +282,7 @@ func runMotionCameraTask(ctx context.Context, cam constant.Camera, camDir string
 			if harvestCmd != nil && harvestDone != nil {
 				select {
 				case <-harvestDone:
+					releaseOnvifMotionEventDemand("动检 Time-Shift 缓存引擎退出")
 					harvestCmd = nil
 					harvestDone = nil
 					harvestCancel = nil
@@ -285,6 +314,7 @@ func runMotionCameraTask(ctx context.Context, cam constant.Camera, camDir string
 						log.Printf("[%s] 动检 Time-Shift 缓存引擎已退出, err: %v", cam.ID, err)
 						harvestDone <- err
 					}(harvestCmd)
+					acquireOnvifMotionEvents()
 				}
 			} else if !harvestShouldRun && harvestRunning {
 				if streamState == "offline" {
@@ -295,6 +325,7 @@ func runMotionCameraTask(ctx context.Context, cam constant.Camera, camDir string
 					log.Printf("[%s] 录制时间窗结束，停止动检 Time-Shift 缓存引擎...", cam.ID)
 				}
 				harvestCancel()
+				releaseOnvifMotionEventDemand("")
 				if harvestDone != nil {
 					<-harvestDone
 				}

@@ -31,20 +31,27 @@ const (
 // notifications into the existing in-memory DetectionEvent model.
 func OnvifEventTask(ctx context.Context, wg *sync.WaitGroup, cam constant.Camera, candidate onvif.Candidate) {
 	defer wg.Done()
+	runOnvifEventWatcher(ctx, cam, candidate)
+}
 
+func runOnvifEventWatcher(ctx context.Context, cam constant.Camera, candidate onvif.Candidate) {
 	reconnectDelay := onvifEventReconnectInitial
 	for {
-		status, ok := waitOnvifPullPointReady(ctx, cam.ID)
+		status, ok := waitOnvifPullPointReady(ctx, candidate)
 		if !ok {
 			return
 		}
 
+		sessionStartedAt := time.Now()
 		err := runOnvifPullPointSession(ctx, cam, candidate, status)
 		if ctx.Err() != nil {
 			return
 		}
 		if err != nil {
 			log.Printf("[%s] ONVIF PullPoint 事件监听异常，%s 后重连: %v", cam.ID, reconnectDelay, err)
+		}
+		if time.Since(sessionStartedAt) >= onvifEventReconnectMax {
+			reconnectDelay = onvifEventReconnectInitial
 		}
 		if !waitOnvifEventRetry(ctx, reconnectDelay) {
 			return
@@ -53,30 +60,56 @@ func OnvifEventTask(ctx context.Context, wg *sync.WaitGroup, cam constant.Camera
 	}
 }
 
-func waitOnvifPullPointReady(ctx context.Context, camID string) (service.OnvifStatus, bool) {
+func waitOnvifPullPointReady(ctx context.Context, candidate onvif.Candidate) (service.OnvifStatus, bool) {
 	ticker := time.NewTicker(onvifEventCapabilityCheckDelay)
 	defer ticker.Stop()
 
+	probeRetryDelay := onvifEventReconnectInitial
+	nextProbeAfter := time.Time{}
 	for {
-		status, ok := service.GetOnvifStatus(camID)
+		now := time.Now()
+		status, ok := service.GetOnvifStatus(candidate.ID)
 		if ok {
 			switch status.EventState {
 			case service.OnvifStateAvailable:
 				if status.EventXAddr == "" {
-					log.Printf("[%s] ONVIF Event 可用但缺少 xaddr，跳过 PullPoint 监听", camID)
+					log.Printf("[%s] ONVIF Event 可用但缺少 xaddr，跳过 PullPoint 监听", candidate.ID)
 					return service.OnvifStatus{}, false
 				}
 				if !status.PullPointSupport {
-					log.Printf("[%s] ONVIF Event 可用但设备不支持 PullPoint，跳过事件监听", camID)
+					log.Printf("[%s] ONVIF Event 可用但设备不支持 PullPoint，跳过事件监听", candidate.ID)
 					return service.OnvifStatus{}, false
 				}
 				return status, true
 			case service.OnvifStateUnavailable:
-				log.Printf("[%s] ONVIF Event 不可用，跳过 PullPoint 监听", camID)
+				log.Printf("[%s] ONVIF Event 不可用，跳过 PullPoint 监听", candidate.ID)
 				return service.OnvifStatus{}, false
 			case service.OnvifStateError:
-				log.Printf("[%s] ONVIF Event 能力探测失败，跳过 PullPoint 监听: %s", camID, status.LastError)
-				return service.OnvifStatus{}, false
+				if now.Before(nextProbeAfter) {
+					break
+				}
+				refreshed, err := refreshOnvifPullPointStatus(ctx, candidate)
+				if err != nil {
+					log.Printf("[%s] ONVIF Event 能力重新探测失败，%s 后重试: %v", candidate.ID, probeRetryDelay, err)
+					nextProbeAfter = now.Add(probeRetryDelay)
+					probeRetryDelay = nextOnvifEventReconnectDelay(probeRetryDelay)
+					break
+				}
+				status = refreshed
+				ok = true
+				probeRetryDelay = onvifEventReconnectInitial
+				nextProbeAfter = time.Time{}
+				continue
+			}
+		} else if !now.Before(nextProbeAfter) {
+			if _, err := refreshOnvifPullPointStatus(ctx, candidate); err != nil {
+				log.Printf("[%s] ONVIF Event 能力探测失败，%s 后重试: %v", candidate.ID, probeRetryDelay, err)
+				nextProbeAfter = now.Add(probeRetryDelay)
+				probeRetryDelay = nextOnvifEventReconnectDelay(probeRetryDelay)
+			} else {
+				probeRetryDelay = onvifEventReconnectInitial
+				nextProbeAfter = time.Time{}
+				continue
 			}
 		}
 
@@ -86,6 +119,26 @@ func waitOnvifPullPointReady(ctx context.Context, camID string) (service.OnvifSt
 		case <-ticker.C:
 		}
 	}
+}
+
+func refreshOnvifPullPointStatus(ctx context.Context, candidate onvif.Candidate) (service.OnvifStatus, error) {
+	service.MarkOnvifProbeStarted(candidate)
+
+	probeCtx, cancel := context.WithTimeout(ctx, onvifProbeTimeout)
+	defer cancel()
+
+	caps, err := probeOnvifCapabilities(probeCtx, candidate)
+	if err != nil {
+		service.UpdateOnvifProbeError(candidate, err)
+		return service.OnvifStatus{}, err
+	}
+
+	service.UpdateOnvifProbeResult(candidate, caps)
+	status, ok := service.GetOnvifStatus(candidate.ID)
+	if !ok {
+		return service.OnvifStatus{}, fmt.Errorf("ONVIF status 不存在")
+	}
+	return status, nil
 }
 
 func runOnvifPullPointSession(ctx context.Context, cam constant.Camera, candidate onvif.Candidate, status service.OnvifStatus) error {

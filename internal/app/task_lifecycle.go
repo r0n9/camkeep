@@ -30,16 +30,15 @@ func startTasks() {
 	configSources := loadGo2rtcConfigStreamSources(constant.Go2rtcConfigFilePath, constant.LegacyGo2rtcConfigFilePath)
 	for _, cam := range cams {
 		taskWg.Add(1)
-		go task.CameraTask(ctx, &taskWg, cam)
+		if candidate, ok := onvif.CandidateFromCamera(cam, configSources[cam.ID]); ok {
+			go task.CameraTask(ctx, &taskWg, cam, candidate)
+		} else {
+			go task.CameraTask(ctx, &taskWg, cam)
+		}
 
 		if cam.MotionDetect && (cam.Mode == "" || cam.Mode == "normal") {
 			taskWg.Add(1)
 			go task.MotionDetectTask(ctx, &taskWg, cam)
-
-			if candidate, ok := onvif.CandidateFromCamera(cam, configSources[cam.ID]); ok {
-				taskWg.Add(1)
-				go task.OnvifEventTask(ctx, &taskWg, cam, candidate)
-			}
 		}
 	}
 }
