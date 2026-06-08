@@ -5,7 +5,7 @@
 
     const state = {
         onvifStatusCache: new Map(),
-        panelCollapsed: false,
+        panelCollapsed: true,
         stopTimer: null,
         activeMove: null,
         actionInFlight: false,

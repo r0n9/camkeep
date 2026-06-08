@@ -26,6 +26,7 @@ const authState = window.CAMKEEP_AUTH || {
 
 window.cameraCapabilityCache = window.cameraCapabilityCache || new Map();
 window.cameraOnvifEventSummaryCache = window.cameraOnvifEventSummaryCache || new Map();
+window.onvifEventOverlayEnabledCameras = window.onvifEventOverlayEnabledCameras || new Set();
 const ONVIF_EVENT_OVERLAY_POLL_INTERVAL_MS = 3000;
 const ONVIF_EVENT_OVERLAY_VISIBLE_MS = 10000;
 const ONVIF_EVENT_OVERLAY_FADE_MS = 700;
@@ -1870,6 +1871,9 @@ function renderGrid() {
                 </div>
                 <div class="absolute top-2 left-1/2 z-10 max-w-[80%] -translate-x-1/2 bg-black/35 text-white/80 px-2.5 py-1 text-[10px] rounded backdrop-blur-sm border border-white/5 hidden pointer-events-none truncate opacity-55 transition-all duration-200 group-hover:bg-black/70 group-hover:text-white group-hover:border-white/10 group-hover:opacity-100" id="label-${i}"></div>
                 <div id="onvif-event-overlay-${i}" class="onvif-event-overlay hidden" aria-live="polite"></div>
+                <button onclick="event.stopPropagation(); toggleOnvifEventOverlay(${i})" class="onvif-event-toggle hidden" id="onvif-event-toggle-${i}" type="button" aria-pressed="false" aria-label="显示 ONVIF 事件叠层" title="显示 ONVIF 事件叠层">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M3 12h4l2-5 4 10 2-5h6"></path></svg>
+                </button>
                 <button onclick="event.stopPropagation(); clearCell(${i})" class="absolute top-2 right-2 z-20 hidden h-7 w-7 items-center justify-center rounded bg-black/65 text-white/80 border border-white/10 backdrop-blur-md opacity-0 pointer-events-none transition-all duration-200 group-hover:opacity-100 group-hover:pointer-events-auto hover:bg-red-500 hover:text-white" id="close-cell-${i}" title="关闭该窗口">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
@@ -1997,6 +2001,7 @@ function setActiveCell(index) {
     activeCell = index;
     syncSelectedRecordFromActiveCell();
     updateFocusUI();
+    refreshOnvifEventOverlay();
     refreshPTZPanel();
 }
 
@@ -2066,6 +2071,7 @@ function refreshOnvifEventOverlay(options = {}) {
     for (let i = 0; i < dpInstances.length; i++) {
         clearOnvifEventOverlay(i);
     }
+    refreshOnvifEventOverlayControls();
 
     const camId = getActiveLiveCamId();
     if (!isOnvifEventOverlayEligible(camId)) {
@@ -2107,6 +2113,56 @@ function clearOnvifEventOverlay(index) {
     overlay.innerHTML = '';
 }
 
+function refreshOnvifEventOverlayControls() {
+    for (let i = 0; i < dpInstances.length; i++) {
+        const button = document.getElementById(`onvif-event-toggle-${i}`);
+        if (!button) continue;
+
+        const data = cellData[i];
+        const camId = data && data.isLive ? String(data.camId || data.source || '').trim() : '';
+        const available = i === activeCell && isOnvifEventOverlayControlAvailable(camId);
+        const enabled = available && isOnvifEventOverlayEnabled(camId);
+
+        button.classList.toggle('hidden', !available);
+        button.classList.toggle('is-active', enabled);
+        button.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+        button.setAttribute('aria-label', enabled ? '隐藏 ONVIF 事件叠层' : '显示 ONVIF 事件叠层');
+        button.title = enabled ? '隐藏 ONVIF 事件叠层' : '显示 ONVIF 事件叠层';
+    }
+}
+
+function toggleOnvifEventOverlay(index) {
+    if (currentLayout !== 1 || index !== activeCell) return;
+    const data = cellData[index];
+    const camId = data && data.isLive ? String(data.camId || data.source || '').trim() : '';
+    if (!isOnvifEventOverlayControlAvailable(camId)) return;
+
+    if (isOnvifEventOverlayEnabled(camId)) {
+        window.onvifEventOverlayEnabledCameras.delete(camId);
+        window.cameraOnvifEventSummaryCache.delete(camId);
+    } else {
+        window.onvifEventOverlayEnabledCameras.add(camId);
+    }
+    refreshOnvifEventOverlay();
+}
+
+function isOnvifEventOverlayControlAvailable(camId) {
+    if (currentLayout !== 1) return false;
+    camId = String(camId || '').trim();
+    if (!camId) return false;
+    const data = cellData[activeCell];
+    if (!data || !data.isLive) return false;
+    const currentCamId = String(data.camId || data.source || '').trim();
+    if (currentCamId !== camId) return false;
+    const capability = window.cameraCapabilityCache?.get?.(camId);
+    return capability?.onvif_enabled === true;
+}
+
+function isOnvifEventOverlayEnabled(camId) {
+    camId = String(camId || '').trim();
+    return Boolean(camId && window.onvifEventOverlayEnabledCameras?.has?.(camId));
+}
+
 function clearOnvifEventOverlayTimers() {
     if (onvifEventOverlayHideTimer) {
         clearTimeout(onvifEventOverlayHideTimer);
@@ -2134,13 +2190,7 @@ function scheduleOnvifEventOverlayExpiry(remainingMs) {
 }
 
 function isOnvifEventOverlayEligible(camId) {
-    if (currentLayout !== 1) return false;
-    camId = String(camId || '').trim();
-    if (!camId) return false;
-    const data = cellData[activeCell];
-    if (!data || !data.isLive) return false;
-    const capability = window.cameraCapabilityCache?.get?.(camId);
-    return capability?.onvif_enabled === true;
+    return isOnvifEventOverlayControlAvailable(camId) && isOnvifEventOverlayEnabled(camId);
 }
 
 function ensureOnvifEventSummaryPolling(camId) {
@@ -2422,6 +2472,7 @@ function showRecordPlaybackRestricted(targetCell, title, recordPath, message) {
         `;
     }
     updateFocusUI();
+    refreshOnvifEventOverlay();
 }
 
 function playRecordAtTime(file, title, offsetSeconds = 0) {
@@ -2490,6 +2541,7 @@ function showProbeLoadingInCell(index, title, recordPath = '') {
         `;
     }
     updateFocusUI();
+    refreshOnvifEventOverlay();
 }
 
 function showCodecNoticeInCell(index, data) {
@@ -2542,6 +2594,7 @@ function showCodecNoticeInCell(index, data) {
             </div>
         </div>
     `;
+    refreshOnvifEventOverlay();
 }
 
 // 增加对应的播放函数
@@ -2704,6 +2757,7 @@ function executePlayInCell(index, source, isLive, title, forceNative = false, wa
             }
         }
     }
+    refreshOnvifEventOverlay();
     refreshPTZPanel();
 }
 
