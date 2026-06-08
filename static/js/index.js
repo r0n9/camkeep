@@ -25,6 +25,14 @@ const authState = window.CAMKEEP_AUTH || {
 };
 
 window.cameraCapabilityCache = window.cameraCapabilityCache || new Map();
+window.cameraOnvifEventSummaryCache = window.cameraOnvifEventSummaryCache || new Map();
+const ONVIF_EVENT_OVERLAY_POLL_INTERVAL_MS = 3000;
+const ONVIF_EVENT_OVERLAY_VISIBLE_MS = 10000;
+const ONVIF_EVENT_OVERLAY_FADE_MS = 700;
+let onvifEventOverlayPollTimer = null;
+let onvifEventOverlayPollCamId = '';
+let onvifEventOverlayHideTimer = null;
+let onvifEventOverlayFadeTimer = null;
 
 function canAdmin() {
     return authState.can_admin === true || authState.user?.role === 'admin';
@@ -1861,6 +1869,7 @@ function renderGrid() {
                     <span class="text-xs font-bold tracking-wider uppercase opacity-50">窗口 ${i + 1}</span>
                 </div>
                 <div class="absolute top-2 left-1/2 z-10 max-w-[80%] -translate-x-1/2 bg-black/35 text-white/80 px-2.5 py-1 text-[10px] rounded backdrop-blur-sm border border-white/5 hidden pointer-events-none truncate opacity-55 transition-all duration-200 group-hover:bg-black/70 group-hover:text-white group-hover:border-white/10 group-hover:opacity-100" id="label-${i}"></div>
+                <div id="onvif-event-overlay-${i}" class="onvif-event-overlay hidden" aria-live="polite"></div>
                 <button onclick="event.stopPropagation(); clearCell(${i})" class="absolute top-2 right-2 z-20 hidden h-7 w-7 items-center justify-center rounded bg-black/65 text-white/80 border border-white/10 backdrop-blur-md opacity-0 pointer-events-none transition-all duration-200 group-hover:opacity-100 group-hover:pointer-events-auto hover:bg-red-500 hover:text-white" id="close-cell-${i}" title="关闭该窗口">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
@@ -1885,6 +1894,7 @@ function renderGrid() {
         }
     }
     updateFocusUI();
+    refreshOnvifEventOverlay();
     refreshPTZPanel();
 }
 
@@ -1918,11 +1928,13 @@ function clearCell(index) {
         label.classList.add('hidden');
         label.innerText = '';
     }
+    clearOnvifEventOverlay(index);
     if (closeBtn) {
         closeBtn.classList.add('hidden');
         closeBtn.classList.remove('flex');
     }
     updateFocusUI();
+    refreshOnvifEventOverlay();
     refreshPTZPanel();
 }
 
@@ -2039,6 +2051,7 @@ function playVideo(source, isLive, title) {
     } else {
         updateFocusUI();
     }
+    refreshOnvifEventOverlay();
     refreshPTZPanel(isLive);
 }
 
@@ -2047,6 +2060,179 @@ function getActiveLiveCamId() {
     const data = cellData[activeCell];
     if (!data || !data.isLive) return '';
     return String(data.camId || data.source || '').trim();
+}
+
+function refreshOnvifEventOverlay(options = {}) {
+    for (let i = 0; i < dpInstances.length; i++) {
+        clearOnvifEventOverlay(i);
+    }
+
+    const camId = getActiveLiveCamId();
+    if (!isOnvifEventOverlayEligible(camId)) {
+        stopOnvifEventSummaryPolling();
+        return;
+    }
+
+    const overlay = document.getElementById(`onvif-event-overlay-${activeCell}`);
+    if (!overlay) return;
+
+    if (!options.skipPolling) ensureOnvifEventSummaryPolling(camId);
+    const view = buildOnvifEventOverlayView(camId);
+    if (!view) return;
+
+    overlay.classList.toggle('is-motion', view.kind === 'motion');
+    overlay.classList.toggle('is-generic', view.kind === 'generic');
+    overlay.classList.toggle('is-waiting', view.kind === 'waiting');
+    overlay.classList.toggle('is-fading', view.remainingMs <= ONVIF_EVENT_OVERLAY_FADE_MS);
+    overlay.dataset.eventKey = view.eventKey;
+    overlay.innerHTML = `
+        <span class="onvif-event-overlay-status" aria-hidden="true"></span>
+        ${view.kind === 'motion'
+            ? '<span class="onvif-event-overlay-motion-icon" title="Motion"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M3 12h4l2-5 4 10 2-5h6"></path></svg></span>'
+            : `<span class="onvif-event-overlay-topic-icon" title="${escapeHtml(view.kindLabel)}"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1" d="M4 7h16M4 12h16M4 17h10"></path></svg></span>`}
+        <span class="onvif-event-overlay-topic" title="${escapeHtml(view.topicTitle)}">${escapeHtml(view.topicText)}</span>
+        ${view.timeText ? `<span class="onvif-event-overlay-time">${escapeHtml(view.timeText)}</span>` : ''}
+    `;
+    overlay.classList.remove('hidden');
+    scheduleOnvifEventOverlayExpiry(view.remainingMs);
+}
+
+function clearOnvifEventOverlay(index) {
+    const overlay = document.getElementById(`onvif-event-overlay-${index}`);
+    clearOnvifEventOverlayTimers();
+    if (!overlay) return;
+    overlay.classList.add('hidden');
+    overlay.classList.remove('is-motion', 'is-generic', 'is-waiting', 'is-fading');
+    delete overlay.dataset.eventKey;
+    overlay.innerHTML = '';
+}
+
+function clearOnvifEventOverlayTimers() {
+    if (onvifEventOverlayHideTimer) {
+        clearTimeout(onvifEventOverlayHideTimer);
+        onvifEventOverlayHideTimer = null;
+    }
+    if (onvifEventOverlayFadeTimer) {
+        clearTimeout(onvifEventOverlayFadeTimer);
+        onvifEventOverlayFadeTimer = null;
+    }
+}
+
+function scheduleOnvifEventOverlayExpiry(remainingMs) {
+    clearOnvifEventOverlayTimers();
+    remainingMs = Math.max(0, Number(remainingMs) || 0);
+
+    const fadeDelay = Math.max(0, remainingMs - ONVIF_EVENT_OVERLAY_FADE_MS);
+    onvifEventOverlayFadeTimer = setTimeout(() => {
+        const overlay = document.getElementById(`onvif-event-overlay-${activeCell}`);
+        if (overlay) overlay.classList.add('is-fading');
+    }, fadeDelay);
+
+    onvifEventOverlayHideTimer = setTimeout(() => {
+        refreshOnvifEventOverlay({skipPolling: true});
+    }, remainingMs);
+}
+
+function isOnvifEventOverlayEligible(camId) {
+    if (currentLayout !== 1) return false;
+    camId = String(camId || '').trim();
+    if (!camId) return false;
+    const data = cellData[activeCell];
+    if (!data || !data.isLive) return false;
+    const capability = window.cameraCapabilityCache?.get?.(camId);
+    return capability?.onvif_enabled === true;
+}
+
+function ensureOnvifEventSummaryPolling(camId) {
+    camId = String(camId || '').trim();
+    if (!camId) return;
+    if (onvifEventOverlayPollCamId === camId && onvifEventOverlayPollTimer) return;
+
+    stopOnvifEventSummaryPolling();
+    onvifEventOverlayPollCamId = camId;
+    void fetchOnvifEventSummary(camId);
+    onvifEventOverlayPollTimer = setInterval(() => {
+        if (!isOnvifEventOverlayEligible(camId) || getActiveLiveCamId() !== camId) {
+            refreshOnvifEventOverlay({skipPolling: true});
+            return;
+        }
+        void fetchOnvifEventSummary(camId);
+    }, ONVIF_EVENT_OVERLAY_POLL_INTERVAL_MS);
+}
+
+function stopOnvifEventSummaryPolling() {
+    if (onvifEventOverlayPollTimer) {
+        clearInterval(onvifEventOverlayPollTimer);
+        onvifEventOverlayPollTimer = null;
+    }
+    onvifEventOverlayPollCamId = '';
+    clearOnvifEventOverlayTimers();
+}
+
+async function fetchOnvifEventSummary(camId) {
+    camId = String(camId || '').trim();
+    if (!isOnvifEventOverlayEligible(camId) || getActiveLiveCamId() !== camId) return;
+
+    try {
+        const resp = await fetch(`/api/camera/${encodeURIComponent(camId)}/onvif/event-summary`);
+        if (!isOnvifEventOverlayEligible(camId) || getActiveLiveCamId() !== camId) return;
+
+        if (!resp.ok) {
+            window.cameraOnvifEventSummaryCache.delete(camId);
+            refreshOnvifEventOverlay({skipPolling: true});
+            return;
+        }
+
+        window.cameraOnvifEventSummaryCache.set(camId, await resp.json());
+        refreshOnvifEventOverlay({skipPolling: true});
+    } catch (e) {
+        window.cameraOnvifEventSummaryCache.delete(camId);
+        refreshOnvifEventOverlay({skipPolling: true});
+    }
+}
+
+function buildOnvifEventOverlayView(camId) {
+    const status = window.cameraOnvifEventSummaryCache.get(camId);
+    if (!status || status.onvif_enabled !== true) return null;
+    if (String(status.event_state || '').toLowerCase() !== 'available') return null;
+    if (status.pull_point_support !== true) return null;
+    if (String(status.event_listener_state || '').toLowerCase() !== 'listening') return null;
+
+    const event = status.last_event || {};
+    const topic = String(event.topic || '').trim();
+    if (!topic) return null;
+
+    const eventTimeValue = event.received_at || event.at;
+    const eventTimeMs = parseOnvifEventOverlayTimeMs(eventTimeValue);
+    if (!Number.isFinite(eventTimeMs)) return null;
+
+    const ageMs = Math.max(0, Date.now() - eventTimeMs);
+    const remainingMs = ONVIF_EVENT_OVERLAY_VISIBLE_MS - ageMs;
+    if (remainingMs <= 0) return null;
+
+    const isMotion = event.motion === true || event.motion_topic === true;
+    return {
+        kind: isMotion ? 'motion' : 'generic',
+        kindLabel: isMotion ? 'Motion' : 'Topic',
+        topicText: topic,
+        topicTitle: topic,
+        timeText: formatOnvifEventOverlayTime(eventTimeValue),
+        eventKey: `${topic}|${eventTimeValue}|${isMotion ? 'motion' : 'topic'}`,
+        remainingMs
+    };
+}
+
+function parseOnvifEventOverlayTimeMs(value) {
+    if (!value || String(value).startsWith('0001-01-01')) return NaN;
+    const time = Date.parse(value);
+    return Number.isFinite(time) ? time : NaN;
+}
+
+function formatOnvifEventOverlayTime(value) {
+    const time = parseOnvifEventOverlayTimeMs(value);
+    if (!Number.isFinite(time)) return '';
+    const date = new Date(time);
+    return date.toLocaleTimeString('zh-CN', {hour12: false});
 }
 
 async function refreshPTZPanel(force = false) {
@@ -2208,6 +2394,7 @@ function playRecordNative(targetCell, source, title, recordPath, seekSeconds) {
 
 function showRecordPlaybackRestricted(targetCell, title, recordPath, message) {
     stopCellPlayback(targetCell);
+    clearOnvifEventOverlay(targetCell);
     cellData[targetCell] = {source: '', isLive: false, title: `${title} · 播放受限`, recordPath};
 
     const emptyState = document.getElementById(`empty-state-${targetCell}`);
@@ -2272,6 +2459,7 @@ function isMobilePlayback() {
 
 function showProbeLoadingInCell(index, title, recordPath = '') {
     stopCellPlayback(index);
+    clearOnvifEventOverlay(index);
     cellData[index] = {source: '', isLive: false, title: `检测编码: ${title}`, recordPath};
 
     const liveIframe = document.getElementById(`live-iframe-${index}`);
@@ -2306,6 +2494,7 @@ function showProbeLoadingInCell(index, title, recordPath = '') {
 
 function showCodecNoticeInCell(index, data) {
     stopCellPlayback(index);
+    clearOnvifEventOverlay(index);
 
     const liveIframe = document.getElementById(`live-iframe-${index}`);
     const dplayerContainer = document.getElementById(`dplayer-${index}`);
@@ -2393,6 +2582,7 @@ function executePlayInCell(index, source, isLive, title, forceNative = false, wa
     const seekSeconds = normalizeSeekSeconds(options.seekSeconds);
 
     if (!liveIframe) return;
+    clearOnvifEventOverlay(index);
 
     // 警告提示挂载逻辑
     let existingWarning = document.getElementById(`cell-warning-${index}`);

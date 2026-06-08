@@ -30,6 +30,7 @@ func startWebServer() {
 	protected.GET("/", handleIndex)
 	protected.GET("/api/me", handleMe(webAuth))
 	protected.GET("/api/status", handleStatus)
+	protected.GET("/api/camera/:id/onvif/event-summary", handleCameraOnvifEventSummary)
 	protected.GET("/api/camera/:id/cover", handleCameraCover)
 	protected.GET("/api/records/:id", handleRecords)
 	protected.GET("/api/record/probe", handleProbeRecord)

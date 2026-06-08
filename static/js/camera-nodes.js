@@ -400,6 +400,12 @@ async function loadStatus() {
         Array.from(cameraCardRenderKeys.keys()).forEach(id => {
             if (!visibleCamIds.has(id)) cameraCardRenderKeys.delete(id);
         });
+        Array.from(window.cameraCapabilityCache.keys()).forEach(id => {
+            if (!visibleCamIds.has(id)) {
+                window.cameraCapabilityCache.delete(id);
+                window.cameraOnvifEventSummaryCache?.delete?.(id);
+            }
+        });
 
         latestCameraStatusEntries.forEach(({id, cam}) => {
             window.cameraCapabilityCache.set(id, {
@@ -413,8 +419,10 @@ async function loadStatus() {
         renderCameraListFromState();
         if (cameras.length === 0 && !currentSelectedCam) renderRecordSelectionPrompt('当前账号暂无可访问摄像头');
 
+        if (typeof refreshOnvifEventOverlay === 'function') refreshOnvifEventOverlay();
         refreshPTZPanel();
     } catch (e) {
+        if (typeof refreshOnvifEventOverlay === 'function') refreshOnvifEventOverlay();
         updateCameraStats([], true);
         console.error("同步状态失败:", e);
     }

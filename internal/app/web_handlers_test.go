@@ -49,6 +49,69 @@ func TestHandleStatusIncludesRecordOverride(t *testing.T) {
 	}
 }
 
+func TestHandleCameraOnvifEventSummary(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	camID := "summary-onvif-event-topic"
+	setCurrentConfigForAppTest(t, constant.Config{
+		Cameras: []constant.Camera{{ID: camID, StreamURL: "onvif://admin:secret@example/onvif/device_service"}},
+	})
+
+	candidate := onvif.Candidate{
+		ID:        camID,
+		SourceURL: "onvif://admin:secret@example/onvif/device_service",
+		Endpoint:  "http://example/onvif/device_service",
+	}
+	service.ReplaceOnvifCandidates([]onvif.Candidate{candidate})
+	t.Cleanup(func() {
+		service.ReplaceOnvifCandidates(nil)
+		deleteStatusForAppTest(t, camID)
+	})
+	service.UpdateOnvifProbeResult(candidate, onvif.Capabilities{
+		EventXAddr:       "http://example/onvif/events",
+		PullPointSupport: true,
+	})
+	eventAt := time.Now().Add(-time.Second)
+	service.UpdateOnvifEventListenerListening(camID, time.Now())
+	service.UpdateOnvifLastEvent(camID, service.OnvifEventSnapshot{
+		Topic:       "tns1:VideoSource/MotionAlarm",
+		At:          eventAt,
+		ReceivedAt:  eventAt,
+		Motion:      true,
+		MotionTopic: true,
+	})
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Params = gin.Params{{Key: "id", Value: camID}}
+	handleCameraOnvifEventSummary(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if got := payload["event_listener_state"]; got != service.OnvifEventListenerListening {
+		t.Fatalf("expected listener state %q, got %v", service.OnvifEventListenerListening, got)
+	}
+	if got := payload["pull_point_support"]; got != true {
+		t.Fatalf("expected PullPoint support true, got %v", got)
+	}
+	lastEvent, ok := payload["last_event"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected last_event object, got %+v", payload["last_event"])
+	}
+	if got := lastEvent["topic"]; got != "tns1:VideoSource/MotionAlarm" {
+		t.Fatalf("expected last ONVIF topic, got %v", got)
+	}
+	if got := lastEvent["motion"]; got != true {
+		t.Fatalf("expected motion event true, got %v", got)
+	}
+}
+
 func TestHandleStatusReturnsExplicitMode(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

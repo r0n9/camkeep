@@ -78,6 +78,24 @@ type statusResponseEntry struct {
 	ImagingState         string    `json:"imaging_state"`
 }
 
+type onvifEventSummaryResponse struct {
+	ID                     string                      `json:"id"`
+	OnvifEnabled           bool                        `json:"onvif_enabled"`
+	EventState             string                      `json:"event_state"`
+	PullPointSupport       bool                        `json:"pull_point_support"`
+	EventListenerState     string                      `json:"event_listener_state"`
+	EventPullLastSuccessAt time.Time                   `json:"event_pull_last_success_at,omitempty"`
+	LastEvent              *onvifEventSummaryLastEvent `json:"last_event,omitempty"`
+}
+
+type onvifEventSummaryLastEvent struct {
+	Topic       string    `json:"topic"`
+	Motion      bool      `json:"motion"`
+	MotionTopic bool      `json:"motion_topic"`
+	At          time.Time `json:"at"`
+	ReceivedAt  time.Time `json:"received_at"`
+}
+
 type go2rtcStreamScanResponse struct {
 	Streams   map[string]go2rtcStreamInfo `json:"streams"`
 	Unmanaged []go2rtcStreamInfo          `json:"unmanaged"`
@@ -443,6 +461,43 @@ func handleCameraOnvifStatus(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, status)
+}
+
+func handleCameraOnvifEventSummary(c *gin.Context) {
+	id := c.Param("id")
+	if !cameraExists(id) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "找不到该摄像头"})
+		return
+	}
+	if !requestCanAccessCamera(c, id) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "无权访问该摄像头"})
+		return
+	}
+
+	status, ok := service.GetOnvifStatus(id)
+	if !ok {
+		c.JSON(http.StatusNotFound, gin.H{"error": "该摄像头不是 ONVIF 接入设备"})
+		return
+	}
+
+	resp := onvifEventSummaryResponse{
+		ID:                     status.ID,
+		OnvifEnabled:           status.Enabled,
+		EventState:             status.EventState,
+		PullPointSupport:       status.PullPointSupport,
+		EventListenerState:     status.EventListenerState,
+		EventPullLastSuccessAt: status.EventPullLastSuccessAt,
+	}
+	if status.LastEvent != nil {
+		resp.LastEvent = &onvifEventSummaryLastEvent{
+			Topic:       status.LastEvent.Topic,
+			Motion:      status.LastEvent.Motion,
+			MotionTopic: status.LastEvent.MotionTopic,
+			At:          status.LastEvent.At,
+			ReceivedAt:  status.LastEvent.ReceivedAt,
+		}
+	}
+	c.JSON(http.StatusOK, resp)
 }
 
 func handleOnvifEventTest(c *gin.Context) {

@@ -15,17 +15,23 @@ import (
 )
 
 const (
-	onvifEventCapabilityCheckDelay = time.Second
-	onvifEventSubscribeTimeout     = 10 * time.Second
-	onvifEventPullTimeout          = 25 * time.Second
-	onvifEventHTTPTimeout          = onvifEventPullTimeout + 5*time.Second
-	onvifEventMessageLimit         = 20
-	onvifEventSubscriptionDuration = time.Hour
-	onvifEventRenewBefore          = 10 * time.Minute
-	onvifEventReconnectInitial     = 3 * time.Second
-	onvifEventReconnectMax         = time.Minute
-	onvifEventLogValueLimit        = 512
+	onvifEventCapabilityCheckDelay  = time.Second
+	onvifEventSubscribeTimeout      = 10 * time.Second
+	onvifEventPullTimeout           = 25 * time.Second
+	onvifEventHTTPTimeout           = onvifEventPullTimeout + 5*time.Second
+	onvifEventMessageLimit          = 20
+	onvifEventSubscriptionDuration  = time.Hour
+	onvifEventRenewBefore           = 10 * time.Minute
+	onvifEventReconnectInitial      = 3 * time.Second
+	onvifEventReconnectMax          = time.Minute
+	onvifEventInitialSnapshotWindow = 5 * time.Second
+	onvifEventLogValueLimit         = 512
 )
+
+type onvifEventHandleOptions struct {
+	SuppressMotionPublish bool
+	SuppressReason        string
+}
 
 // OnvifEventTask listens for ONVIF PullPoint events and publishes matched motion
 // notifications into the existing in-memory DetectionEvent model.
@@ -161,6 +167,8 @@ func runOnvifPullPointSession(ctx context.Context, cam constant.Camera, candidat
 	service.UpdateOnvifEventListenerListening(cam.ID, time.Time{})
 	defer unsubscribeOnvifPullPoint(client, cam.ID, subscription.Reference)
 
+	firstPull := true
+	subscriptionStartedAt := time.Now()
 	nextRenew := nextOnvifSubscriptionRenewTime(subscription.TerminationTime, time.Now())
 	for {
 		if !nextRenew.IsZero() && !time.Now().Before(nextRenew) {
@@ -184,14 +192,25 @@ func runOnvifPullPointSession(ctx context.Context, cam constant.Camera, candidat
 			}
 			return fmt.Errorf("拉取 PullPoint 事件失败: %w", err)
 		}
-		service.UpdateOnvifEventListenerListening(cam.ID, time.Now())
+		pullCompletedAt := time.Now()
+		service.UpdateOnvifEventListenerListening(cam.ID, pullCompletedAt)
 		for _, notification := range notifications {
-			handleOnvifEventNotification(cam.ID, notification)
+			options := onvifEventHandleOptions{}
+			if shouldSuppressInitialOnvifMotionPublish(notification, firstPull, subscriptionStartedAt, pullCompletedAt) {
+				options.SuppressMotionPublish = true
+				options.SuppressReason = "订阅启动后的初始化状态事件"
+			}
+			handleOnvifEventNotificationWithOptions(cam.ID, notification, options)
 		}
+		firstPull = false
 	}
 }
 
 func handleOnvifEventNotification(camID string, notification onvif.EventNotification) {
+	handleOnvifEventNotificationWithOptions(camID, notification, onvifEventHandleOptions{})
+}
+
+func handleOnvifEventNotificationWithOptions(camID string, notification onvif.EventNotification, options onvifEventHandleOptions) {
 	eventAt := effectiveOnvifEventTime(notification.At, time.Now())
 	sourceText := formatOnvifEventItems(notification.Source)
 	keyText := formatOnvifEventItems(notification.Key)
@@ -224,6 +243,15 @@ func handleOnvifEventNotification(camID string, notification onvif.EventNotifica
 	if !motionEvent {
 		return
 	}
+	if options.SuppressMotionPublish {
+		reason := strings.TrimSpace(options.SuppressReason)
+		if reason == "" {
+			reason = "事件被过滤"
+		}
+		log.Printf("[%s] ONVIF PullPoint motion 事件已忽略: topic=%q at=%s reason=%s data=%s",
+			camID, notification.Topic, eventAt.Format(time.RFC3339), reason, dataText)
+		return
+	}
 
 	PublishDetectionEvent(DetectionEvent{
 		CameraID: camID,
@@ -238,6 +266,21 @@ func handleOnvifEventNotification(camID string, notification onvif.EventNotifica
 	})
 	log.Printf("[%s] ONVIF PullPoint motion 事件已发布: topic=%q at=%s data=%s",
 		camID, notification.Topic, eventAt.Format(time.RFC3339), dataText)
+}
+
+func shouldSuppressInitialOnvifMotionPublish(notification onvif.EventNotification, firstPull bool, subscriptionStartedAt, pullCompletedAt time.Time) bool {
+	if !firstPull || !isOnvifMotionTopic(notification.Topic) {
+		return false
+	}
+	if subscriptionStartedAt.IsZero() || pullCompletedAt.IsZero() {
+		return false
+	}
+	if pullCompletedAt.Sub(subscriptionStartedAt) > onvifEventInitialSnapshotWindow {
+		return false
+	}
+	// PullPoint 新订阅后，设备常会先返回当前状态快照。只有明确 Changed 的事件
+	// 才在首批消息中参与动检触发，避免 MotionAlarm 初始化状态误拉起录像。
+	return strings.ToLower(strings.TrimSpace(notification.Operation)) != "changed"
 }
 
 func isOnvifMotionNotification(notification onvif.EventNotification) bool {

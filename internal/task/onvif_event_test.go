@@ -103,6 +103,56 @@ func TestHandleOnvifEventNotificationIgnoresMotionFalse(t *testing.T) {
 	}
 }
 
+func TestHandleOnvifEventNotificationSuppressesInitialSnapshotMotion(t *testing.T) {
+	resetDetectionEventsForTest(t)
+
+	eventAt := time.Now().Add(-time.Second)
+	handleOnvifEventNotificationWithOptions("cam1", onvif.EventNotification{
+		Topic: "tns1:VideoSource/MotionAlarm",
+		At:    eventAt,
+	}, onvifEventHandleOptions{
+		SuppressMotionPublish: true,
+		SuppressReason:        "test startup snapshot",
+	})
+
+	if _, ok := RecentDetectionEvent("cam1", EventTypeMotion, time.Now(), 5*time.Second); ok {
+		t.Fatal("expected suppressed initial snapshot motion not to be published")
+	}
+}
+
+func TestShouldSuppressInitialOnvifMotionPublish(t *testing.T) {
+	startedAt := time.Now()
+	firstPullAt := startedAt.Add(time.Second)
+	latePullAt := startedAt.Add(onvifEventInitialSnapshotWindow + time.Second)
+
+	if !shouldSuppressInitialOnvifMotionPublish(onvif.EventNotification{
+		Topic: "tns1:VideoSource/MotionAlarm",
+	}, true, startedAt, firstPullAt) {
+		t.Fatal("expected first PullPoint snapshot motion to be suppressed")
+	}
+	if shouldSuppressInitialOnvifMotionPublish(onvif.EventNotification{
+		Topic:     "tns1:VideoSource/MotionAlarm",
+		Operation: "Changed",
+	}, true, startedAt, firstPullAt) {
+		t.Fatal("expected explicit Changed event not to be suppressed")
+	}
+	if shouldSuppressInitialOnvifMotionPublish(onvif.EventNotification{
+		Topic: "tns1:VideoSource/MotionAlarm",
+	}, false, startedAt, firstPullAt) {
+		t.Fatal("expected later pull messages not to be suppressed")
+	}
+	if shouldSuppressInitialOnvifMotionPublish(onvif.EventNotification{
+		Topic: "tns1:VideoSource/MotionAlarm",
+	}, true, startedAt, latePullAt) {
+		t.Fatal("expected late first message not to be treated as startup snapshot")
+	}
+	if shouldSuppressInitialOnvifMotionPublish(onvif.EventNotification{
+		Topic: "tns1:Device/Trigger/DigitalInput",
+	}, true, startedAt, firstPullAt) {
+		t.Fatal("expected non-motion topic not to be suppressed as motion")
+	}
+}
+
 func TestHandleOnvifEventNotificationStoresLastEventForDiagnostics(t *testing.T) {
 	resetDetectionEventsForTest(t)
 
