@@ -35,19 +35,23 @@ func OnvifEventTask(ctx context.Context, wg *sync.WaitGroup, cam constant.Camera
 }
 
 func runOnvifEventWatcher(ctx context.Context, cam constant.Camera, candidate onvif.Candidate) {
+	service.UpdateOnvifEventListenerStarting(cam.ID)
 	reconnectDelay := onvifEventReconnectInitial
 	for {
 		status, ok := waitOnvifPullPointReady(ctx, candidate)
 		if !ok {
+			service.UpdateOnvifEventListenerInactive(cam.ID)
 			return
 		}
 
 		sessionStartedAt := time.Now()
 		err := runOnvifPullPointSession(ctx, cam, candidate, status)
 		if ctx.Err() != nil {
+			service.UpdateOnvifEventListenerInactive(cam.ID)
 			return
 		}
 		if err != nil {
+			service.UpdateOnvifEventListenerError(cam.ID, err)
 			log.Printf("[%s] ONVIF PullPoint 事件监听异常，%s 后重连: %v", cam.ID, reconnectDelay, err)
 		}
 		if time.Since(sessionStartedAt) >= onvifEventReconnectMax {
@@ -154,6 +158,7 @@ func runOnvifPullPointSession(ctx context.Context, cam constant.Camera, candidat
 
 	log.Printf("[%s] ONVIF PullPoint 事件监听已启动: event_xaddr=%s subscription=%s termination=%s",
 		cam.ID, status.EventXAddr, subscription.Reference, formatEventTime(subscription.TerminationTime))
+	service.UpdateOnvifEventListenerListening(cam.ID, time.Time{})
 	defer unsubscribeOnvifPullPoint(client, cam.ID, subscription.Reference)
 
 	nextRenew := nextOnvifSubscriptionRenewTime(subscription.TerminationTime, time.Now())
@@ -179,6 +184,7 @@ func runOnvifPullPointSession(ctx context.Context, cam constant.Camera, candidat
 			}
 			return fmt.Errorf("拉取 PullPoint 事件失败: %w", err)
 		}
+		service.UpdateOnvifEventListenerListening(cam.ID, time.Now())
 		for _, notification := range notifications {
 			handleOnvifEventNotification(cam.ID, notification)
 		}
@@ -187,18 +193,35 @@ func runOnvifPullPointSession(ctx context.Context, cam constant.Camera, candidat
 
 func handleOnvifEventNotification(camID string, notification onvif.EventNotification) {
 	eventAt := effectiveOnvifEventTime(notification.At, time.Now())
+	sourceText := formatOnvifEventItems(notification.Source)
+	keyText := formatOnvifEventItems(notification.Key)
 	dataText := formatOnvifEventItems(notification.Data)
+	motionTopic := isOnvifMotionTopic(notification.Topic)
+	motionEvent := isOnvifMotionNotification(notification)
 	log.Printf("[%s] ONVIF PullPoint 事件: topic=%q op=%q at=%s source=%s key=%s data=%s",
 		camID,
 		notification.Topic,
 		notification.Operation,
 		eventAt.Format(time.RFC3339),
-		formatOnvifEventItems(notification.Source),
-		formatOnvifEventItems(notification.Key),
+		sourceText,
+		keyText,
 		dataText,
 	)
 
-	if !isOnvifMotionNotification(notification) {
+	service.UpdateOnvifLastEvent(camID, service.OnvifEventSnapshot{
+		Topic:           notification.Topic,
+		Operation:       notification.Operation,
+		At:              eventAt,
+		ReceivedAt:      time.Now(),
+		ProducerAddress: notification.ProducerAddress,
+		Source:          sourceText,
+		Key:             keyText,
+		Data:            dataText,
+		Motion:          motionEvent,
+		MotionTopic:     motionTopic,
+	})
+
+	if !motionEvent {
 		return
 	}
 

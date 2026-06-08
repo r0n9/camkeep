@@ -34,7 +34,7 @@ CamKeep is not intended to replace large enterprise video security platforms. It
 * 🕓 **24H timeline playback**: The original card list and timeline remain, and a new docked 24-hour timeline supports dragging, mouse-wheel zoom, mobile pinch zoom, and seeking by time.
 * 🧰 **Web configuration management**: Single-page config management with form/YAML modes, collapsible camera cards, restore-before-save, single add, batch add, and importing unmanaged go2rtc streams.
 * 🎥 **Practical recording modes**: Scheduled recording, manual start/stop, motion recording, timelapse, TS/MP4 segments, historical playback, download, and deletion.
-* 🧠 **Efficient motion recording**: In normal mode, `motion_detect` uses low-resolution frame differencing and a Time-Shift cache to save event clips only when the scene changes.
+* 🧠 **Selectable motion event source**: In normal mode, `motion_detect` can use local low-resolution frame differencing, ONVIF PullPoint, or automatic ONVIF-first fallback to frame differencing with a Time-Shift cache for event clips.
 * 🧹 **Automatic storage management**: Retention cleanup, minimum-size filtering, and optional daily hourly merge keep long-running NAS deployments manageable.
 * 🔒 **Local users and access control**: No cloud dependency, no required account, and no camera data upload. CamKeep supports local admin/viewer users, online session status, and per-camera visibility for viewers.
 
@@ -84,6 +84,7 @@ cameras:
     record_time: "00:00-23:59"
     mode: "normal"
     motion_detect: false
+    motion_event_source: "frame_diff"
     motionDetectRatioThreshold: 0.01
 ```
 

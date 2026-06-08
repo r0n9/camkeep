@@ -19,6 +19,7 @@ cameras:
     record_time: "00:00-23:59"
     mode: "normal"        # 配置态仅支持 normal 或 timelapse
     motion_detect: false  # 开启动检录像时保持 mode=normal，并设置为 true
+    motion_event_source: "frame_diff" # frame_diff / onvif / auto；auto 表示 ONVIF 可用优先，否则回退本地帧差
     motionDetectRatioThreshold: 0.01
 
 # ONVIF 接入：支持 ONVIF 能力探测和可用时的 PTZ / 成像控制
@@ -33,6 +34,7 @@ cameras:
     record_time: "00:00-23:59"
     mode: "normal"
     motion_detect: false
+    motion_event_source: "auto"
     motionDetectRatioThreshold: 0.01
 
 # 延时摄影：按间隔抓帧，适合长时间慢变化场景

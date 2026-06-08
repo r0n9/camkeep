@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/r0n9/camkeep/constant"
+	"github.com/r0n9/camkeep/internal/onvif"
 	"github.com/r0n9/camkeep/internal/service"
 )
 
@@ -90,6 +91,20 @@ func TestMotionRecordingEnabledOnlyForNormalMode(t *testing.T) {
 	}
 }
 
+func TestFrameDiffMotionDetectionEnabledRespectsEventSource(t *testing.T) {
+	base := constant.Camera{Mode: "normal", MotionDetect: true}
+
+	if !FrameDiffMotionDetectionEnabled(base) {
+		t.Fatal("expected default event source to use frame diff")
+	}
+	if FrameDiffMotionDetectionEnabled(constant.Camera{Mode: "normal", MotionDetect: true, MotionEventSource: constant.MotionEventSourceONVIF}) {
+		t.Fatal("expected ONVIF-only event source to skip frame diff")
+	}
+	if !FrameDiffMotionDetectionEnabled(constant.Camera{Mode: "normal", MotionDetect: true, MotionEventSource: constant.MotionEventSourceAuto}) {
+		t.Fatal("expected auto event source to keep frame diff fallback task")
+	}
+}
+
 func TestRecordingWindowEnabled(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -150,6 +165,69 @@ func TestMotionDetectionShouldRunBlocksOfflineStream(t *testing.T) {
 
 	if motionDetectionShouldRun(cam) {
 		t.Fatal("expected offline stream to block motion detection")
+	}
+}
+
+func TestMotionDetectionShouldRunAutoFallsBackWhenOnvifUnavailable(t *testing.T) {
+	cam := constant.Camera{
+		ID:                "motion-auto-fallback",
+		Mode:              "normal",
+		MotionDetect:      true,
+		MotionEventSource: constant.MotionEventSourceAuto,
+		RecordTime:        "00:00-23:59",
+	}
+	setOverridesForTest(t, nil)
+	setStreamStateForTest(t, cam.ID, "online")
+	service.ReplaceOnvifCandidates(nil)
+	t.Cleanup(func() { service.ReplaceOnvifCandidates(nil) })
+
+	if !motionDetectionShouldRunAt(cam, time.Now()) {
+		t.Fatal("expected auto mode to run frame diff when ONVIF event source is unavailable")
+	}
+}
+
+func TestMotionDetectionShouldRunAutoStopsWhenOnvifHealthy(t *testing.T) {
+	cam := constant.Camera{
+		ID:                "motion-auto-onvif",
+		Mode:              "normal",
+		MotionDetect:      true,
+		MotionEventSource: constant.MotionEventSourceAuto,
+		RecordTime:        "00:00-23:59",
+	}
+	candidate := onvif.Candidate{
+		ID:        cam.ID,
+		SourceURL: "onvif://admin:secret@example/onvif/device_service",
+		Endpoint:  "http://example/onvif/device_service",
+	}
+	setOverridesForTest(t, nil)
+	setStreamStateForTest(t, cam.ID, "online")
+	service.ReplaceOnvifCandidates([]onvif.Candidate{candidate})
+	t.Cleanup(func() { service.ReplaceOnvifCandidates(nil) })
+	service.UpdateOnvifProbeResult(candidate, onvif.Capabilities{
+		EventXAddr:       "http://example/onvif/events",
+		PullPointSupport: true,
+	})
+	now := time.Now()
+	service.UpdateOnvifEventListenerListening(cam.ID, now)
+
+	if motionDetectionShouldRunAt(cam, now) {
+		t.Fatal("expected auto mode to stop frame diff while ONVIF event source is healthy")
+	}
+}
+
+func TestMotionDetectionShouldRunOnvifOnlySkipsFrameDiff(t *testing.T) {
+	cam := constant.Camera{
+		ID:                "motion-onvif-only",
+		Mode:              "normal",
+		MotionDetect:      true,
+		MotionEventSource: constant.MotionEventSourceONVIF,
+		RecordTime:        "00:00-23:59",
+	}
+	setOverridesForTest(t, nil)
+	setStreamStateForTest(t, cam.ID, "online")
+
+	if motionDetectionShouldRunAt(cam, time.Now()) {
+		t.Fatal("expected ONVIF-only source to skip frame diff")
 	}
 }
 

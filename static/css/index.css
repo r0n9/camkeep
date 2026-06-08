@@ -2738,6 +2738,12 @@ html.dark .record-timeline-card-action-delete:hover {
     box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.18);
 }
 
+.config-camera-chip--onvif {
+    background: #ede9fe;
+    color: #6d28d9;
+    box-shadow: inset 0 0 0 1px rgba(124, 58, 237, 0.16);
+}
+
 .config-camera-chip--mode {
     background: #f1f5f9;
     color: #475569;
@@ -2915,6 +2921,316 @@ html.dark .record-timeline-card-action-delete:hover {
     font-weight: 700;
     overflow-wrap: anywhere;
     white-space: normal;
+}
+
+.config-onvif-diagnostics {
+    border: 1px solid rgba(124, 58, 237, 0.2);
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(245, 243, 255, 0.78), rgba(255, 255, 255, 0.86));
+    overflow: hidden;
+}
+
+.config-onvif-diagnostics-summary {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 10px;
+    cursor: pointer;
+    list-style: none;
+}
+
+.config-onvif-diagnostics-summary::-webkit-details-marker {
+    display: none;
+}
+
+.config-onvif-diagnostics-summary:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 3px rgba(124, 58, 237, 0.16);
+}
+
+.config-onvif-diagnostics-icon {
+    display: inline-flex;
+    width: 28px;
+    height: 28px;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9px;
+    background: #ede9fe;
+    color: #6d28d9;
+}
+
+.config-onvif-diagnostics-icon svg {
+    width: 16px;
+    height: 16px;
+}
+
+.config-onvif-diagnostics-copy {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.config-onvif-diagnostics-copy strong {
+    color: #3b0764;
+    font-size: 12px;
+    font-weight: 950;
+    line-height: 1.1;
+}
+
+.config-onvif-diagnostics-copy em {
+    color: #7c3aed;
+    font-size: 10px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+.config-onvif-diagnostics-state {
+    display: inline-flex;
+    min-height: 20px;
+    flex: 0 0 auto;
+    align-items: center;
+    border-radius: 9999px;
+    padding: 0 7px;
+    background: #f5f3ff;
+    color: #6d28d9;
+    font-size: 10px;
+    font-weight: 950;
+    line-height: 1;
+    box-shadow: inset 0 0 0 1px rgba(124, 58, 237, 0.14);
+}
+
+.config-onvif-diagnostics.is-ready .config-onvif-diagnostics-state {
+    background: #dcfce7;
+    color: #047857;
+    box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.18);
+}
+
+.config-onvif-diagnostics.is-warn .config-onvif-diagnostics-state {
+    background: #ffedd5;
+    color: #c2410c;
+    box-shadow: inset 0 0 0 1px rgba(249, 115, 22, 0.18);
+}
+
+.config-onvif-diagnostics.is-error .config-onvif-diagnostics-state {
+    background: #ffe4e6;
+    color: #be123c;
+    box-shadow: inset 0 0 0 1px rgba(244, 63, 94, 0.18);
+}
+
+.config-onvif-diagnostics-chevron {
+    display: inline-flex;
+    width: 22px;
+    height: 22px;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    color: #7c3aed;
+    transition: transform 0.18s ease;
+}
+
+.config-onvif-diagnostics-chevron svg {
+    width: 14px;
+    height: 14px;
+}
+
+.config-onvif-diagnostics[open] .config-onvif-diagnostics-chevron {
+    transform: rotate(180deg);
+}
+
+.config-onvif-diagnostics-body {
+    border-top: 1px solid rgba(124, 58, 237, 0.14);
+    padding: 10px;
+}
+
+.config-onvif-diagnostics-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+}
+
+.config-onvif-diag-field {
+    min-width: 0;
+    border: 1px solid rgba(124, 58, 237, 0.14);
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.66);
+    padding: 7px 8px;
+}
+
+.config-onvif-diag-field.is-wide {
+    grid-column: 1 / -1;
+}
+
+.config-onvif-diag-field span {
+    display: block;
+    color: #7c3aed;
+    font-size: 9px;
+    font-weight: 950;
+    line-height: 1;
+}
+
+.config-onvif-diag-field strong {
+    display: block;
+    margin-top: 4px;
+    color: #334155;
+    font-family: "Satoshi", "Clash Display", sans-serif;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+
+.config-onvif-last-event,
+.config-onvif-diagnostics-message {
+    margin-top: 8px;
+    border: 1px solid rgba(124, 58, 237, 0.14);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.72);
+    padding: 8px 9px;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 750;
+    line-height: 1.4;
+}
+
+.config-onvif-last-event.is-empty {
+    border-style: dashed;
+    color: #7c3aed;
+}
+
+.config-onvif-diagnostics-message.is-error {
+    border-color: rgba(244, 63, 94, 0.24);
+    background: rgba(255, 241, 242, 0.82);
+    color: #be123c;
+}
+
+.config-onvif-diagnostics-message.is-live {
+    border-color: rgba(16, 185, 129, 0.24);
+    background: rgba(236, 253, 245, 0.84);
+    color: #047857;
+}
+
+.config-onvif-last-event-head {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.config-onvif-last-event-head strong {
+    color: #475569;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 10px;
+    font-weight: 900;
+}
+
+.config-onvif-last-event-type {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    padding: 3px 7px;
+    font-size: 9px;
+    font-weight: 950;
+    line-height: 1;
+}
+
+.config-onvif-last-event-type.is-motion {
+    background: #ffedd5;
+    color: #c2410c;
+}
+
+.config-onvif-last-event-type.is-generic {
+    background: #e0f2fe;
+    color: #0369a1;
+}
+
+.config-onvif-last-event-topic {
+    margin-top: 6px;
+    color: #111827;
+    font-size: 11px;
+    font-weight: 900;
+    overflow-wrap: anywhere;
+}
+
+.config-onvif-last-event-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 6px;
+}
+
+.config-onvif-last-event-meta span {
+    max-width: 100%;
+    border-radius: 6px;
+    background: rgba(241, 245, 249, 0.9);
+    color: #64748b;
+    padding: 3px 5px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 10px;
+    font-weight: 800;
+    overflow-wrap: anywhere;
+}
+
+.config-onvif-diagnostics-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 7px;
+    margin-top: 9px;
+}
+
+.config-onvif-secondary-btn,
+.config-onvif-primary-btn {
+    display: inline-flex;
+    min-height: 30px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    padding: 0 10px;
+    font-size: 11px;
+    font-weight: 950;
+    transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease, transform 0.16s ease;
+}
+
+.config-onvif-secondary-btn {
+    border: 1px solid rgba(124, 58, 237, 0.18);
+    background: rgba(255, 255, 255, 0.78);
+    color: #6d28d9;
+}
+
+.config-onvif-primary-btn {
+    border: 1px solid rgba(124, 58, 237, 0.44);
+    background: #7c3aed;
+    color: #ffffff;
+    box-shadow: 0 10px 20px -16px rgba(124, 58, 237, 0.76);
+}
+
+.config-onvif-secondary-btn:hover,
+.config-onvif-primary-btn:hover {
+    transform: translateY(-1px);
+}
+
+.config-onvif-secondary-btn:hover {
+    border-color: rgba(124, 58, 237, 0.34);
+    background: #f5f3ff;
+}
+
+.config-onvif-primary-btn:hover {
+    background: #6d28d9;
+}
+
+.config-onvif-primary-btn:disabled {
+    cursor: not-allowed;
+    border-color: rgba(148, 163, 184, 0.28);
+    background: #cbd5e1;
+    color: #64748b;
+    box-shadow: none;
+    transform: none;
 }
 
 .config-add-camera-btn {
@@ -3576,6 +3892,29 @@ html.dark .record-timeline-card-action-delete:hover {
     .config-camera-delete-btn {
         padding-inline: 9px;
     }
+
+    .config-onvif-diagnostics-summary {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .config-onvif-diagnostics-state {
+        margin-left: 36px;
+    }
+
+    .config-onvif-diagnostics-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .config-onvif-diagnostics-actions {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .config-onvif-secondary-btn,
+    .config-onvif-primary-btn {
+        width: 100%;
+    }
 }
 
 html.dark .config-page-card {
@@ -3850,6 +4189,12 @@ html.dark .config-camera-chip--motion {
     box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.16);
 }
 
+html.dark .config-camera-chip--onvif {
+    background: rgba(91, 33, 182, 0.5);
+    color: #ddd6fe;
+    box-shadow: inset 0 0 0 1px rgba(196, 181, 253, 0.16);
+}
+
 html.dark .config-camera-chip--mode {
     background: rgba(51, 65, 85, 0.72);
     color: #cbd5e1;
@@ -4067,6 +4412,125 @@ html.dark .config-managed-rtsp-title {
 
 html.dark .config-managed-rtsp-desc {
     color: #cbd5e1;
+}
+
+html.dark .config-onvif-diagnostics {
+    border-color: rgba(167, 139, 250, 0.26);
+    background: linear-gradient(135deg, rgba(76, 29, 149, 0.2), rgba(15, 23, 42, 0.66));
+}
+
+html.dark .config-onvif-diagnostics-icon {
+    background: rgba(91, 33, 182, 0.42);
+    color: #ddd6fe;
+}
+
+html.dark .config-onvif-diagnostics-copy strong {
+    color: #ede9fe;
+}
+
+html.dark .config-onvif-diagnostics-copy em,
+html.dark .config-onvif-diagnostics-chevron {
+    color: #c4b5fd;
+}
+
+html.dark .config-onvif-diagnostics-state {
+    background: rgba(91, 33, 182, 0.42);
+    color: #ddd6fe;
+    box-shadow: inset 0 0 0 1px rgba(196, 181, 253, 0.14);
+}
+
+html.dark .config-onvif-diagnostics.is-ready .config-onvif-diagnostics-state {
+    background: rgba(6, 78, 59, 0.48);
+    color: #a7f3d0;
+    box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.16);
+}
+
+html.dark .config-onvif-diagnostics.is-warn .config-onvif-diagnostics-state {
+    background: rgba(124, 45, 18, 0.48);
+    color: #fed7aa;
+    box-shadow: inset 0 0 0 1px rgba(251, 146, 60, 0.16);
+}
+
+html.dark .config-onvif-diagnostics.is-error .config-onvif-diagnostics-state {
+    background: rgba(136, 19, 55, 0.48);
+    color: #fecdd3;
+    box-shadow: inset 0 0 0 1px rgba(251, 113, 133, 0.16);
+}
+
+html.dark .config-onvif-diagnostics-body {
+    border-top-color: rgba(167, 139, 250, 0.18);
+}
+
+html.dark .config-onvif-diag-field,
+html.dark .config-onvif-last-event,
+html.dark .config-onvif-diagnostics-message {
+    border-color: rgba(167, 139, 250, 0.16);
+    background: rgba(15, 23, 42, 0.54);
+    color: #cbd5e1;
+}
+
+html.dark .config-onvif-diag-field span {
+    color: #c4b5fd;
+}
+
+html.dark .config-onvif-diag-field strong,
+html.dark .config-onvif-last-event-topic,
+html.dark .config-onvif-last-event-head strong {
+    color: #e2e8f0;
+}
+
+html.dark .config-onvif-last-event.is-empty {
+    color: #c4b5fd;
+}
+
+html.dark .config-onvif-diagnostics-message.is-error {
+    border-color: rgba(251, 113, 133, 0.28);
+    background: rgba(127, 29, 29, 0.24);
+    color: #fda4af;
+}
+
+html.dark .config-onvif-diagnostics-message.is-live {
+    border-color: rgba(52, 211, 153, 0.24);
+    background: rgba(6, 78, 59, 0.2);
+    color: #a7f3d0;
+}
+
+html.dark .config-onvif-last-event-type.is-motion {
+    background: rgba(124, 45, 18, 0.46);
+    color: #fed7aa;
+}
+
+html.dark .config-onvif-last-event-type.is-generic {
+    background: rgba(12, 74, 110, 0.44);
+    color: #bae6fd;
+}
+
+html.dark .config-onvif-last-event-meta span {
+    background: rgba(30, 41, 59, 0.82);
+    color: #cbd5e1;
+}
+
+html.dark .config-onvif-secondary-btn {
+    border-color: rgba(167, 139, 250, 0.24);
+    background: rgba(15, 23, 42, 0.62);
+    color: #ddd6fe;
+}
+
+html.dark .config-onvif-secondary-btn:hover {
+    border-color: rgba(196, 181, 253, 0.38);
+    background: rgba(76, 29, 149, 0.3);
+}
+
+html.dark .config-onvif-primary-btn {
+    border-color: rgba(167, 139, 250, 0.52);
+    background: #7c3aed;
+    color: #ffffff;
+}
+
+html.dark .config-onvif-primary-btn:disabled {
+    border-color: rgba(71, 85, 105, 0.72);
+    background: #334155;
+    color: #94a3b8;
 }
 
 html.dark .config-add-camera-btn {

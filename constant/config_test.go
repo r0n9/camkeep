@@ -57,3 +57,35 @@ func TestCameraManagedByGo2rtcUsesEffectiveStreamURL(t *testing.T) {
 		})
 	}
 }
+
+func TestNormalizeMotionEventSource(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{input: "", want: MotionEventSourceFrameDiff},
+		{input: " FRAME_DIFF ", want: MotionEventSourceFrameDiff},
+		{input: "onvif", want: MotionEventSourceONVIF},
+		{input: "AUTO", want: MotionEventSourceAuto},
+		{input: "unknown", want: "unknown"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			if got := NormalizeMotionEventSource(tt.input); got != tt.want {
+				t.Fatalf("expected %q, got %q", tt.want, got)
+			}
+		})
+	}
+}
+
+func TestValidMotionEventSource(t *testing.T) {
+	for _, source := range []string{"", MotionEventSourceFrameDiff, MotionEventSourceONVIF, MotionEventSourceAuto} {
+		if !ValidMotionEventSource(source) {
+			t.Fatalf("expected %q to be valid", source)
+		}
+	}
+	if ValidMotionEventSource("unknown") {
+		t.Fatal("expected unknown motion event source to be invalid")
+	}
+}

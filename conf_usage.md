@@ -23,6 +23,7 @@ cameras:
     record_time: "00:00-23:59"
     mode: "normal"
     motion_detect: false
+    motion_event_source: "frame_diff"
     motionDetectRatioThreshold: 0.01
 ```
 
@@ -65,11 +66,23 @@ cameras:
   motion_url: "rtsp://admin:password@192.168.1.12:554/Streaming/Channels/102"
   mode: "normal"
   motion_detect: true
+  motion_event_source: "frame_diff"
   motionDetectRatioThreshold: 0.01
   record_time: "00:00-23:59"
 ```
 
-`motion_url` 只用于低成本画面变化检测。事件录像仍使用该摄像头注册到 go2rtc 的默认录制源。
+`motion_event_source` 控制事件来源。事件录像仍使用该摄像头注册到 go2rtc 的默认录制源。
+
+ONVIF 摄像头可使用自动事件源：
+
+```yaml
+- id: "garage"
+  stream_url: "onvif://admin:password@192.168.1.11"
+  mode: "normal"
+  motion_detect: true
+  motion_event_source: "auto"
+  record_time: "00:00-23:59"
+```
 
 ### 延时摄影
 
@@ -134,7 +147,7 @@ cameras:
 
 ### `motion_url`
 
-动检识别专用接入源，可选。只在 `mode: "normal"` 且 `motion_detect: true` 时用于低分辨率帧差检测。
+本地帧差识别专用接入源，可选。只在 `mode: "normal"`、`motion_detect: true` 且事件源需要 `frame_diff` 时使用。
 
 如果留空，动检会使用该摄像头的默认 go2rtc 流。建议填写低分辨率子码流以降低 CPU 和带宽消耗。
 
@@ -207,6 +220,18 @@ record_time: "08:00-12:00,14:00-18:00"
 ### `motion_detect`
 
 是否启用动检录像，只在 `mode: "normal"` 时生效。开启后，这路摄像头不再按时间段持续落盘，而是在录制时间段内检测到画面变化时生成事件录像。
+
+### `motion_event_source`
+
+动检录像事件源，只在 `mode: "normal"` 且 `motion_detect: true` 时生效。
+
+支持：
+
+* `frame_diff`：使用本地低分辨率帧差检测。旧配置未写该字段时按此行为处理。
+* `onvif`：只使用 ONVIF PullPoint motion 事件。ONVIF Event 不可用时不会回退本地帧差。
+* `auto`：优先使用 ONVIF PullPoint；当 ONVIF Event 不可用、PullPoint 不支持、订阅/PullMessages 失败或最近 Pull 成功超时时，自动回退本地帧差。
+
+`auto` 判断的是 ONVIF Event 通道健康，不要求已经收到过 motion 触发。安静场景长时间没有 motion 事件不会导致回退；但 PullPoint 监听异常会回退。
 
 ### `motionDetectRatioThreshold`
 

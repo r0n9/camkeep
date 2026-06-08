@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/r0n9/camkeep/constant"
+	"github.com/r0n9/camkeep/internal/onvif"
 	"github.com/r0n9/camkeep/internal/service"
 )
 
@@ -51,6 +52,43 @@ func isNormalMode(cam constant.Camera) bool {
 
 func motionRecordingEnabled(cam constant.Camera) bool {
 	return isNormalMode(cam) && cam.MotionDetect
+}
+
+func motionEventSource(cam constant.Camera) string {
+	return constant.NormalizeMotionEventSource(cam.MotionEventSource)
+}
+
+func motionEventSourceUsesOnvif(cam constant.Camera, eventCandidate *onvif.Candidate) bool {
+	if !motionRecordingEnabled(cam) || eventCandidate == nil {
+		return false
+	}
+	switch motionEventSource(cam) {
+	case constant.MotionEventSourceONVIF, constant.MotionEventSourceAuto:
+		return true
+	default:
+		return false
+	}
+}
+
+func motionEventSourceUsesFrameDiff(cam constant.Camera, now time.Time) bool {
+	if !motionRecordingEnabled(cam) {
+		return false
+	}
+	switch motionEventSource(cam) {
+	case constant.MotionEventSourceONVIF:
+		return false
+	case constant.MotionEventSourceAuto:
+		return !service.OnvifEventSourceUsable(cam.ID, now)
+	default:
+		return true
+	}
+}
+
+func FrameDiffMotionDetectionEnabled(cam constant.Camera) bool {
+	if !motionRecordingEnabled(cam) {
+		return false
+	}
+	return motionEventSource(cam) != constant.MotionEventSourceONVIF
 }
 
 func statusModeForCamera(cam constant.Camera) string {

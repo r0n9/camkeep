@@ -42,6 +42,7 @@ func loadOrInitConfig() constant.Config {
 						RecordTime:                 "00:00-23:59",
 						Mode:                       "normal",
 						MotionDetect:               false,
+						MotionEventSource:          constant.MotionEventSourceFrameDiff,
 						MotionDetectRatioThreshold: 0.01,
 					},
 				},
@@ -100,7 +101,7 @@ func parseConfigYAML(yamlBytes []byte) (constant.Config, error) {
 	if err := validateConfig(cfg); err != nil {
 		return cfg, err
 	}
-	applyRecordFormatDefaults(&cfg)
+	applyConfigDefaults(&cfg)
 	return cfg, nil
 }
 
@@ -160,13 +161,17 @@ func validateCameraConfig(cam constant.Camera) error {
 	if cam.MotionDetectRatioThreshold < 0 || cam.MotionDetectRatioThreshold > 1 {
 		return fmt.Errorf("motionDetectRatioThreshold 必须在 0 到 1 之间")
 	}
+	if !constant.ValidMotionEventSource(cam.MotionEventSource) {
+		return fmt.Errorf("motion_event_source 仅支持 frame_diff、onvif 或 auto")
+	}
 
 	return nil
 }
 
-func applyRecordFormatDefaults(cfg *constant.Config) {
+func applyConfigDefaults(cfg *constant.Config) {
 	for i := range cfg.Cameras {
 		cfg.Cameras[i].Format = normalizedRecordFormat(cfg.Cameras[i].Format)
+		cfg.Cameras[i].MotionEventSource = constant.NormalizeMotionEventSource(cfg.Cameras[i].MotionEventSource)
 	}
 }
 
@@ -219,6 +224,7 @@ func validateAndFixConfig(cfg constant.Config) constant.Config {
 		if cam.Mode == "" {
 			cam.Mode = "normal" // 普通录制模式
 		}
+		cam.MotionEventSource = constant.NormalizeMotionEventSource(cam.MotionEventSource)
 
 		uniqueCams = append(uniqueCams, cam)
 	}

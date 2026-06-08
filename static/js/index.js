@@ -331,6 +331,8 @@ const DEFAULT_SEGMENT_DURATION = 600;
 const DEFAULT_MIN_SIZE_KB = 1024;
 const DEFAULT_CAPTURE_INTERVAL = 1;
 const DEFAULT_MOTION_RATIO_THRESHOLD = 0.01;
+const DEFAULT_MOTION_EVENT_SOURCE = 'frame_diff';
+const MOTION_EVENT_SOURCES = new Set(['frame_diff', 'onvif', 'auto']);
 let configEditMode = 'form';
 let configFormState = {daily_merge: {enabled: false, time: '03:30'}, cameras: []};
 let configFormInitialCameras = [];
@@ -338,12 +340,23 @@ let configFormInitialCamerasLoaded = false;
 let go2rtcStreamInfoMap = new Map();
 let configCameraExpandedKeys = new Set();
 let configCameraUiSeq = 0;
+let configOnvifDiagnosticsOpenKeys = new Set();
+let onvifDiagnosticsCache = new Map();
+let onvifDiagnosticsLoading = new Set();
+let onvifEventTestState = new Map();
+let onvifEventTestTimers = new Map();
 
 async function openConfig() {
     if (!canAdmin()) return;
     showConfigPage();
     go2rtcStreamInfoMap = new Map();
     configCameraExpandedKeys = new Set();
+    configOnvifDiagnosticsOpenKeys = new Set();
+    onvifDiagnosticsCache = new Map();
+    onvifDiagnosticsLoading = new Set();
+    onvifEventTestTimers.forEach(timer => clearTimeout(timer));
+    onvifEventTestTimers = new Map();
+    onvifEventTestState = new Map();
     configFormInitialCameras = [];
     configFormInitialCamerasLoaded = false;
     renderConfigLoadingState();
@@ -477,6 +490,7 @@ async function switchConfigMode(mode, options = {}) {
         }
         configFormState = normalizeConfigForm(parsed.config);
         configCameraExpandedKeys = new Set();
+        configOnvifDiagnosticsOpenKeys = new Set();
         renderConfigForm();
     }
     if (mode === 'yaml' && configEditMode !== 'yaml' && !options.skipSync) {
@@ -602,14 +616,16 @@ function normalizeGo2rtcStreamInfo(stream, fallbackID = '') {
         return {
             id: stream,
             source_label: '',
-            managed: false
+            managed: false,
+            onvif_enabled: false
         };
     }
 
     return {
         id: String(readConfigValue(stream, ['id', 'ID'], fallbackID) || ''),
         source_label: readConfigValue(stream, ['source_label', 'SourceLabel'], ''),
-        managed: Boolean(readConfigValue(stream, ['managed', 'Managed'], false))
+        managed: Boolean(readConfigValue(stream, ['managed', 'Managed'], false)),
+        onvif_enabled: Boolean(readConfigValue(stream, ['onvif_enabled', 'ONVIFEnabled'], false))
     };
 }
 
@@ -679,9 +695,15 @@ function normalizeConfigCamera(cam) {
         mode: readConfigValue(cam, ['mode', 'Mode'], DEFAULT_CAMERA_MODE) || DEFAULT_CAMERA_MODE,
         capture_interval: captureInterval > 0 ? captureInterval : DEFAULT_CAPTURE_INTERVAL,
         motion_detect: Boolean(readConfigValue(cam, ['motion_detect', 'MotionDetect'], false)),
+        motion_event_source: normalizeMotionEventSource(readConfigValue(cam, ['motion_event_source', 'MotionEventSource'], DEFAULT_MOTION_EVENT_SOURCE)),
         motionDetectRatioThreshold: motionRatio > 0 ? motionRatio : DEFAULT_MOTION_RATIO_THRESHOLD,
         auto_discovered: isManagedByGo2rtcURL(effectiveStreamURL) || Boolean(readConfigValue(cam, ['auto_discovered', 'AutoDiscovered'], false))
     };
+}
+
+function normalizeMotionEventSource(source) {
+    source = String(source || '').trim().toLowerCase();
+    return MOTION_EVENT_SOURCES.has(source) ? source : DEFAULT_MOTION_EVENT_SOURCE;
 }
 
 function readConfigValue(source, keys, fallback) {
@@ -703,6 +725,339 @@ function readConfigNumber(source, keys, fallback) {
 
 function isManagedByGo2rtcURL(streamURL) {
     return String(streamURL || '').trim() === 'managed_by_go2rtc';
+}
+
+function extractConfigOnvifSource(source) {
+    source = String(source || '').trim();
+    if (!source) return '';
+    if (source.toLowerCase().startsWith('onvif://')) return source;
+
+    const colon = source.indexOf(':');
+    const schemeSep = source.indexOf('://');
+    if (colon > 0 && (schemeSep < 0 || colon < schemeSep)) {
+        return extractConfigOnvifSource(source.slice(colon + 1));
+    }
+    return '';
+}
+
+function configCameraSupportsOnvif(cam) {
+    if (!cam) return false;
+    if (isManagedByGo2rtcURL(cam.stream_url)) {
+        return go2rtcStreamInfoMap.get(String(cam.id || ''))?.onvif_enabled === true;
+    }
+    return Boolean(extractConfigOnvifSource(cam.stream_url));
+}
+
+function syncConfigOnvifDiagnosticsOpen(details) {
+    if (!details || !details.dataset) return;
+    const key = details.dataset.uiKey || '';
+    if (!key) return;
+    if (details.open) {
+        configOnvifDiagnosticsOpenKeys.add(key);
+        ensureOnvifDiagnosticsLoaded(details.dataset.camId || '');
+    } else {
+        configOnvifDiagnosticsOpenKeys.delete(key);
+    }
+}
+
+function ensureOnvifDiagnosticsLoaded(camId) {
+    camId = String(camId || '').trim();
+    if (!camId || onvifDiagnosticsCache.has(camId) || onvifDiagnosticsLoading.has(camId)) return;
+    void refreshOnvifDiagnostics(camId, {silent: true});
+}
+
+async function refreshOnvifDiagnostics(camId, options = {}) {
+    camId = String(camId || '').trim();
+    if (!camId) return;
+    if (onvifDiagnosticsLoading.has(camId) && !options.force) return;
+
+    onvifDiagnosticsLoading.add(camId);
+    try {
+        const resp = await fetch(`/api/camera/${encodeURIComponent(camId)}/onvif`);
+        const payload = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+            onvifDiagnosticsCache.set(camId, {
+                enabled: false,
+                error: payload.error || 'ONVIF 事件诊断读取失败'
+            });
+        } else {
+            onvifDiagnosticsCache.set(camId, payload);
+        }
+    } catch (e) {
+        onvifDiagnosticsCache.set(camId, {
+            enabled: false,
+            error: 'ONVIF 事件诊断读取失败: ' + e.message
+        });
+    } finally {
+        onvifDiagnosticsLoading.delete(camId);
+        if (configPageVisible) rerenderConfigFormPreservingInput();
+    }
+}
+
+async function startOnvifEventTest(camId) {
+    camId = String(camId || '').trim();
+    if (!camId) return;
+
+    onvifEventTestState.set(camId, {starting: true});
+    rerenderConfigFormPreservingInput();
+
+    try {
+        const resp = await fetch(`/api/camera/${encodeURIComponent(camId)}/onvif/event-test`, {method: 'POST'});
+        const payload = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+            onvifEventTestState.set(camId, {error: payload.error || 'ONVIF PullPoint 测试监听启动失败'});
+            rerenderConfigFormPreservingInput();
+            return;
+        }
+
+        const expiresAt = Date.parse(payload.expires_at || '');
+        const expiresAtMs = Number.isFinite(expiresAt) ? expiresAt : Date.now() + 30000;
+        onvifEventTestState.set(camId, {
+            expiresAtMs,
+            message: payload.message || 'ONVIF PullPoint 测试监听已启动'
+        });
+        scheduleOnvifEventTestPolling(camId, expiresAtMs);
+        await refreshOnvifDiagnostics(camId, {force: true, silent: true});
+    } catch (e) {
+        onvifEventTestState.set(camId, {error: 'ONVIF PullPoint 测试监听启动失败: ' + e.message});
+        rerenderConfigFormPreservingInput();
+    }
+}
+
+function scheduleOnvifEventTestPolling(camId, expiresAtMs) {
+    const existing = onvifEventTestTimers.get(camId);
+    if (existing) clearTimeout(existing);
+
+    const tick = async () => {
+        await refreshOnvifDiagnostics(camId, {force: true, silent: true});
+        if (Date.now() < expiresAtMs) {
+            onvifEventTestTimers.set(camId, setTimeout(tick, 3000));
+            return;
+        }
+        onvifEventTestTimers.delete(camId);
+        onvifEventTestState.delete(camId);
+        if (configPageVisible) rerenderConfigFormPreservingInput();
+    };
+
+    onvifEventTestTimers.set(camId, setTimeout(tick, 1200));
+}
+
+function renderOnvifDiagnosticsSection(cam, uiKey) {
+    if (!configCameraSupportsOnvif(cam)) return '';
+
+    const camId = String(cam.id || '').trim();
+    if (camId) ensureOnvifDiagnosticsLoaded(camId);
+
+    const status = camId ? onvifDiagnosticsCache.get(camId) : null;
+    const open = configOnvifDiagnosticsOpenKeys.has(uiKey);
+    const stateView = onvifEventStateView(status, camId);
+    const body = renderOnvifDiagnosticsBody(camId, status, stateView);
+
+    return `
+        <details class="config-onvif-diagnostics ${stateView.className}" data-ui-key="${escapeHtml(uiKey)}" data-cam-id="${escapeHtml(camId)}" ${open ? 'open' : ''} ontoggle="syncConfigOnvifDiagnosticsOpen(this)">
+            <summary class="config-onvif-diagnostics-summary">
+                <span class="config-onvif-diagnostics-icon">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 3v4m0 10v4M5.64 5.64l2.83 2.83m7.06 7.06 2.83 2.83M3 12h4m10 0h4M5.64 18.36l2.83-2.83m7.06-7.06 2.83-2.83"></path><circle cx="12" cy="12" r="3.5" stroke-width="2.2"></circle></svg>
+                </span>
+                <span class="config-onvif-diagnostics-copy">
+                    <strong>ONVIF 事件诊断</strong>
+                    <em>确认 Event 服务、PullPoint 支持和最近收到的事件。</em>
+                </span>
+                <span class="config-onvif-diagnostics-state">${escapeHtml(stateView.label)}</span>
+                <span class="config-onvif-diagnostics-chevron" aria-hidden="true">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.3" d="M19 9l-7 7-7-7"></path></svg>
+                </span>
+            </summary>
+            <div class="config-onvif-diagnostics-body">${body}</div>
+        </details>
+    `;
+}
+
+function onvifEventStateView(status, camId) {
+    if (!camId) return {label: '保存后诊断', className: 'is-muted'};
+    if (onvifDiagnosticsLoading.has(camId) && !status) return {label: '读取中', className: 'is-loading'};
+    if (!status) return {label: '未读取', className: 'is-muted'};
+    if (status.error) return {label: '读取失败', className: 'is-error'};
+
+    const eventState = String(status.event_state || 'not_probed').toLowerCase();
+    if (eventState === 'available' && status.pull_point_support === true) {
+        const listenerState = String(status.event_listener_state || 'inactive').toLowerCase();
+        if (listenerState === 'listening') {
+            return onvifRecentPullHealthy(status.event_pull_last_success_at)
+                ? {label: '事件就绪', className: 'is-ready'}
+                : {label: '监听中', className: 'is-loading'};
+        }
+        if (listenerState === 'starting') return {label: '监听启动中', className: 'is-loading'};
+        if (listenerState === 'error') return {label: '监听异常', className: 'is-error'};
+        return {label: '待监听', className: 'is-warn'};
+    }
+    if (eventState === 'available') {
+        return {label: '无 PullPoint', className: 'is-warn'};
+    }
+    if (eventState === 'probing' || eventState === 'not_probed') {
+        return {label: eventState === 'probing' ? '探测中' : '未探测', className: 'is-loading'};
+    }
+    if (eventState === 'error') {
+        return {label: '探测失败', className: 'is-error'};
+    }
+    return {label: '不可用', className: 'is-warn'};
+}
+
+function renderOnvifDiagnosticsBody(camId, status, stateView) {
+    if (!camId) {
+        return `<div class="config-onvif-diagnostics-message">保存并应用配置后，可读取该摄像头的 ONVIF Event 能力。</div>`;
+    }
+    if (onvifDiagnosticsLoading.has(camId) && !status) {
+        return `<div class="config-onvif-diagnostics-message">正在读取 ONVIF 事件诊断...</div>`;
+    }
+    if (!status) {
+        return `<div class="config-onvif-diagnostics-message">尚未读取诊断状态。</div>${renderOnvifDiagnosticsActions(camId, false)}`;
+    }
+    if (status.error) {
+        return `
+            <div class="config-onvif-diagnostics-message is-error">${escapeHtml(status.error)}</div>
+            ${renderOnvifDiagnosticsActions(camId, false)}
+        `;
+    }
+
+    const sourceKind = status.managed_by_go2rtc ? 'go2rtc 托管 ONVIF 源' : '直接 ONVIF 接入';
+    const eventReady = status.event_state === 'available' && status.pull_point_support === true;
+    const lastErrorText = status.event_listener_last_error || status.last_error || '';
+    const lastError = lastErrorText ? `
+        <div class="config-onvif-diagnostics-message is-error">${escapeHtml(lastErrorText)}</div>
+    ` : '';
+
+    return `
+        <div class="config-onvif-diagnostics-grid">
+            ${onvifDiagField('接入方式', sourceKind)}
+            ${onvifDiagField('Event 服务', onvifStateText(status.event_state))}
+            ${onvifDiagField('PullPoint', status.pull_point_support ? '支持' : '不支持')}
+            ${onvifDiagField('监听状态', onvifListenerStateText(status.event_listener_state))}
+            ${onvifDiagField('最后 Pull 成功', formatOnvifDateTime(status.event_pull_last_success_at))}
+            ${onvifDiagField('Motion 验证', status.motion_event_verified ? '已验证' : '未验证')}
+            ${onvifDiagField('最后探测', formatOnvifDateTime(status.updated_at))}
+            ${onvifDiagField('Event XAddr', status.event_xaddr || '-', 'is-wide')}
+            ${onvifDiagField('ONVIF 来源', status.source_url || '-', 'is-wide')}
+        </div>
+        ${lastError}
+        ${renderOnvifLastEvent(status.last_event)}
+        ${renderOnvifTestMessage(camId)}
+        ${renderOnvifDiagnosticsActions(camId, eventReady)}
+    `;
+}
+
+function onvifDiagField(label, value, extraClass = '') {
+    return `
+        <div class="config-onvif-diag-field ${extraClass}">
+            <span>${escapeHtml(label)}</span>
+            <strong>${escapeHtml(value || '-')}</strong>
+        </div>
+    `;
+}
+
+function renderOnvifLastEvent(event) {
+    if (!event) {
+        return `<div class="config-onvif-last-event is-empty">暂无收到的 ONVIF 事件。点击测试监听后触发摄像头事件，再观察这里是否更新。</div>`;
+    }
+
+    const typeClass = event.motion_topic ? 'is-motion' : 'is-generic';
+    const typeText = event.motion ? 'motion' : (event.motion_topic ? 'motion topic' : 'event');
+    return `
+        <div class="config-onvif-last-event">
+            <div class="config-onvif-last-event-head">
+                <span class="config-onvif-last-event-type ${typeClass}">${typeText}</span>
+                <strong>${escapeHtml(formatOnvifDateTime(event.at || event.received_at))}</strong>
+            </div>
+            <div class="config-onvif-last-event-topic">${escapeHtml(event.topic || '-')}</div>
+            <div class="config-onvif-last-event-meta">
+                ${event.operation ? `<span>op=${escapeHtml(event.operation)}</span>` : ''}
+                ${event.source ? `<span>source=${escapeHtml(event.source)}</span>` : ''}
+                ${event.key ? `<span>key=${escapeHtml(event.key)}</span>` : ''}
+                ${event.data ? `<span>data=${escapeHtml(event.data)}</span>` : ''}
+            </div>
+        </div>
+    `;
+}
+
+function renderOnvifTestMessage(camId) {
+    const test = onvifEventTestState.get(camId);
+    if (!test) return '';
+    if (test.error) {
+        return `<div class="config-onvif-diagnostics-message is-error">${escapeHtml(test.error)}</div>`;
+    }
+    if (test.starting) {
+        return `<div class="config-onvif-diagnostics-message">正在启动 PullPoint 测试监听...</div>`;
+    }
+    if (test.expiresAtMs && Date.now() < test.expiresAtMs) {
+        const remain = Math.max(1, Math.ceil((test.expiresAtMs - Date.now()) / 1000));
+        return `<div class="config-onvif-diagnostics-message is-live">${escapeHtml(test.message || 'ONVIF PullPoint 测试监听中')}，剩余约 ${remain} 秒。</div>`;
+    }
+    return '';
+}
+
+function renderOnvifDiagnosticsActions(camId, canTest) {
+    const test = onvifEventTestState.get(camId);
+    const testActive = Boolean(test?.starting || (test?.expiresAtMs && Date.now() < test.expiresAtMs));
+    const testDisabled = canTest && !testActive ? '' : 'disabled';
+    const testTitle = canTest ? '启动 30 秒 ONVIF PullPoint 测试监听' : 'Event 可用且支持 PullPoint 后才能测试监听';
+    return `
+        <div class="config-onvif-diagnostics-actions">
+            <button type="button" data-onvif-cam-id="${escapeHtml(camId)}" onclick="refreshOnvifDiagnostics(this.dataset.onvifCamId, {force: true})" class="config-onvif-secondary-btn">
+                刷新状态
+            </button>
+            <button type="button" data-onvif-cam-id="${escapeHtml(camId)}" onclick="startOnvifEventTest(this.dataset.onvifCamId)" class="config-onvif-primary-btn" ${testDisabled} title="${escapeHtml(testTitle)}">
+                ${testActive ? '监听中' : '测试监听 30 秒'}
+            </button>
+        </div>
+    `;
+}
+
+function onvifStateText(state) {
+    switch (String(state || '').toLowerCase()) {
+        case 'available':
+            return '可用';
+        case 'probing':
+            return '探测中';
+        case 'unavailable':
+            return '不可用';
+        case 'error':
+            return '错误';
+        case 'not_probed':
+            return '未探测';
+        default:
+            return state || '-';
+    }
+}
+
+function onvifListenerStateText(state) {
+    switch (String(state || '').toLowerCase()) {
+        case 'listening':
+            return '监听中';
+        case 'starting':
+            return '启动中';
+        case 'error':
+            return '异常';
+        case 'inactive':
+        case '':
+            return '未监听';
+        default:
+            return state || '-';
+    }
+}
+
+function onvifRecentPullHealthy(value) {
+    if (!value || String(value).startsWith('0001-01-01')) return false;
+    const pulledAt = Date.parse(value);
+    if (!Number.isFinite(pulledAt)) return false;
+    return Date.now() - pulledAt <= 90000;
+}
+
+function formatOnvifDateTime(value) {
+    if (!value) return '-';
+    if (String(value).startsWith('0001-01-01')) return '-';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+    return date.toLocaleString('zh-CN', {hour12: false});
 }
 
 function cloneConfigCameraList(cameras) {
@@ -751,10 +1106,16 @@ function renderConfigForm() {
 }
 
 function renderConfigCameraCard(cam, index, expanded = false) {
+    const uiKey = ensureConfigCameraUiKey(cam);
     const modeValue = String(cam.mode || 'normal').toLowerCase();
     const normalMode = modeValue !== 'timelapse';
     const managedByGo2rtc = isManagedByGo2rtcURL(cam.stream_url);
+    const onvifCapable = configCameraSupportsOnvif(cam);
     const motionEnabled = normalMode && Boolean(cam.motion_detect);
+    const motionEventSourceValue = motionEventSourceForCamera(cam, onvifCapable);
+    const motionEventSourceOptions = onvifCapable
+        ? [['frame_diff', '本地帧差'], ['onvif', 'ONVIF'], ['auto', '自动']]
+        : [['frame_diff', '本地帧差']];
     const motionDetectAttrs = normalMode ? 'onchange="refreshConfigFormFromDom()"' : 'disabled';
     const motionUrlAttrs = normalMode ? '' : 'disabled title="延时模式不使用动检流"';
     const motionThresholdAttrs = motionEnabled ? '' : 'disabled title="先启用动检录制后再调整阈值"';
@@ -763,6 +1124,7 @@ function renderConfigCameraCard(cam, index, expanded = false) {
     const motionSectionDesc = normalMode
         ? '启用后仅事件片段会触发录像，阈值越低越敏感。'
         : '仅在延时模式下生效，动检项会被忽略。';
+    const motionEventSourceNote = normalMode ? renderMotionEventSourceNote(motionEventSourceValue, onvifCapable) : '';
     const sourceHint = managedByGo2rtc ? '使用 go2rtc 同名流' : 'CamKeep 会把接入源注册到 go2rtc';
     const motionHint = normalMode ? '动检开启后仅事件录像' : '延时录像模式会忽略动检';
     return `
@@ -774,6 +1136,7 @@ function renderConfigCameraCard(cam, index, expanded = false) {
                         <div class="config-camera-title-row">
                             <h4 class="truncate text-sm font-extrabold text-slate-800">${escapeHtml(cam.id || '未命名摄像头')}</h4>
                             ${managedByGo2rtc ? '<span class="config-camera-chip config-camera-chip--go2rtc">go2rtc 接管</span>' : ''}
+                            ${onvifCapable ? '<span class="config-camera-chip config-camera-chip--onvif">ONVIF</span>' : ''}
                             ${motionEnabled ? '<span class="config-camera-chip config-camera-chip--motion">动检</span>' : ''}
                             <span class="config-camera-chip config-camera-chip--mode">${escapeHtml(modeValue || 'normal')} / ${escapeHtml(cam.format || DEFAULT_RECORD_FORMAT)}</span>
                         </div>
@@ -803,19 +1166,44 @@ function renderConfigCameraCard(cam, index, expanded = false) {
                 `, 'config-form-section--storage')}
                 ${configFormSection(motionSectionTitle, motionSectionDesc, normalMode ? `
                     ${configCheckboxInput('动检录制', 'motion_detect', motionEnabled, motionDetectAttrs)}
+                    ${configSelectInput('事件源', 'motion_event_source', motionEventSourceValue, motionEventSourceOptions, `onchange="refreshConfigFormFromDom()"`, false)}
                     ${configTextInput('动检流 motion_url', 'motion_url', cam.motion_url, '可选，低码率子码流，仅用于识别', false, 'config-field-wide', motionUrlAttrs)}
                     ${configHiddenInput('capture_interval', cam.capture_interval)}
                     ${configNumberInput('动检阈值', 'motionDetectRatioThreshold', cam.motionDetectRatioThreshold, '0.01 表示 1%', '0.001', '', motionThresholdAttrs)}
+                    ${motionEventSourceNote}
                 ` : `
                     ${configNumberInput('延时抓拍间隔', 'capture_interval', cam.capture_interval, '仅延时生效', '1', 'config-field-wide', captureIntervalAttrs)}
                     ${configHiddenInput('motion_url', cam.motion_url)}
+                    ${configHiddenInput('motion_event_source', motionEventSourceValue)}
                     ${configHiddenInput('motionDetectRatioThreshold', cam.motionDetectRatioThreshold)}
                     <input data-field="motion_detect" type="checkbox" ${cam.motion_detect ? 'checked' : ''} hidden>
                     <div class="config-form-section-note config-field-wide">延时模式不使用动检录像，保留接入源与抓拍间隔即可。</div>
                 `, normalMode ? 'config-form-section--motion' : 'config-form-section--motion config-form-section--timelapse is-muted')}
+                ${renderOnvifDiagnosticsSection(cam, uiKey)}
             </div>
         </div>
     `;
+}
+
+function motionEventSourceForCamera(cam, onvifCapable) {
+    const source = normalizeMotionEventSource(cam?.motion_event_source || DEFAULT_MOTION_EVENT_SOURCE);
+    if (!onvifCapable && source !== DEFAULT_MOTION_EVENT_SOURCE) return DEFAULT_MOTION_EVENT_SOURCE;
+    return source;
+}
+
+function renderMotionEventSourceNote(source, onvifCapable) {
+    source = normalizeMotionEventSource(source || DEFAULT_MOTION_EVENT_SOURCE);
+    let text = '';
+    if (source === 'onvif') {
+        text = 'ONVIF 模式只使用 PullPoint motion 事件；Event 不可用时不会启动本地帧差回退。';
+    } else if (source === 'auto') {
+        text = '自动模式会在 ONVIF Event 通道健康时优先使用 PullPoint，不健康时回退本地帧差。';
+    } else {
+        text = onvifCapable
+            ? '本地帧差会读取 motion_url；留空时使用默认 go2rtc 流。'
+            : '当前接入源不是 ONVIF，只支持本地帧差事件源。';
+    }
+    return `<div class="config-form-section-note config-field-wide">${escapeHtml(text)}</div>`;
 }
 
 function configFormSection(title, desc, content, extraClass = '') {
@@ -926,6 +1314,7 @@ function restoreConfigCameras() {
     configFormState = collectConfigForm({allowEmptyID: true});
     configFormState.cameras = cloneConfigCameraList(configFormInitialCameras);
     configCameraExpandedKeys = new Set();
+    configOnvifDiagnosticsOpenKeys = new Set();
     renderConfigForm();
 }
 
@@ -953,6 +1342,7 @@ function collectConfigForm(options = {}) {
             mode,
             capture_interval: readCardNumber(card, 'capture_interval', 0),
             motion_detect: mode === 'normal' && readCardCheckbox(card, 'motion_detect'),
+            motion_event_source: normalizeMotionEventSource(readCardField(card, 'motion_event_source')),
             motionDetectRatioThreshold: readCardFloat(card, 'motionDetectRatioThreshold', 0),
             auto_discovered: isManagedByGo2rtcURL(readCardField(card, 'stream_url'))
         };
@@ -999,6 +1389,7 @@ function defaultConfigCameraSeed(overrides = {}) {
         mode: DEFAULT_CAMERA_MODE,
         capture_interval: DEFAULT_CAPTURE_INTERVAL,
         motion_detect: false,
+        motion_event_source: DEFAULT_MOTION_EVENT_SOURCE,
         motionDetectRatioThreshold: DEFAULT_MOTION_RATIO_THRESHOLD,
         auto_discovered: false,
         ...overrides
@@ -1263,6 +1654,7 @@ function applyBatchAddCameras() {
     nextCameras.forEach(cam => ensureConfigCameraUiKey(cam));
     configFormState.cameras = [...nextCameras, ...configFormState.cameras];
     configCameraExpandedKeys = new Set();
+    configOnvifDiagnosticsOpenKeys = new Set();
     renderConfigForm();
 
     input.value = '';
@@ -1284,6 +1676,7 @@ function removeConfigCamera(index) {
     configFormState = collectConfigForm({allowEmptyID: true});
     configFormState.cameras.splice(index, 1);
     if (removedKey) configCameraExpandedKeys.delete(removedKey);
+    if (removedKey) configOnvifDiagnosticsOpenKeys.delete(removedKey);
     renderConfigForm();
 }
 
@@ -1330,6 +1723,7 @@ function configToYaml(cfg) {
         lines.push(`    mode: ${yamlScalar(cam.mode)}`);
         lines.push(`    capture_interval: ${cam.capture_interval}`);
         lines.push(`    motion_detect: ${cam.motion_detect ? 'true' : 'false'}`);
+        lines.push(`    motion_event_source: ${yamlScalar(cam.motion_event_source || DEFAULT_MOTION_EVENT_SOURCE)}`);
         lines.push(`    motionDetectRatioThreshold: ${cam.motionDetectRatioThreshold}`);
         if (cam.auto_discovered) lines.push('    auto_discovered: true');
     });
@@ -1369,7 +1763,7 @@ function appendStreamToConfig(stream) {
         propIndent = listIndent + "  ";
     }
 
-    const newCamYaml = [`${listIndent}- id: "${streamId}"`, `${propIndent}order: ${nextOrder}`, `${propIndent}stream_url: "managed_by_go2rtc"`, `${propIndent}motion_url: ""`, `${propIndent}auto_discovered: true`, `${propIndent}retention_days: 7`, `${propIndent}segment_duration: 600`, `${propIndent}format: ${DEFAULT_RECORD_FORMAT}`, `${propIndent}min_size_kb: 1024`, `${propIndent}record_time: "00:00-23:59"`, `${propIndent}mode: normal`, `${propIndent}motion_detect: false`, `${propIndent}motionDetectRatioThreshold: 0.01`].join('\n') + '\n';
+    const newCamYaml = [`${listIndent}- id: "${streamId}"`, `${propIndent}order: ${nextOrder}`, `${propIndent}stream_url: "managed_by_go2rtc"`, `${propIndent}motion_url: ""`, `${propIndent}auto_discovered: true`, `${propIndent}retention_days: 7`, `${propIndent}segment_duration: 600`, `${propIndent}format: ${DEFAULT_RECORD_FORMAT}`, `${propIndent}min_size_kb: 1024`, `${propIndent}record_time: "00:00-23:59"`, `${propIndent}mode: normal`, `${propIndent}motion_detect: false`, `${propIndent}motion_event_source: ${DEFAULT_MOTION_EVENT_SOURCE}`, `${propIndent}motionDetectRatioThreshold: 0.01`].join('\n') + '\n';
 
     if (content.trim() === '') {
         content = 'cameras:\n';

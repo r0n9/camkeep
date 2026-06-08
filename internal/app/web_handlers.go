@@ -357,7 +357,7 @@ func handleSaveConfigForm(c *gin.Context) {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
-	applyRecordFormatDefaults(&newConfig)
+	applyConfigDefaults(&newConfig)
 	markGo2rtcManagedCameras(&newConfig)
 
 	yamlBytes, err := yaml.Marshal(newConfig)
@@ -443,6 +443,55 @@ func handleCameraOnvifStatus(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, status)
+}
+
+func handleOnvifEventTest(c *gin.Context) {
+	id := c.Param("id")
+	cam, ok := currentCameraConfig(id)
+	if !ok {
+		c.JSON(http.StatusNotFound, gin.H{"error": "找不到该摄像头"})
+		return
+	}
+
+	status, ok := service.GetOnvifStatus(id)
+	if !ok {
+		c.JSON(http.StatusNotFound, gin.H{"error": "该摄像头不是 ONVIF 接入设备"})
+		return
+	}
+	if status.EventState != service.OnvifStateAvailable || status.EventXAddr == "" {
+		c.JSON(http.StatusConflict, gin.H{"error": "该摄像头 ONVIF Event 尚不可用"})
+		return
+	}
+	if !status.PullPointSupport {
+		c.JSON(http.StatusConflict, gin.H{"error": "该摄像头不支持 ONVIF PullPoint"})
+		return
+	}
+
+	candidate, ok := currentOnvifCandidate(id)
+	if !ok {
+		c.JSON(http.StatusConflict, gin.H{"error": "无法解析该摄像头的 ONVIF 连接信息"})
+		return
+	}
+
+	duration := 30 * time.Second
+	parent := ctxGlobal
+	if parent == nil {
+		parent = context.Background()
+	}
+	testCtx, cancel := context.WithTimeout(parent, duration)
+	release := task.RequireOnvifMotionEvents(testCtx, cam, candidate, "event-diagnostics-test")
+	go func() {
+		<-testCtx.Done()
+		release()
+		cancel()
+	}()
+
+	expiresAt := time.Now().Add(duration)
+	c.JSON(http.StatusOK, gin.H{
+		"message":    "ONVIF PullPoint 测试监听已启动",
+		"duration":   int(duration.Seconds()),
+		"expires_at": expiresAt,
+	})
 }
 
 func handlePTZStatus(c *gin.Context) {
@@ -599,6 +648,18 @@ func cameraExists(camID string) bool {
 	return slices.ContainsFunc(currentConfig.Cameras, func(cam constant.Camera) bool {
 		return cam.ID == camID
 	})
+}
+
+func currentCameraConfig(camID string) (constant.Camera, bool) {
+	constant.ConfigMux.RLock()
+	defer constant.ConfigMux.RUnlock()
+
+	for _, cam := range currentConfig.Cameras {
+		if cam.ID == camID {
+			return cam, true
+		}
+	}
+	return constant.Camera{}, false
 }
 
 func getPTZReadyTarget(c *gin.Context, camID string) (onvif.Candidate, service.OnvifStatus, bool) {

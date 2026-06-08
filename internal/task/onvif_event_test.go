@@ -103,6 +103,46 @@ func TestHandleOnvifEventNotificationIgnoresMotionFalse(t *testing.T) {
 	}
 }
 
+func TestHandleOnvifEventNotificationStoresLastEventForDiagnostics(t *testing.T) {
+	resetDetectionEventsForTest(t)
+
+	candidate := onvif.Candidate{
+		ID:        "cam-diag",
+		SourceURL: "onvif://admin:secret@192.0.2.20",
+		Endpoint:  "http://192.0.2.20/onvif/device_service",
+	}
+	service.ReplaceOnvifCandidates([]onvif.Candidate{candidate})
+	t.Cleanup(func() {
+		service.ReplaceOnvifCandidates(nil)
+	})
+
+	eventAt := time.Now().Add(-time.Second)
+	handleOnvifEventNotification("cam-diag", onvif.EventNotification{
+		Topic:     "tns1:Device/Trigger/DigitalInput",
+		Operation: "Changed",
+		At:        eventAt,
+		Source:    []onvif.EventItem{{Name: "InputToken", Value: "1"}},
+		Data:      []onvif.EventItem{{Name: "LogicalState", Value: "true"}},
+	})
+
+	status, ok := service.GetOnvifStatus("cam-diag")
+	if !ok {
+		t.Fatal("expected ONVIF status")
+	}
+	if status.LastEvent == nil {
+		t.Fatal("expected last ONVIF event to be stored")
+	}
+	if status.LastEvent.Topic != "tns1:Device/Trigger/DigitalInput" {
+		t.Fatalf("expected diagnostic event topic, got %+v", status.LastEvent)
+	}
+	if status.LastEvent.Motion {
+		t.Fatalf("expected non-motion diagnostic event, got %+v", status.LastEvent)
+	}
+	if status.LastEvent.Source != "InputToken=1" || status.LastEvent.Data != "LogicalState=true" {
+		t.Fatalf("expected formatted event items, got %+v", status.LastEvent)
+	}
+}
+
 func TestWaitOnvifPullPointReadyUsesAvailableCapabilityStatus(t *testing.T) {
 	candidate := onvif.Candidate{
 		ID:        "onvif-ready",

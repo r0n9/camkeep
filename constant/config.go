@@ -21,6 +21,8 @@ type Camera struct {
 	Mode            string `yaml:"mode" json:"mode"`                         // 模式: "normal" 或 "timelapse"，留空默认为 normal
 	CaptureInterval int    `yaml:"capture_interval" json:"capture_interval"` // 抓拍间隔(秒)，例如 5 表示每5秒抓一帧
 	MotionDetect    bool   `yaml:"motion_detect" json:"motion_detect"`       // 是否开启动检录制，仅 normal 模式生效
+	// motion_event_source: 动检事件源。frame_diff=本地帧差，onvif=ONVIF PullPoint，auto=ONVIF 可用优先，不可用回退帧差。
+	MotionEventSource string `yaml:"motion_event_source" json:"motion_event_source"`
 	// motionDetectRatioThreshold: 判定发生运动的变化像素比例阈值，仅 motion_detect=true 时生效。
 	MotionDetectRatioThreshold float64 `yaml:"motionDetectRatioThreshold" json:"motionDetectRatioThreshold"`
 
@@ -36,6 +38,34 @@ type DailyMergeConfig struct {
 type Config struct {
 	DailyMerge DailyMergeConfig `yaml:"daily_merge" json:"daily_merge"`
 	Cameras    []Camera         `yaml:"cameras" json:"cameras"`
+}
+
+const (
+	MotionEventSourceFrameDiff = "frame_diff"
+	MotionEventSourceONVIF     = "onvif"
+	MotionEventSourceAuto      = "auto"
+)
+
+func NormalizeMotionEventSource(source string) string {
+	switch strings.ToLower(strings.TrimSpace(source)) {
+	case "", MotionEventSourceFrameDiff:
+		return MotionEventSourceFrameDiff
+	case MotionEventSourceONVIF:
+		return MotionEventSourceONVIF
+	case MotionEventSourceAuto:
+		return MotionEventSourceAuto
+	default:
+		return strings.ToLower(strings.TrimSpace(source))
+	}
+}
+
+func ValidMotionEventSource(source string) bool {
+	switch NormalizeMotionEventSource(source) {
+	case MotionEventSourceFrameDiff, MotionEventSourceONVIF, MotionEventSourceAuto:
+		return true
+	default:
+		return false
+	}
 }
 
 func IsManagedByGo2rtcURL(streamURL string) bool {

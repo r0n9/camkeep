@@ -69,7 +69,14 @@ func MotionDetectTask(ctx context.Context, wg *sync.WaitGroup, cam constant.Came
 }
 
 func motionDetectionShouldRun(cam constant.Camera) bool {
+	return motionDetectionShouldRunAt(cam, time.Now())
+}
+
+func motionDetectionShouldRunAt(cam constant.Camera, now time.Time) bool {
 	if !motionRecordingEnabled(cam) {
+		return false
+	}
+	if !motionEventSourceUsesFrameDiff(cam, now) {
 		return false
 	}
 

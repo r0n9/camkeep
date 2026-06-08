@@ -55,6 +55,7 @@ func startWebServer() {
 	admin.POST("/api/camera/:id/auto", handleCameraActionFor("auto"))
 	admin.GET("/api/onvif/status", handleOnvifStatus)
 	admin.GET("/api/camera/:id/onvif", handleCameraOnvifStatus)
+	admin.POST("/api/camera/:id/onvif/event-test", handleOnvifEventTest)
 	admin.GET("/api/camera/:id/ptz/status", handlePTZStatus)
 	admin.POST("/api/camera/:id/ptz/move", handlePTZMove)
 	admin.POST("/api/camera/:id/ptz/stop", handlePTZStop)

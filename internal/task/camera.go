@@ -234,7 +234,7 @@ func runMotionCameraTask(ctx context.Context, cam constant.Camera, camDir string
 	var releaseOnvifMotionEvents func()
 
 	acquireOnvifMotionEvents := func() {
-		if eventCandidate == nil || releaseOnvifMotionEvents != nil {
+		if !motionEventSourceUsesOnvif(cam, eventCandidate) || releaseOnvifMotionEvents != nil {
 			return
 		}
 		releaseOnvifMotionEvents = RequireOnvifMotionEvents(ctx, cam, *eventCandidate, "motion-recording")
