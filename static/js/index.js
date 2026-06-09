@@ -2027,16 +2027,18 @@ function renderGrid() {
                     <svg class="w-8 h-8 mb-2 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                     <span class="text-xs font-bold tracking-wider uppercase opacity-50">窗口 ${i + 1}</span>
                 </div>
-                <div class="absolute top-2 left-1/2 z-10 max-w-[80%] -translate-x-1/2 bg-black/35 text-white/80 px-2.5 py-1 text-[10px] rounded backdrop-blur-sm border border-white/5 hidden pointer-events-none truncate opacity-55 transition-all duration-200 group-hover:bg-black/70 group-hover:text-white group-hover:border-white/10 group-hover:opacity-100" id="label-${i}"></div>
-                <div id="onvif-event-overlay-${i}" class="onvif-event-overlay hidden" aria-live="polite"></div>
-                <button onclick="event.stopPropagation(); toggleOnvifEventOverlay(${i})" onmouseenter="setOnvifEventOverlayHover(${i}, true)" onmouseleave="setOnvifEventOverlayHover(${i}, false)" onfocus="setOnvifEventOverlayHover(${i}, true)" onblur="setOnvifEventOverlayHover(${i}, false)" class="onvif-event-toggle hidden" id="onvif-event-toggle-${i}" type="button" aria-pressed="false" aria-label="显示 ONVIF 事件叠层" title="显示 ONVIF 事件叠层">
-                    <span class="onvif-event-toggle-glyph onvif-event-toggle-glyph-default" aria-hidden="true">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M3 12h4l2-5 4 10 2-5h6"></path></svg>
-                    </span>
-                    <span class="onvif-event-toggle-glyph onvif-event-toggle-glyph-event" aria-hidden="true">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1" d="M10.3 21a2 2 0 0 0 3.4 0M4 2c-1.3 1.8-2 3.8-2 6m20 0c0-2.2-.7-4.2-2-6M4.3 15.3A1 1 0 0 0 5 17h14a1 1 0 0 0 .7-1.7C18.5 14 17.5 12.4 17.5 8.5a5.5 5.5 0 0 0-11 0c0 3.9-1 5.5-2.2 6.8Z"></path></svg>
-                    </span>
-                </button>
+                <div class="live-cell-topbar">
+                    <button onclick="event.stopPropagation(); toggleOnvifEventOverlay(${i})" onmouseenter="setOnvifEventOverlayHover(${i}, true)" onmouseleave="setOnvifEventOverlayHover(${i}, false)" onfocus="setOnvifEventOverlayHover(${i}, true)" onblur="setOnvifEventOverlayHover(${i}, false)" class="onvif-event-toggle hidden" id="onvif-event-toggle-${i}" type="button" aria-pressed="false" aria-label="显示 ONVIF 事件叠层" title="显示 ONVIF 事件叠层">
+                        <span class="onvif-event-toggle-glyph onvif-event-toggle-glyph-default" aria-hidden="true">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M3 12h4l2-5 4 10 2-5h6"></path></svg>
+                        </span>
+                        <span class="onvif-event-toggle-glyph onvif-event-toggle-glyph-event" aria-hidden="true">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1" d="M10.3 21a2 2 0 0 0 3.4 0M4 2c-1.3 1.8-2 3.8-2 6m20 0c0-2.2-.7-4.2-2-6M4.3 15.3A1 1 0 0 0 5 17h14a1 1 0 0 0 .7-1.7C18.5 14 17.5 12.4 17.5 8.5a5.5 5.5 0 0 0-11 0c0 3.9-1 5.5-2.2 6.8Z"></path></svg>
+                        </span>
+                    </button>
+                    <div class="live-cell-title hidden" id="label-${i}"></div>
+                    <div id="onvif-event-overlay-${i}" class="onvif-event-overlay hidden" aria-live="polite"></div>
+                </div>
                 <button onclick="event.stopPropagation(); clearCell(${i})" class="absolute top-2 right-2 z-20 hidden h-7 w-7 items-center justify-center rounded bg-black/65 text-white/80 border border-white/10 backdrop-blur-md opacity-0 pointer-events-none transition-all duration-200 group-hover:opacity-100 group-hover:pointer-events-auto hover:bg-red-500 hover:text-white" id="close-cell-${i}" title="关闭该窗口">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
