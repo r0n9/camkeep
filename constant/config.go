@@ -27,7 +27,7 @@ type Camera struct {
 	MotionMarkEnabled bool `yaml:"motion_mark_enabled" json:"motion_mark_enabled"`
 	// motion_mark_event_source: 普通录制动检标记事件源。frame_diff=本地帧差，onvif=ONVIF PullPoint，auto=ONVIF 可用优先，不可用回退帧差。
 	MotionMarkEventSource string `yaml:"motion_mark_event_source" json:"motion_mark_event_source"`
-	// motionDetectRatioThreshold: 判定发生运动的变化像素比例阈值，仅 motion_detect=true 时生效。
+	// motionDetectRatioThreshold: 帧差检测判定发生运动的变化像素比例阈值。
 	MotionDetectRatioThreshold float64 `yaml:"motionDetectRatioThreshold" json:"motionDetectRatioThreshold"`
 
 	AutoDiscovered bool `yaml:"auto_discovered" json:"auto_discovered"` // 标识这个流是手动配置的，还是从 go2rtc 自动发现的

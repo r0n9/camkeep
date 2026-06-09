@@ -36,6 +36,18 @@ func TestIsClockWithinTimeRangeAllowsTwentyFourHundred(t *testing.T) {
 	}
 }
 
+func TestIsClockWithinTimeRangeTreatsEqualStartEndAsDisabledRange(t *testing.T) {
+	if IsClockWithinTimeRange("08:00", "08:00-08:00") {
+		t.Fatal("expected equal start/end range to be disabled")
+	}
+	if IsClockWithinTimeRange("13:00", "00:00-00:00") {
+		t.Fatal("expected zero-length all-day-looking range to be disabled")
+	}
+	if !IsClockWithinTimeRange("09:30", "08:00-08:00,09:00-10:00") {
+		t.Fatal("expected later valid range to still be honored")
+	}
+}
+
 func TestIsClockWithinTimeRangeDefaultsAllowWhenNoValidRange(t *testing.T) {
 	if !IsClockWithinTimeRange("13:00", "bad-range") {
 		t.Fatal("expected invalid-only record_time to default allow")

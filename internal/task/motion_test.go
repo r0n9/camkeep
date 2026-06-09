@@ -70,6 +70,27 @@ func TestMotionDetectInputURLUsesConfiguredMotionURL(t *testing.T) {
 	}
 }
 
+func TestMotionMarkerFrameDiffUsesConfiguredMotionStreamAndThreshold(t *testing.T) {
+	cam := constant.Camera{
+		ID:                         "marker-frame-diff",
+		Mode:                       "normal",
+		MotionURL:                  " rtsp://example.local/marker-substream ",
+		MotionMarkEnabled:          true,
+		MotionMarkEventSource:      constant.MotionEventSourceFrameDiff,
+		MotionDetectRatioThreshold: 0.07,
+	}
+
+	if !FrameDiffMotionDetectionEnabled(cam) {
+		t.Fatal("expected frame diff detection to run for motion marker source")
+	}
+	if got := motionDetectInputURL(cam); got != "rtsp://example.local/marker-substream" {
+		t.Fatalf("expected marker frame diff to use configured motion_url, got %q", got)
+	}
+	if got := motionRatioThreshold(cam); got != 0.07 {
+		t.Fatalf("expected marker frame diff to use configured threshold, got %f", got)
+	}
+}
+
 func TestMotionDetectInputURLFallsBackToGo2rtcStream(t *testing.T) {
 	cam := constant.Camera{ID: "cam1"}
 

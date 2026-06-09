@@ -82,6 +82,9 @@ func parseClockMinutes(clock string) (int, error) {
 }
 
 func minutesInRange(now, start, end int) bool {
+	if start == end {
+		return false
+	}
 	if start <= end {
 		return now >= start && now <= end
 	}

@@ -1239,12 +1239,25 @@ function renderConfigCameraCard(cam, index, expanded = false) {
     const motionDetectAttrs = normalMode ? 'onchange="refreshConfigFormFromDom()"' : 'disabled';
     const motionMarkSourceAttrs = motionMarkEnabled ? `onchange="refreshConfigFormFromDom()"` : 'disabled title="先启用普通录制动检标记后再选择来源"';
     const motionUrlAttrs = normalMode ? '' : 'disabled title="延时模式不使用动检流"';
-    const motionThresholdAttrs = motionEnabled ? '' : 'disabled title="先启用动检录制后再调整阈值"';
     const captureIntervalAttrs = normalMode ? 'disabled title="仅延时模式生效"' : '';
     const motionSectionTitle = normalMode ? '动检录制' : '延时摄影';
     const motionSectionDesc = normalMode
         ? '启用后仅事件片段会触发录像，阈值越低越敏感。'
         : '仅在延时模式下生效，动检项会被忽略。';
+    const motionRecordingNeedsFrameDiffTuning = motionEnabled && motionEventSourceValue !== 'onvif';
+    const motionMarkNeedsFrameDiffTuning = motionMarkEnabled && motionMarkEventSourceValue !== 'onvif';
+    const pendingMotionFrameDiffTuning = !motionEnabled && !motionMarkEnabled && motionEventSourceValue !== 'onvif';
+    const showLocalMotionTuning = normalMode && (motionRecordingNeedsFrameDiffTuning || motionMarkNeedsFrameDiffTuning || pendingMotionFrameDiffTuning);
+    const motionThresholdAttrs = (motionRecordingNeedsFrameDiffTuning || motionMarkNeedsFrameDiffTuning)
+        ? ''
+        : 'disabled title="先启用动检录制或普通录制动检标记后再调整阈值"';
+    const motionTuningControls = showLocalMotionTuning ? `
+                    ${configTextInput('动检流 motion_url', 'motion_url', cam.motion_url, '可选，低码率子码流，仅用于识别', false, 'config-field-wide', motionUrlAttrs)}
+                    ${configNumberInput('动检阈值', 'motionDetectRatioThreshold', cam.motionDetectRatioThreshold, '0.01 表示 1%', '0.001', '', motionThresholdAttrs)}
+    ` : `
+                    ${configHiddenInput('motion_url', cam.motion_url)}
+                    ${configHiddenInput('motionDetectRatioThreshold', cam.motionDetectRatioThreshold)}
+    `;
     const motionEventSourceNote = normalMode ? renderMotionEventSourceNote(motionEventSourceValue, onvifCapable) : '';
     const motionMarkControls = normalMode && !motionEnabled ? `
                     ${configCheckboxInput('普通录制动检标记', 'motion_mark_enabled', motionMarkEnabled, 'onchange="refreshConfigFormFromDom()"')}
@@ -1298,9 +1311,8 @@ function renderConfigCameraCard(cam, index, expanded = false) {
                     ${configCheckboxInput('动检录制', 'motion_detect', motionEnabled, motionDetectAttrs)}
                     ${configSelectInput('事件源', 'motion_event_source', motionEventSourceValue, motionEventSourceOptions, `onchange="refreshConfigFormFromDom()"`, false)}
                     ${motionMarkControls}
-                    ${configTextInput('动检流 motion_url', 'motion_url', cam.motion_url, '可选，低码率子码流，仅用于识别', false, 'config-field-wide', motionUrlAttrs)}
+                    ${motionTuningControls}
                     ${configHiddenInput('capture_interval', cam.capture_interval)}
-                    ${configNumberInput('动检阈值', 'motionDetectRatioThreshold', cam.motionDetectRatioThreshold, '0.01 表示 1%', '0.001', '', motionThresholdAttrs)}
                     ${motionEventSourceNote}
                     ${motionMarkEventSourceNote}
                 ` : `
@@ -1337,11 +1349,11 @@ function renderMotionEventSourceNote(source, onvifCapable) {
     if (source === 'onvif') {
         text = 'ONVIF 模式只使用 PullPoint motion 事件；Event 不可用时不会启动本地帧差回退。';
     } else if (source === 'auto') {
-        text = '自动模式会在 ONVIF Event 通道健康时优先使用 PullPoint，不健康时回退本地帧差。';
+        text = '自动模式会在 ONVIF Event 通道健康时优先使用 PullPoint，不健康时回退本地帧差；帧差会读取 motion_url 和动检阈值。';
     } else {
         text = onvifCapable
-            ? '本地帧差会读取 motion_url；留空时使用默认 go2rtc 流。'
-            : '当前接入源不是 ONVIF，只支持本地帧差事件源。';
+            ? '本地帧差会读取 motion_url 和动检阈值；motion_url 留空时使用默认 go2rtc 流。'
+            : '当前接入源不是 ONVIF，只支持本地帧差事件源；帧差会读取 motion_url 和动检阈值。';
     }
     return `<div class="config-form-section-note config-field-wide">${escapeHtml(text)}</div>`;
 }
@@ -1355,11 +1367,11 @@ function renderMotionMarkEventSourceNote(source, onvifCapable, motionEnabled) {
     if (source === 'onvif') {
         text = '普通录像仍按计划完整保存，时间轴只标记 ONVIF PullPoint motion 事件。';
     } else if (source === 'auto') {
-        text = '普通录像仍按计划完整保存；ONVIF 可用时用 PullPoint 标记，不可用时回退本地帧差。';
+        text = '普通录像仍按计划完整保存；ONVIF 可用时用 PullPoint 标记，不可用时回退本地帧差；帧差会读取 motion_url 和动检阈值。';
     } else {
         text = onvifCapable
-            ? '普通录像仍按计划完整保存，本地帧差只负责生成时间轴活动区间。'
-            : '当前接入源不是 ONVIF，普通录制动检标记只支持本地帧差。';
+            ? '普通录像仍按计划完整保存，本地帧差会读取 motion_url 和动检阈值来生成时间轴活动区间。'
+            : '当前接入源不是 ONVIF，普通录制动检标记只支持本地帧差，并读取 motion_url 和动检阈值。';
     }
     return `<div class="config-form-section-note config-field-wide">${escapeHtml(text)}</div>`;
 }
