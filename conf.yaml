@@ -5,6 +5,7 @@
 daily_merge:
   enabled: false          # 是否每天按自然小时合并前一天录像
   time: "03:30"           # 每日合并时间，建议放在低峰时段
+  merge_motion_records: false # 是否同时合并动检录像；默认保留动检片段
 
 cameras:
 # 普通录像：适合 7x24 安防录制

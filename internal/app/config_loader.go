@@ -26,8 +26,9 @@ func loadOrInitConfig() constant.Config {
 			// 定义默认配置模板
 			defaultCfg := constant.Config{
 				DailyMerge: constant.DailyMergeConfig{
-					Enabled: false,
-					Time:    "03:30",
+					Enabled:            false,
+					Time:               "03:30",
+					MergeMotionRecords: false,
 				},
 				Cameras: []constant.Camera{
 					{

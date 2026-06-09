@@ -71,6 +71,7 @@ The snippet below is only an optional starting example. You can also start the s
 daily_merge:
   enabled: false
   time: "03:30"
+  merge_motion_records: false
 
 cameras:
   - id: "front-door"

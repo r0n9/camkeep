@@ -642,6 +642,7 @@ func TestParseConfigYAMLValidatesKnownShape(t *testing.T) {
 daily_merge:
   enabled: true
   time: "03:30"
+  merge_motion_records: true
 cameras:
   - id: "cam_01"
     stream_url: "rtsp://example/live"
@@ -655,6 +656,9 @@ cameras:
 	}
 	if !cfg.DailyMerge.Enabled || cfg.DailyMerge.Time != "03:30" || len(cfg.Cameras) != 1 {
 		t.Fatalf("unexpected parsed config: %+v", cfg)
+	}
+	if !cfg.DailyMerge.MergeMotionRecords {
+		t.Fatalf("expected merge_motion_records to be parsed")
 	}
 	if cfg.Cameras[0].MotionURL != "rtsp://example/substream" {
 		t.Fatalf("expected motion_url to be parsed, got %q", cfg.Cameras[0].MotionURL)

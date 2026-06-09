@@ -20,9 +20,11 @@ import (
 const (
 	mergedSuffix           = "_merged"
 	minMergedDurationRatio = 0.75
+	mergeContinuityGap     = 2 * time.Second
 )
 
 var mergeFragmentTimePattern = regexp.MustCompile(`\d{8}_\d{6}|\d{4}-\d{2}-\d{2}_(?:\d{2}-\d{2}-\d{2}|\d{6})`)
+var mergeFragmentRangePattern = regexp.MustCompile(`(\d{8})_(\d{6})_(\d{6})(?:_|\.|$)`)
 
 type mergeFragmentScanResult struct {
 	dateDir               string
@@ -33,14 +35,17 @@ type mergeFragmentScanResult struct {
 	skippedMerged         int
 	skippedTemp           int
 	skippedNoTime         int
+	skippedMotion         int
 	fragments             []string
 }
 
 type mergeHourGroup struct {
-	hourKey   string
-	start     time.Time
-	kind      string
-	fragments []string
+	hourKey    string
+	start      time.Time
+	kind       string
+	fragments  []string
+	rangeStart time.Time
+	rangeEnd   time.Time
 }
 
 // DailyMergeTask 每天定时把前一天的碎片录像合并为单文件。
@@ -68,7 +73,7 @@ func DailyMergeTask(ctx context.Context, wg *sync.WaitGroup, cfg constant.Config
 			log.Printf("开始执行每日录像合并任务，目标日期: %s", mergeDate)
 			for _, cam := range cfg.Cameras {
 				log.Printf("开始执行每日录像合并任务，目标日期: %s CamId: %s", mergeDate, cam.ID)
-				if err := mergeCameraDate(ctx, cam, mergeDate); err != nil {
+				if err := mergeCameraDate(ctx, cam, mergeDate, cfg.DailyMerge.MergeMotionRecords); err != nil {
 					log.Printf("[%s] 合并 %s 录像失败: %v", cam.ID, mergeDate, err)
 				}
 			}
@@ -94,7 +99,7 @@ func nextDailyMergeRun(now time.Time, timeStr string) (time.Time, error) {
 	return next, nil
 }
 
-func mergeCameraDate(ctx context.Context, cam constant.Camera, date string) error {
+func mergeCameraDate(ctx context.Context, cam constant.Camera, date string, mergeMotionRecords bool) error {
 	if cam.ID == "" {
 		log.Printf("[daily_merge] 跳过合并: cam.id 为空, date=%s", date)
 		return nil
@@ -105,9 +110,10 @@ func mergeCameraDate(ctx context.Context, cam constant.Camera, date string) erro
 	}
 
 	dateDir := filepath.Join(constant.DefaultRecordBaseDir, cam.ID, date)
-	log.Printf("[%s] 准备执行每日合并: date=%s, mode=%q, dir=%s", cam.ID, date, cam.Mode, dateDir)
+	log.Printf("[%s] 准备执行每日合并: date=%s, mode=%q, merge_motion_records=%t, dir=%s",
+		cam.ID, date, cam.Mode, mergeMotionRecords, dateDir)
 
-	scanResult, err := scanMergeFragments(dateDir)
+	scanResult, err := scanMergeFragments(dateDir, mergeMotionRecords)
 	if err != nil {
 		log.Printf("[%s] 扫描每日合并片段失败: date=%s, dir=%s, err=%v", cam.ID, date, dateDir, err)
 		return fmt.Errorf("扫描每日合并片段失败 dir=%s: %w", dateDir, err)
@@ -149,7 +155,7 @@ func mergeCameraDate(ctx context.Context, cam constant.Camera, date string) erro
 
 func mergeOneHourGroup(ctx context.Context, cam constant.Camera, date, dateDir string, group mergeHourGroup) error {
 	mergedExt := ".mp4"
-	mergedName := fmt.Sprintf("%s_%s_%s%s%s", cam.ID, group.hourKey, group.kind, mergedSuffix, mergedExt)
+	mergedName := mergeOutputName(cam.ID, group, mergedExt)
 	mergedPath := filepath.Join(dateDir, mergedName)
 	if _, err := os.Stat(mergedPath); err == nil {
 		log.Printf("[%s] 跳过每日合并小时分组: 合并文件已存在, date=%s, hour=%s, path=%s",
@@ -253,6 +259,18 @@ func mergeOneHourGroup(ctx context.Context, cam constant.Camera, date, dateDir s
 	return nil
 }
 
+func mergeOutputName(camID string, group mergeHourGroup, ext string) string {
+	if group.kind == "normal" && !group.rangeStart.IsZero() && group.rangeEnd.After(group.rangeStart) {
+		return fmt.Sprintf("%s_%s_%s%s%s",
+			camID,
+			group.rangeStart.Format(segmentStartLayout),
+			group.rangeEnd.Format("150405"),
+			mergedSuffix,
+			ext)
+	}
+	return fmt.Sprintf("%s_%s_%s%s%s", camID, group.hourKey, group.kind, mergedSuffix, ext)
+}
+
 func isCorruptFragmentFFmpegOutput(output string) bool {
 	output = strings.ToLower(output)
 	markers := []string{
@@ -325,14 +343,14 @@ func skipDailyMerge(cam constant.Camera) bool {
 }
 
 func mergeFragments(dateDir string) ([]string, error) {
-	scanResult, err := scanMergeFragments(dateDir)
+	scanResult, err := scanMergeFragments(dateDir, false)
 	if err != nil {
 		return nil, err
 	}
 	return scanResult.fragments, nil
 }
 
-func scanMergeFragments(dateDir string) (mergeFragmentScanResult, error) {
+func scanMergeFragments(dateDir string, mergeMotionRecords bool) (mergeFragmentScanResult, error) {
 	result := mergeFragmentScanResult{dateDir: dateDir}
 	entries, err := os.ReadDir(dateDir)
 	if err != nil {
@@ -350,17 +368,20 @@ func scanMergeFragments(dateDir string) (mergeFragmentScanResult, error) {
 			continue
 		}
 		name := entry.Name()
-		if _, ok := mergeFragmentStartTime(name); !ok && mergeFragmentSkipReason(name) == "" {
+		skipReason := mergeFragmentSkipReason(name, mergeMotionRecords)
+		if _, ok := mergeFragmentStartTime(name); !ok && skipReason == "" {
 			result.skippedNoTime++
 			continue
 		}
-		switch mergeFragmentSkipReason(name) {
+		switch skipReason {
 		case "":
 			result.fragments = append(result.fragments, filepath.Join(dateDir, name))
 		case "merged":
 			result.skippedMerged++
 		case "temp":
 			result.skippedTemp++
+		case "motion":
+			result.skippedMotion++
 		case "unsupported_ext":
 			result.skippedUnsupportedExt++
 		default:
@@ -373,11 +394,11 @@ func scanMergeFragments(dateDir string) (mergeFragmentScanResult, error) {
 }
 
 func (r mergeFragmentScanResult) summary() string {
-	return fmt.Sprintf("dir=%s, entries=%d, selected=%d, skipped_dirs=%d, skipped_ext=%d, skipped_merged=%d, skipped_tmp=%d, skipped_no_time=%d",
-		r.dateDir, r.totalEntries, len(r.fragments), r.skippedDirs, r.skippedUnsupportedExt, r.skippedMerged, r.skippedTemp, r.skippedNoTime)
+	return fmt.Sprintf("dir=%s, entries=%d, selected=%d, skipped_dirs=%d, skipped_ext=%d, skipped_merged=%d, skipped_tmp=%d, skipped_motion=%d, skipped_no_time=%d",
+		r.dateDir, r.totalEntries, len(r.fragments), r.skippedDirs, r.skippedUnsupportedExt, r.skippedMerged, r.skippedTemp, r.skippedMotion, r.skippedNoTime)
 }
 
-func mergeFragmentSkipReason(name string) string {
+func mergeFragmentSkipReason(name string, mergeMotionRecords bool) string {
 	if strings.Contains(name, mergedSuffix) {
 		return "merged"
 	}
@@ -390,6 +411,9 @@ func mergeFragmentSkipReason(name string) string {
 	ext := strings.ToLower(filepath.Ext(name))
 	if ext != ".ts" && ext != ".mp4" {
 		return "unsupported_ext"
+	}
+	if !mergeMotionRecords && mergeFragmentKind(name) == "motion" {
+		return "motion"
 	}
 	return ""
 }
@@ -430,10 +454,15 @@ func groupMergeFragmentsByHour(fragments []string) []mergeHourGroup {
 	for groupKey, groupFragments := range groupsByKey {
 		sortMergeFragments(groupFragments)
 		hourKey := strings.SplitN(groupKey, "|", 2)[0]
+		kind := kindByKey[groupKey]
+		if kind == "normal" {
+			groups = append(groups, splitNormalMergeFragments(hourKey, startByKey[groupKey], groupFragments)...)
+			continue
+		}
 		groups = append(groups, mergeHourGroup{
 			hourKey:   hourKey,
 			start:     startByKey[groupKey],
-			kind:      kindByKey[groupKey],
+			kind:      kind,
 			fragments: groupFragments,
 		})
 	}
@@ -443,6 +472,70 @@ func groupMergeFragmentsByHour(fragments []string) []mergeHourGroup {
 		}
 		return groups[i].kind < groups[j].kind
 	})
+	return groups
+}
+
+func splitNormalMergeFragments(hourKey string, hourStart time.Time, fragments []string) []mergeHourGroup {
+	var groups []mergeHourGroup
+	var current *mergeHourGroup
+	var legacyFragments []string
+
+	flush := func() {
+		if current == nil {
+			return
+		}
+		groups = append(groups, *current)
+		current = nil
+	}
+
+	for _, fragment := range fragments {
+		start, end, ok := mergeFragmentTimeRange(fragment)
+		if !ok {
+			flush()
+			legacyFragments = append(legacyFragments, fragment)
+			continue
+		}
+
+		if current == nil {
+			current = &mergeHourGroup{
+				hourKey:    hourKey,
+				start:      start,
+				kind:       "normal",
+				fragments:  []string{fragment},
+				rangeStart: start,
+				rangeEnd:   end,
+			}
+			continue
+		}
+
+		if start.Sub(current.rangeEnd) > mergeContinuityGap {
+			flush()
+			current = &mergeHourGroup{
+				hourKey:    hourKey,
+				start:      start,
+				kind:       "normal",
+				fragments:  []string{fragment},
+				rangeStart: start,
+				rangeEnd:   end,
+			}
+			continue
+		}
+
+		current.fragments = append(current.fragments, fragment)
+		if end.After(current.rangeEnd) {
+			current.rangeEnd = end
+		}
+	}
+	flush()
+	if len(legacyFragments) > 0 {
+		sortMergeFragments(legacyFragments)
+		groups = append(groups, mergeHourGroup{
+			hourKey:   hourKey,
+			start:     hourStart,
+			kind:      "normal",
+			fragments: legacyFragments,
+		})
+	}
 	return groups
 }
 
@@ -471,6 +564,27 @@ func mergeFragmentStartTime(path string) (time.Time, bool) {
 		}
 	}
 	return time.Time{}, false
+}
+
+func mergeFragmentTimeRange(path string) (time.Time, time.Time, bool) {
+	matches := mergeFragmentRangePattern.FindStringSubmatch(filepath.Base(path))
+	if len(matches) != 4 {
+		return time.Time{}, time.Time{}, false
+	}
+
+	start, err := time.ParseInLocation(segmentStartLayout, matches[1]+"_"+matches[2], time.Local)
+	if err != nil {
+		return time.Time{}, time.Time{}, false
+	}
+	endClock, err := time.ParseInLocation("150405", matches[3], time.Local)
+	if err != nil {
+		return time.Time{}, time.Time{}, false
+	}
+	end := time.Date(start.Year(), start.Month(), start.Day(), endClock.Hour(), endClock.Minute(), endClock.Second(), 0, start.Location())
+	if !end.After(start) {
+		end = end.AddDate(0, 0, 1)
+	}
+	return start, end, true
 }
 
 func writeConcatList(fragments []string) (string, error) {

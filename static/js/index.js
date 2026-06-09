@@ -354,7 +354,7 @@ const DEFAULT_MOTION_EVENT_SOURCE = 'frame_diff';
 const DEFAULT_MOTION_MARK_EVENT_SOURCE = 'auto';
 const MOTION_EVENT_SOURCES = new Set(['frame_diff', 'onvif', 'auto']);
 let configEditMode = 'form';
-let configFormState = {daily_merge: {enabled: false, time: '03:30'}, cameras: []};
+let configFormState = {daily_merge: {enabled: false, time: '03:30', merge_motion_records: false}, cameras: []};
 let configFormInitialCameras = [];
 let configFormInitialCamerasLoaded = false;
 let go2rtcStreamInfoMap = new Map();
@@ -687,7 +687,8 @@ function normalizeConfigForm(cfg) {
     return {
         daily_merge: {
             enabled: Boolean(readConfigValue(cfg.daily_merge, ['enabled', 'Enabled'], false)),
-            time: readConfigValue(cfg.daily_merge, ['time', 'Time'], '03:30') || '03:30'
+            time: readConfigValue(cfg.daily_merge, ['time', 'Time'], '03:30') || '03:30',
+            merge_motion_records: Boolean(readConfigValue(cfg.daily_merge, ['merge_motion_records', 'MergeMotionRecords'], false))
         },
         cameras
     };
@@ -1107,6 +1108,7 @@ function ensureConfigCameraUiKey(cam, fallback = '') {
 function renderConfigForm() {
     document.getElementById('dailyMergeEnabled').checked = Boolean(configFormState.daily_merge.enabled);
     document.getElementById('dailyMergeTime').value = configFormState.daily_merge.time || '03:30';
+    document.getElementById('dailyMergeMotionRecords').checked = Boolean(configFormState.daily_merge.merge_motion_records);
 
     const list = document.getElementById('configCameraList');
     const empty = document.getElementById('configCameraEmpty');
@@ -1389,7 +1391,8 @@ function collectConfigForm(options = {}) {
     const cfg = {
         daily_merge: {
             enabled: document.getElementById('dailyMergeEnabled').checked,
-            time: document.getElementById('dailyMergeTime').value || '03:30'
+            time: document.getElementById('dailyMergeTime').value || '03:30',
+            merge_motion_records: document.getElementById('dailyMergeMotionRecords').checked
         },
         cameras: []
     };
@@ -1778,6 +1781,7 @@ function configToYaml(cfg) {
         'daily_merge:',
         `  enabled: ${cfg.daily_merge.enabled ? 'true' : 'false'}`,
         `  time: ${yamlScalar(cfg.daily_merge.time || '03:30')}`,
+        `  merge_motion_records: ${cfg.daily_merge.merge_motion_records ? 'true' : 'false'}`,
         '',
         'cameras:'
     ];

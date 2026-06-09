@@ -34,8 +34,9 @@ type Camera struct {
 }
 
 type DailyMergeConfig struct {
-	Enabled bool   `yaml:"enabled" json:"enabled"`
-	Time    string `yaml:"time" json:"time"`
+	Enabled            bool   `yaml:"enabled" json:"enabled"`
+	Time               string `yaml:"time" json:"time"`
+	MergeMotionRecords bool   `yaml:"merge_motion_records" json:"merge_motion_records"`
 }
 
 // Config 对应 yaml 配置文件

@@ -1148,6 +1148,7 @@ textarea:focus,
 
 /* toggle tracks read as inset grooves */
 #dailyMergeEnabled + span,
+.config-daily-merge-option-track,
 .config-toggle-track {
     box-shadow: var(--nm-inset-sm);
 }

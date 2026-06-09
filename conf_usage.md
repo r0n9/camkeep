@@ -10,6 +10,7 @@ CamKeep 的配置文件默认位于 `config/conf.yaml`。建议优先通过 Web 
 daily_merge:
   enabled: false
   time: "03:30"
+  merge_motion_records: false
 
 cameras:
   - id: "front-door"
@@ -104,10 +105,12 @@ ONVIF 摄像头可使用自动事件源：
 
 * `enabled`：是否启用每日合并。
 * `time`：每日执行时间，格式为 `HH:mm`，建议放在 `03:00-05:00` 等低峰时段。
+* `merge_motion_records`：是否同时合并动检录像片段。默认 `false`，动检录像片段会保留原文件；设为 `true` 后才会按现有逻辑按小时合并动检录像。
 
 说明：
 
 * `mode: "timelapse"` 的摄像头会跳过每日合并。
+* `merge_motion_records` 只影响每日合并任务，不影响动检录像的触发、录制和保留天数。
 * 合并成功后会删除对应原碎片。
 * 视频使用 FFmpeg 流拷贝，音频会处理为浏览器更兼容的封装。
 

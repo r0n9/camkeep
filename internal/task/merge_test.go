@@ -26,7 +26,7 @@ func TestSkipDailyMergeOnlyForTimelapse(t *testing.T) {
 	}
 }
 
-func TestMergeFragmentsIncludesNormalAndMotionFiles(t *testing.T) {
+func TestMergeFragmentsSkipsMotionFilesByDefault(t *testing.T) {
 	dir := t.TempDir()
 	createMergeTestFile(t, dir, "cam1_20260512_090000_090500.ts")
 	createMergeTestFile(t, dir, "cam1_20260512_090500_090800_motion.mp4")
@@ -47,11 +47,50 @@ func TestMergeFragmentsIncludesNormalAndMotionFiles(t *testing.T) {
 	got := mergeTestBaseNames(fragments)
 	want := []string{
 		"cam1_20260512_090000_090500.ts",
-		"cam1_20260512_090500_090800_motion.mp4",
 		"cam1_20260512_091000_091500.mp4",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("expected %v, got %v", want, got)
+	}
+}
+
+func TestScanMergeFragmentsIncludesMotionFilesWhenEnabled(t *testing.T) {
+	dir := t.TempDir()
+	createMergeTestFile(t, dir, "cam1_20260512_090000_090500.ts")
+	createMergeTestFile(t, dir, "cam1_20260512_090500_090800_motion.mp4")
+
+	scanResult, err := scanMergeFragments(dir, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := mergeTestBaseNames(scanResult.fragments)
+	want := []string{
+		"cam1_20260512_090000_090500.ts",
+		"cam1_20260512_090500_090800_motion.mp4",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("expected %v, got %v", want, got)
+	}
+	if scanResult.skippedMotion != 0 {
+		t.Fatalf("expected no skipped motion files when enabled, got %d", scanResult.skippedMotion)
+	}
+}
+
+func TestScanMergeFragmentsCountsSkippedMotionFiles(t *testing.T) {
+	dir := t.TempDir()
+	createMergeTestFile(t, dir, "cam1_20260512_090000_090500.ts")
+	createMergeTestFile(t, dir, "cam1_20260512_090500_090800_motion.mp4")
+
+	scanResult, err := scanMergeFragments(dir, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if scanResult.skippedMotion != 1 {
+		t.Fatalf("expected one skipped motion file, got %d", scanResult.skippedMotion)
+	}
+	if got := mergeTestBaseNames(scanResult.fragments); !reflect.DeepEqual(got, []string{"cam1_20260512_090000_090500.ts"}) {
+		t.Fatalf("unexpected selected fragments: %v", got)
 	}
 }
 
@@ -115,6 +154,10 @@ func TestGroupMergeFragmentsByHour(t *testing.T) {
 	}) {
 		t.Fatalf("unexpected third group fragments: %v", got)
 	}
+	if !groups[2].rangeStart.Equal(time.Date(2026, 5, 12, 10, 0, 0, 0, time.Local)) ||
+		!groups[2].rangeEnd.Equal(time.Date(2026, 5, 12, 10, 10, 0, 0, time.Local)) {
+		t.Fatalf("expected third group range 10:00-10:10, got %s-%s", groups[2].rangeStart, groups[2].rangeEnd)
+	}
 }
 
 func TestGroupMergeFragmentsByHourSeparatesNormalAndMotion(t *testing.T) {
@@ -125,8 +168,8 @@ func TestGroupMergeFragmentsByHourSeparatesNormalAndMotion(t *testing.T) {
 	}
 
 	groups := groupMergeFragmentsByHour(fragments)
-	if len(groups) != 2 {
-		t.Fatalf("expected 2 hourly groups, got %d", len(groups))
+	if len(groups) != 3 {
+		t.Fatalf("expected 3 hourly groups, got %d", len(groups))
 	}
 	if groups[0].kind != "motion" {
 		t.Fatalf("expected first group to be motion, got kind=%q", groups[0].kind)
@@ -137,11 +180,44 @@ func TestGroupMergeFragmentsByHourSeparatesNormalAndMotion(t *testing.T) {
 	if groups[1].kind != "normal" {
 		t.Fatalf("expected second group to be normal, got kind=%q", groups[1].kind)
 	}
-	if got := mergeTestBaseNames(groups[1].fragments); !reflect.DeepEqual(got, []string{
-		"cam1_20260512_092000_092500.ts",
-		"cam1_20260512_093000_093500.ts",
-	}) {
-		t.Fatalf("unexpected normal fragments: %v", got)
+	if got := mergeTestBaseNames(groups[1].fragments); !reflect.DeepEqual(got, []string{"cam1_20260512_092000_092500.ts"}) {
+		t.Fatalf("unexpected first normal fragments: %v", got)
+	}
+	if groups[2].kind != "normal" {
+		t.Fatalf("expected third group to be normal, got kind=%q", groups[2].kind)
+	}
+	if got := mergeTestBaseNames(groups[2].fragments); !reflect.DeepEqual(got, []string{"cam1_20260512_093000_093500.ts"}) {
+		t.Fatalf("unexpected second normal fragments: %v", got)
+	}
+}
+
+func TestMergeFragmentTimeRangeParsesStartAndEnd(t *testing.T) {
+	start, end, ok := mergeFragmentTimeRange("cam1_20260512_235500_000000.mp4")
+	if !ok {
+		t.Fatal("expected normal segment range to parse")
+	}
+	wantStart := time.Date(2026, 5, 12, 23, 55, 0, 0, time.Local)
+	wantEnd := time.Date(2026, 5, 13, 0, 0, 0, 0, time.Local)
+	if !start.Equal(wantStart) || !end.Equal(wantEnd) {
+		t.Fatalf("expected %s-%s, got %s-%s", wantStart, wantEnd, start, end)
+	}
+}
+
+func TestMergeOutputNameUsesNormalRange(t *testing.T) {
+	group := mergeHourGroup{
+		hourKey:    "20260512_090000",
+		start:      time.Date(2026, 5, 12, 9, 0, 0, 0, time.Local),
+		kind:       "normal",
+		rangeStart: time.Date(2026, 5, 12, 9, 0, 0, 0, time.Local),
+		rangeEnd:   time.Date(2026, 5, 12, 9, 10, 0, 0, time.Local),
+	}
+	if got := mergeOutputName("cam1", group, ".mp4"); got != "cam1_20260512_090000_091000_merged.mp4" {
+		t.Fatalf("unexpected ranged merge output name: %s", got)
+	}
+
+	group.kind = "motion"
+	if got := mergeOutputName("cam1", group, ".mp4"); got != "cam1_20260512_090000_motion_merged.mp4" {
+		t.Fatalf("unexpected motion merge output name: %s", got)
 	}
 }
 

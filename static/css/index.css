@@ -2876,6 +2876,70 @@ html.dark .record-timeline-card-action-delete:hover {
     gap: 12px;
 }
 
+.config-daily-merge-option {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: 9px;
+    margin-top: 10px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.config-daily-merge-option-track {
+    position: relative;
+    width: 34px;
+    height: 20px;
+    flex: 0 0 auto;
+    border-radius: 999px;
+    background: #e2e8f0;
+    transition: background 160ms ease, box-shadow 160ms ease;
+}
+
+.config-daily-merge-option-track::after {
+    content: "";
+    position: absolute;
+    left: 3px;
+    top: 3px;
+    width: 14px;
+    height: 14px;
+    border-radius: 999px;
+    background: #ffffff;
+    box-shadow: 0 2px 7px -3px rgba(15, 23, 42, 0.8);
+    transition: transform 160ms ease;
+}
+
+#dailyMergeMotionRecords:checked + .config-daily-merge-option-track {
+    background: #0f766e;
+}
+
+#dailyMergeMotionRecords:checked + .config-daily-merge-option-track::after {
+    transform: translateX(14px);
+}
+
+.config-daily-merge-option-copy {
+    display: inline-flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 7px;
+}
+
+.config-daily-merge-option-copy strong {
+    color: #334155;
+    font-size: 12px;
+    font-weight: 850;
+    line-height: 1.2;
+}
+
+.config-daily-merge-option-copy em {
+    color: #94a3b8;
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 650;
+    line-height: 1.35;
+}
+
 .config-setting-card-icon {
     width: 36px;
     height: 36px;
@@ -4361,6 +4425,22 @@ html.dark .config-daily-merge-card p,
 html.dark .config-section-head p,
 html.dark .config-page-actionbar-note {
     color: #94a3b8;
+}
+
+html.dark .config-daily-merge-option-copy strong {
+    color: #cbd5e1;
+}
+
+html.dark .config-daily-merge-option-copy em {
+    color: #64748b;
+}
+
+html.dark .config-daily-merge-option-track {
+    background: #334155;
+}
+
+html.dark #dailyMergeMotionRecords:checked + .config-daily-merge-option-track {
+    background: #0f766e;
 }
 
 html.dark .config-page-badges span,
