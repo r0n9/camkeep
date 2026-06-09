@@ -2,6 +2,7 @@ package task
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -325,6 +326,49 @@ func TestNewEventRecordSessionAppliesPreRecord(t *testing.T) {
 	}
 }
 
+func TestMotionTimeShiftRecordingWindowConstants(t *testing.T) {
+	if motionRecordIdleTimeout != 15*time.Second {
+		t.Fatalf("expected motion idle timeout 15s, got %s", motionRecordIdleTimeout)
+	}
+	if motionTimeShiftSegmentDuration != time.Minute {
+		t.Fatalf("expected Time-Shift segment duration 1m, got %s", motionTimeShiftSegmentDuration)
+	}
+	if motionTimeShiftSegmentCount != 3 {
+		t.Fatalf("expected Time-Shift segment count 3, got %d", motionTimeShiftSegmentCount)
+	}
+}
+
+func TestMotionTimeShiftExitedNoSpace(t *testing.T) {
+	noSpaceCmd := exec.Command("sh", "-c", "exit 228")
+	if err := noSpaceCmd.Run(); !motionTimeShiftExitedNoSpace(err) {
+		t.Fatalf("expected exit 228 to be treated as ENOSPC, got %v", err)
+	}
+
+	otherCmd := exec.Command("sh", "-c", "exit 1")
+	if err := otherCmd.Run(); motionTimeShiftExitedNoSpace(err) {
+		t.Fatalf("expected exit 1 not to be treated as ENOSPC, got %v", err)
+	}
+	if motionTimeShiftExitedNoSpace(nil) {
+		t.Fatal("expected nil error not to be treated as ENOSPC")
+	}
+}
+
+func TestEnableMotionTimeShiftTmpFallbackUsesTempDir(t *testing.T) {
+	camID := "test-timeshift-fallback"
+	resetMotionTimeShiftTmpFallbackForTest(t, camID)
+
+	enableMotionTimeShiftTmpFallback(camID)
+
+	got := motionTimeShiftDir(camID)
+	want := filepath.Join(os.TempDir(), motionTimeShiftBufferBaseName, camID)
+	if got != want {
+		t.Fatalf("expected fallback dir %q, got %q", want, got)
+	}
+	t.Cleanup(func() {
+		os.RemoveAll(want)
+	})
+}
+
 func TestParseMotionTimeShiftSegmentStart(t *testing.T) {
 	start, ok := parseMotionTimeShiftSegmentStart("loop_20260512_100001.ts")
 	if !ok {
@@ -356,7 +400,7 @@ func TestMotionTimeShiftClipsAcrossSegments(t *testing.T) {
 	createTimeShiftTestSegment(t, bufferDir, baseTime)
 	createTimeShiftTestSegment(t, bufferDir, baseTime.Add(motionTimeShiftSegmentDuration))
 
-	clips, err := motionTimeShiftClips(camID, baseTime.Add(170*time.Second), baseTime.Add(190*time.Second), baseTime.Add(190*time.Second))
+	clips, err := motionTimeShiftClips(camID, baseTime.Add(50*time.Second), baseTime.Add(70*time.Second), baseTime.Add(70*time.Second))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -510,6 +554,25 @@ func setOverridesForTest(t *testing.T, values map[string]string) {
 		overrideMux.Lock()
 		overrides = oldOverrides
 		overrideMux.Unlock()
+	})
+}
+
+func resetMotionTimeShiftTmpFallbackForTest(t *testing.T, camID string) {
+	t.Helper()
+
+	motionTimeShiftFallbackMux.Lock()
+	oldValue, hadOldValue := motionTimeShiftTmpFallback[camID]
+	delete(motionTimeShiftTmpFallback, camID)
+	motionTimeShiftFallbackMux.Unlock()
+
+	t.Cleanup(func() {
+		motionTimeShiftFallbackMux.Lock()
+		if hadOldValue {
+			motionTimeShiftTmpFallback[camID] = oldValue
+		} else {
+			delete(motionTimeShiftTmpFallback, camID)
+		}
+		motionTimeShiftFallbackMux.Unlock()
 	})
 }
 

@@ -121,6 +121,7 @@ docker run -d \
   --name camkeep \
   --restart unless-stopped \
   --network host \
+  --shm-size=512m \
   -e TZ=Asia/Shanghai \
   -e CAMKEEP_AUTH_PASSWORD=admin \
   -v ${PWD}/config:/app/config \
@@ -137,6 +138,7 @@ services:
     container_name: camkeep
     restart: unless-stopped
     network_mode: "host" # Recommended for WebRTC
+    shm_size: "512m"
     environment:
       - TZ=Asia/Shanghai
       - CAMKEEP_AUTH_PASSWORD=admin
@@ -156,6 +158,8 @@ Then run:
 ```bash
 docker-compose up -d
 ```
+
+Keeping `--shm-size=512m` or `shm_size: "512m"` is recommended. CamKeep stores the motion-recording Time-Shift buffer in the container `/dev/shm` first, while Docker usually defaults it to 64MB. High-bitrate streams or multiple motion-recording cameras can otherwise make FFmpeg fail to write the buffer, which may show up as short motion clips or a stopped Time-Shift engine. 512MB is suitable for typical 1-2 camera setups; use `1g` or more for multiple cameras or high-bitrate main streams. If motion recording is not used, this can be lowered or omitted.
 
 To keep existing login sessions after service restarts, optionally set a fixed `CAMKEEP_SESSION_SECRET`.
 

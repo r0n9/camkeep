@@ -121,6 +121,7 @@ docker run -d \
   --name camkeep \
   --restart unless-stopped \
   --network host \
+  --shm-size=512m \
   -e TZ=Asia/Shanghai \
   -e CAMKEEP_AUTH_PASSWORD=admin \
   -v ${PWD}/config:/app/config \
@@ -137,6 +138,7 @@ services:
     container_name: camkeep
     restart: unless-stopped
     network_mode: "host" # 推荐 host 网络，否则 WebRTC 可能握手失败
+    shm_size: "512m"
     environment:
       - TZ=Asia/Shanghai
       - CAMKEEP_AUTH_PASSWORD=admin
@@ -156,6 +158,8 @@ services:
 ```bash
 docker-compose up -d
 ```
+
+建议保留 `--shm-size=512m` 或 `shm_size: "512m"`。CamKeep 的动检录像 Time-Shift 缓存会优先写入容器 `/dev/shm`，Docker 默认通常只有 64MB，高码率或多路动检时可能导致 FFmpeg 写入失败，表现为缓存引擎退出或动检片段过短。512MB 适合一般 1-2 路摄像头；多路或高码率主码流建议调整到 `1g` 或更高。不使用动检录像时可以按需降低或省略。
 
 如需服务重启后保留现有登录态，可额外设置一个固定的 `CAMKEEP_SESSION_SECRET`。
 

@@ -342,7 +342,7 @@ func runMotionCameraTask(ctx context.Context, cam constant.Camera, camDir string
 
 			if harvestCmd != nil && harvestDone != nil {
 				select {
-				case <-harvestDone:
+				case harvestErr := <-harvestDone:
 					releaseOnvifMotionEventDemand("动检 Time-Shift 缓存引擎退出")
 					harvestCmd = nil
 					harvestDone = nil
@@ -351,6 +351,9 @@ func runMotionCameraTask(ctx context.Context, cam constant.Camera, camDir string
 						log.Printf("[%s] 动检 Time-Shift 缓存引擎退出，结束当前动检事件...", cam.ID)
 						finishEventRecordSession(ctx, cam, camDir, eventSession, time.Now())
 						eventSession = nil
+					}
+					if motionTimeShiftExitedNoSpace(harvestErr) {
+						enableMotionTimeShiftTmpFallback(cam.ID)
 					}
 				default:
 				}

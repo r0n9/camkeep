@@ -2,6 +2,7 @@ package task
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/r0n9/camkeep/constant"
@@ -18,14 +20,21 @@ import (
 )
 
 const (
-	motionRecordIdleTimeout        = 10 * time.Second
+	motionRecordIdleTimeout        = 15 * time.Second
 	motionTimeShiftPreRecord       = 5 * time.Second
-	motionTimeShiftSegmentDuration = 3 * time.Minute
+	motionTimeShiftSegmentDuration = 1 * time.Minute
 	motionTimeShiftSegmentCount    = 3
 	motionTimeShiftBufferBaseName  = "camkeep_motion"
+	motionTimeShiftShmBaseDir      = "/dev/shm"
 	motionTimeShiftFilePrefix      = "loop_"
 	motionTimeShiftTimeLayout      = "20060102_150405"
 	motionTimeShiftSegmentExt      = ".ts" // 从 .mp4 改为 .ts
+	motionTimeShiftNoSpaceExitCode = 228   // FFmpeg maps ENOSPC (-28) to process exit code 228.
+)
+
+var (
+	motionTimeShiftFallbackMux sync.RWMutex
+	motionTimeShiftTmpFallback = make(map[string]bool)
 )
 
 type eventRecordSession struct {
@@ -490,11 +499,51 @@ func pruneMotionTimeShiftSegments(camID string, protectAfter time.Time) {
 }
 
 func motionTimeShiftDir(camID string) string {
-	base := filepath.Join(os.TempDir(), motionTimeShiftBufferBaseName)
-	if info, err := os.Stat("/dev/shm"); err == nil && info.IsDir() {
-		base = filepath.Join("/dev/shm", motionTimeShiftBufferBaseName)
+	return filepath.Join(motionTimeShiftBaseDir(camID), camID)
+}
+
+func motionTimeShiftBaseDir(camID string) string {
+	if motionTimeShiftUsesTmpFallback(camID) {
+		return filepath.Join(os.TempDir(), motionTimeShiftBufferBaseName)
 	}
-	return filepath.Join(base, camID)
+	if info, err := os.Stat(motionTimeShiftShmBaseDir); err == nil && info.IsDir() {
+		return filepath.Join(motionTimeShiftShmBaseDir, motionTimeShiftBufferBaseName)
+	}
+	return filepath.Join(os.TempDir(), motionTimeShiftBufferBaseName)
+}
+
+func motionTimeShiftUsesTmpFallback(camID string) bool {
+	motionTimeShiftFallbackMux.RLock()
+	defer motionTimeShiftFallbackMux.RUnlock()
+	return motionTimeShiftTmpFallback[strings.TrimSpace(camID)]
+}
+
+func enableMotionTimeShiftTmpFallback(camID string) {
+	camID = strings.TrimSpace(camID)
+	if camID == "" {
+		return
+	}
+
+	motionTimeShiftFallbackMux.Lock()
+	alreadyEnabled := motionTimeShiftTmpFallback[camID]
+	motionTimeShiftTmpFallback[camID] = true
+	motionTimeShiftFallbackMux.Unlock()
+
+	if alreadyEnabled {
+		return
+	}
+
+	shmDir := filepath.Join(motionTimeShiftShmBaseDir, motionTimeShiftBufferBaseName, camID)
+	if err := os.RemoveAll(shmDir); err != nil {
+		log.Printf("[%s] 清理 /dev/shm 动检 Time-Shift 缓存失败: %v", camID, err)
+	}
+	log.Printf("[%s] /dev/shm 空间不足导致动检 Time-Shift 缓存退出，后续缓存回退到 %s",
+		camID, filepath.Join(os.TempDir(), motionTimeShiftBufferBaseName, camID))
+}
+
+func motionTimeShiftExitedNoSpace(err error) bool {
+	var exitErr *exec.ExitError
+	return errors.As(err, &exitErr) && exitErr.ExitCode() == motionTimeShiftNoSpaceExitCode
 }
 
 func parseMotionTimeShiftSegmentStart(name string) (time.Time, bool) {
