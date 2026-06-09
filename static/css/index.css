@@ -3183,11 +3183,26 @@ html.dark .record-timeline-card-action-delete:hover {
     line-height: 1;
 }
 
+.config-camera-title-block {
+    min-width: 0;
+    flex: 1 1 auto;
+    text-align: left;
+}
+
 .config-camera-title-row {
     display: flex;
     min-width: 0;
+    align-items: center;
+}
+
+.config-camera-chip-tray {
+    display: flex;
+    max-width: min(52%, 460px);
+    min-width: 0;
+    flex: 0 1 auto;
     flex-wrap: wrap;
     align-items: center;
+    justify-content: flex-end;
     gap: 6px;
 }
 
@@ -5520,7 +5535,8 @@ html.dark .config-doc-content pre code {
 }
 
 .config-camera-title-row h4 {
-    max-width: min(420px, 100%);
+    max-width: 100%;
+    min-width: 0;
     color: #0f172a;
     font-size: 14px;
     line-height: 1.25;
@@ -5713,6 +5729,17 @@ html.dark .config-doc-content pre code {
 
     .config-camera-card-summary {
         align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .config-camera-title-block {
+        flex-basis: calc(100% - 90px);
+    }
+
+    .config-camera-chip-tray {
+        max-width: calc(100% - 42px);
+        flex: 1 1 auto;
+        justify-content: flex-end;
     }
 
     .config-camera-delete-btn {

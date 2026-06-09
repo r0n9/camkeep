@@ -1167,22 +1167,25 @@ function renderConfigCameraCard(cam, index, expanded = false) {
     const motionMarkEventSourceNote = normalMode && !motionEnabled ? renderMotionMarkEventSourceNote(motionMarkEventSourceValue, onvifCapable, motionEnabled) : '';
     const sourceHint = managedByGo2rtc ? '使用 go2rtc 同名流' : 'CamKeep 会把接入源注册到 go2rtc';
     const motionHint = normalMode ? (motionMarkEnabled ? '普通录像会生成动检时间轴标记' : '动检开启后仅事件录像') : '延时录像模式会忽略动检';
+    const summaryChips = [
+        managedByGo2rtc ? '<span class="config-camera-chip config-camera-chip--go2rtc">go2rtc 接管</span>' : '',
+        onvifCapable ? '<span class="config-camera-chip config-camera-chip--onvif">ONVIF</span>' : '',
+        motionEnabled ? '<span class="config-camera-chip config-camera-chip--motion">动检</span>' : '',
+        motionMarkEnabled ? '<span class="config-camera-chip config-camera-chip--motion">动检标记</span>' : '',
+        `<span class="config-camera-chip config-camera-chip--mode">${escapeHtml(modeValue || 'normal')} / ${escapeHtml(cam.format || DEFAULT_RECORD_FORMAT)}</span>`
+    ].filter(Boolean).join('');
     return `
         <div class="config-camera-card-shell">
             <div class="config-camera-card-head">
                 <button onclick="toggleConfigCamera(${index})" class="config-camera-card-summary" type="button" aria-expanded="${expanded ? 'true' : 'false'}">
                     <div class="config-camera-card-index">#${index + 1}</div>
-                    <div class="min-w-0 flex-1 text-left">
+                    <div class="config-camera-title-block">
                         <div class="config-camera-title-row">
                             <h4 class="truncate text-sm font-extrabold text-slate-800">${escapeHtml(cam.id || '未命名摄像头')}</h4>
-                            ${managedByGo2rtc ? '<span class="config-camera-chip config-camera-chip--go2rtc">go2rtc 接管</span>' : ''}
-                            ${onvifCapable ? '<span class="config-camera-chip config-camera-chip--onvif">ONVIF</span>' : ''}
-                            ${motionEnabled ? '<span class="config-camera-chip config-camera-chip--motion">动检</span>' : ''}
-                            ${motionMarkEnabled ? '<span class="config-camera-chip config-camera-chip--motion">动检标记</span>' : ''}
-                            <span class="config-camera-chip config-camera-chip--mode">${escapeHtml(modeValue || 'normal')} / ${escapeHtml(cam.format || DEFAULT_RECORD_FORMAT)}</span>
                         </div>
                         <p class="mt-1 truncate text-[11px] font-medium text-slate-500">${sourceHint}；${motionHint}</p>
                     </div>
+                    <span class="config-camera-chip-tray">${summaryChips}</span>
                     <span class="config-camera-collapse-icon" aria-hidden="true">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M19 9l-7 7-7-7"></path></svg>
                     </span>
