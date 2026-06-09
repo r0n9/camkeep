@@ -1,9 +1,11 @@
 package task
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -249,6 +251,50 @@ func TestMotionDetectionShouldRunAutoStopsWhenOnvifHealthy(t *testing.T) {
 
 	if motionDetectionShouldRunAt(cam, now) {
 		t.Fatal("expected auto mode to stop frame diff while ONVIF event source is healthy")
+	}
+}
+
+func TestMotionDetectTaskDoesNotResetOnvifEventWhenFrameDiffIdle(t *testing.T) {
+	resetDetectionEventsForTest(t)
+	cam := constant.Camera{
+		ID:                "motion-auto-onvif-event",
+		Mode:              "normal",
+		MotionDetect:      true,
+		MotionEventSource: constant.MotionEventSourceAuto,
+		RecordTime:        "00:00-23:59",
+	}
+	candidate := onvif.Candidate{
+		ID:        cam.ID,
+		SourceURL: "onvif://admin:secret@example/onvif/device_service",
+		Endpoint:  "http://example/onvif/device_service",
+	}
+	setOverridesForTest(t, nil)
+	setStreamStateForTest(t, cam.ID, "online")
+	service.ReplaceOnvifCandidates([]onvif.Candidate{candidate})
+	t.Cleanup(func() { service.ReplaceOnvifCandidates(nil) })
+	service.UpdateOnvifProbeResult(candidate, onvif.Capabilities{
+		EventXAddr:       "http://example/onvif/events",
+		PullPointSupport: true,
+	})
+	now := time.Now()
+	service.UpdateOnvifEventListenerListening(cam.ID, now)
+	PublishDetectionEvent(DetectionEvent{
+		CameraID: cam.ID,
+		Type:     EventTypeMotion,
+		Source:   "onvif-pullpoint",
+		At:       now,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go MotionDetectTask(ctx, &wg, cam)
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+	wg.Wait()
+
+	if _, ok := RecentDetectionEvent(cam.ID, EventTypeMotion, time.Now(), motionRecordIdleTimeout); !ok {
+		t.Fatal("expected ONVIF motion event to survive while frame diff detector is idle")
 	}
 }
 

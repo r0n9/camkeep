@@ -47,7 +47,6 @@ func MotionDetectTask(ctx context.Context, wg *sync.WaitGroup, cam constant.Came
 		}
 
 		if !motionDetectionShouldRun(cam) {
-			resetMotionDetected(cam.ID)
 			if !waitMotionDetect(ctx, motionDetectStateCheckDelay) {
 				return
 			}
