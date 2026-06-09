@@ -2886,6 +2886,10 @@ html.dark .record-timeline-card-action-delete:hover {
     user-select: none;
 }
 
+.config-daily-merge-option[hidden] {
+    display: none;
+}
+
 .config-daily-merge-option-track {
     position: relative;
     width: 34px;

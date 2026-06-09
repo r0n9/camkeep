@@ -276,7 +276,7 @@
                                 <div>
                                     <h3>每日按小时合并</h3>
                                     <p>在低峰时段将前一天录像按自然小时合并为 MP4，成功后删除对应切片。</p>
-                                    <label class="config-daily-merge-option">
+                                    <label id="dailyMergeMotionOption" class="config-daily-merge-option">
                                         <input id="dailyMergeMotionRecords" type="checkbox" class="peer sr-only">
                                         <span class="config-daily-merge-option-track"></span>
                                         <span class="config-daily-merge-option-copy">
@@ -289,7 +289,7 @@
                             <div class="config-setting-card-controls">
                                 <input id="dailyMergeTime" type="time" class="h-9 rounded-lg border border-slate-200 px-3 text-sm font-mono text-slate-700 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10">
                                 <label class="relative inline-flex cursor-pointer items-center">
-                                    <input id="dailyMergeEnabled" type="checkbox" class="peer sr-only">
+                                    <input id="dailyMergeEnabled" type="checkbox" class="peer sr-only" onchange="syncDailyMergeMotionOptionVisibility()">
                                     <span class="h-6 w-11 rounded-full bg-slate-200 transition-colors peer-checked:bg-blue-600"></span>
                                     <span class="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5"></span>
                                 </label>

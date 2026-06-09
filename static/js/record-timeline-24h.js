@@ -145,7 +145,7 @@
             timelineShell.appendChild(pointer.el);
             wrapper.appendChild(status.el);
             wrapper.appendChild(timelineShell);
-            wrapper.appendChild(createFooter());
+            wrapper.appendChild(createFooter(markerSegments));
 
             const restoreViewportAnchor = () => {
                 if (!viewport.isConnected || viewport.clientWidth <= 0) return;
@@ -320,15 +320,30 @@
         return empty;
     }
 
-    function createFooter() {
+    function createFooter(markerSegments = []) {
         const footer = document.createElement('div');
         footer.className = 'record24h-footer';
+        const markerLegend = markerLegendItems(markerSegments).map(item => `
+            <span class="record24h-legend"><span class="record24h-legend-dot ${item.className}"></span>${item.label}</span>
+        `).join('');
         footer.innerHTML = `
             <span class="record24h-legend"><span class="record24h-legend-dot"></span>有开始和结束时间</span>
             <span class="record24h-legend"><span class="record24h-legend-dot is-estimated"></span>只有开始时间，按固定 ${formatDuration(fallbackDurationSeconds)} 展示</span>
-            <span class="record24h-legend"><span class="record24h-legend-dot is-motion-marker"></span>动检标记</span>
+            ${markerLegend}
         `;
         return footer;
+    }
+
+    function markerLegendItems(markerSegments = []) {
+        const sourceKeys = new Set(markerSegments.map(marker => marker.sourceKey));
+        const items = [];
+        if (sourceKeys.has('onvif')) {
+            items.push({className: 'is-motion-onvif', label: 'ONVIF 动检'});
+        }
+        if (sourceKeys.has('frame-diff')) {
+            items.push({className: 'is-motion-frame-diff', label: '帧差动检'});
+        }
+        return items;
     }
 
     function drawGrid(stage, zoom, axisTop, stageHeight) {

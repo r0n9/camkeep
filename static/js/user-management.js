@@ -11,6 +11,10 @@ function isBootstrapUserSetup() {
 
 async function openUsers() {
     if (!canAdmin()) return;
+    if (typeof confirmLeaveConfigIfDirty === 'function' && confirmLeaveConfigIfDirty(async () => {
+        showUserPage();
+        await loadUsers();
+    })) return;
     showUserPage();
     await loadUsers();
 }

@@ -19,6 +19,8 @@ let activeRecordTimeline24hDockKey = '';
 let recordTimeline24hRenderSeq = 0;
 let matrixToolbarTimer = null;
 let configPageVisible = false;
+let configCleanSnapshot = '';
+let configDirtyTrackingReady = false;
 let recordListHeightLockToken = 0;
 const authState = window.CAMKEEP_AUTH || {
     auth_enabled: false,
@@ -65,6 +67,7 @@ window.onload = function () {
     window.addEventListener('pagehide', releaseCameraCoverObjectURLs);
     window.addEventListener('beforeunload', stopAllCellPlayback);
     window.addEventListener('beforeunload', () => stopOnvifEventSummaryPolling({beacon: true}));
+    window.addEventListener('beforeunload', warnBeforeUnloadConfigChanges);
     window.addEventListener('resize', () => {
         const nextCompactGrid = window.innerWidth < 640;
         if (nextCompactGrid !== compactGrid) {
@@ -327,6 +330,13 @@ function closeConfirm() {
 
 async function executeConfirmAction() {
     if (!pendingAction) return;
+    if (pendingAction.type === 'discard-config-changes') {
+        const onConfirm = pendingAction.onConfirm;
+        closeConfirm();
+        if (typeof onConfirm === 'function') onConfirm();
+        return;
+    }
+
     const {camId, action} = pendingAction;
     const btn = document.getElementById('confirmBtn');
     const originText = btn.innerText;
@@ -368,6 +378,8 @@ let onvifEventTestTimers = new Map();
 
 async function openConfig() {
     if (!canAdmin()) return;
+    if (configPageVisible) return;
+    configDirtyTrackingReady = false;
     showConfigPage();
     go2rtcStreamInfoMap = new Map();
     configCameraExpandedKeys = new Set();
@@ -395,16 +407,44 @@ async function openConfig() {
         configFormInitialCamerasLoaded = true;
         renderConfigForm();
         switchConfigMode('form', {skipSync: true});
+        markConfigClean(currentConfigSnapshot() || configToYaml(configFormState));
     } catch (e) {
         switchConfigMode('yaml', {skipSync: true});
+        markConfigClean(currentConfigSnapshot() || yamlText);
         alert('表单配置读取失败，已切换到 YAML 高级模式: ' + e.message);
     }
 
     void scanUnmanagedStreams();
 }
 
-function closeConfig() {
+function closeConfig(options = {}) {
+    if (!options.skipDirtyCheck && confirmLeaveConfigIfDirty(() => closeConfig({skipDirtyCheck: true}))) return;
     showDashboardPage();
+}
+
+function confirmLeaveConfigIfDirty(onConfirm) {
+    if (!configPageVisible || !hasUnsavedConfigChanges()) return false;
+    confirmDiscardConfigChanges(onConfirm);
+    return true;
+}
+
+function confirmDiscardConfigChanges(onConfirm) {
+    pendingAction = {type: 'discard-config-changes', onConfirm};
+    const titleEl = document.getElementById('confirmTitle');
+    const descEl = document.getElementById('confirmDesc');
+    const btnEl = document.getElementById('confirmBtn');
+    const iconEl = document.getElementById('confirmIcon');
+    titleEl.innerText = '离开配置页面？';
+    descEl.innerHTML = `
+        <p class="mb-2">当前配置有未保存的修改。</p>
+        <p class="mb-2">离开后这些修改不会写入配置，也不会应用到录像任务。</p>
+        <p class="text-xs text-amber-600 font-bold mt-3 border-t pt-2">需要保留修改请先点击“保存并应用”。</p>`;
+    btnEl.className = 'px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold shadow transition-all';
+    btnEl.innerText = '放弃修改并离开';
+    btnEl.disabled = false;
+    iconEl.className = 'w-10 h-10 rounded-full flex items-center justify-center mr-3 text-white bg-amber-500 shadow-lg shadow-amber-200';
+    iconEl.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"></path></svg>`;
+    document.getElementById('confirmModal').classList.remove('hidden');
 }
 
 function showConfigPage() {
@@ -474,8 +514,9 @@ async function saveConfig() {
         if (resp.ok) {
             const result = await resp.json().catch(() => ({}));
             if (result.yaml) document.getElementById('configYaml').value = result.yaml;
+            markConfigClean(result.yaml || configToYaml(payload));
             alert('配置已生效并自动重启任务！');
-            closeConfig();
+            closeConfig({skipDirtyCheck: true});
             loadStatus();
         } else {
             const err = await resp.json().catch(() => ({}));
@@ -492,8 +533,9 @@ async function saveConfig() {
     }
     const resp = await fetch('/api/config', {method: 'POST', body: yamlText});
     if (resp.ok) {
+        markConfigClean(yamlText);
         alert('配置已生效并自动重启任务！');
-        closeConfig();
+        closeConfig({skipDirtyCheck: true});
         loadStatus();
     } else {
         const err = await resp.json();
@@ -542,6 +584,40 @@ async function validateConfigYaml(yamlText) {
     } catch (e) {
         return {ok: false, error: '无法连接配置检查接口: ' + e.message};
     }
+}
+
+function markConfigClean(snapshot) {
+    configCleanSnapshot = normalizeConfigSnapshot(snapshot);
+    configDirtyTrackingReady = true;
+}
+
+function hasUnsavedConfigChanges() {
+    if (!configPageVisible || !configDirtyTrackingReady) return false;
+    const current = currentConfigSnapshot();
+    if (current === null) return false;
+    return normalizeConfigSnapshot(current) !== configCleanSnapshot;
+}
+
+function currentConfigSnapshot() {
+    if (configEditMode === 'yaml') {
+        return document.getElementById('configYaml')?.value || '';
+    }
+    try {
+        return configToYaml(collectConfigForm({allowEmptyID: true}));
+    } catch (e) {
+        return null;
+    }
+}
+
+function normalizeConfigSnapshot(value) {
+    return String(value || '').replace(/\r\n/g, '\n').trimEnd();
+}
+
+function warnBeforeUnloadConfigChanges(event) {
+    if (!hasUnsavedConfigChanges()) return;
+    event.preventDefault();
+    event.returnValue = '';
+    return '';
 }
 
 async function scanUnmanagedStreams() {
@@ -1109,6 +1185,7 @@ function renderConfigForm() {
     document.getElementById('dailyMergeEnabled').checked = Boolean(configFormState.daily_merge.enabled);
     document.getElementById('dailyMergeTime').value = configFormState.daily_merge.time || '03:30';
     document.getElementById('dailyMergeMotionRecords').checked = Boolean(configFormState.daily_merge.merge_motion_records);
+    syncDailyMergeMotionOptionVisibility();
 
     const list = document.getElementById('configCameraList');
     const empty = document.getElementById('configCameraEmpty');
@@ -1132,6 +1209,15 @@ function renderConfigForm() {
         restoreBtn.disabled = !configFormInitialCamerasLoaded;
         restoreBtn.title = configFormInitialCamerasLoaded ? '恢复打开配置时的摄像头配置' : '暂无可恢复的摄像头配置';
     }
+}
+
+function syncDailyMergeMotionOptionVisibility() {
+    const enabledInput = document.getElementById('dailyMergeEnabled');
+    const option = document.getElementById('dailyMergeMotionOption');
+    const motionInput = document.getElementById('dailyMergeMotionRecords');
+    const enabled = Boolean(enabledInput && enabledInput.checked);
+    if (option) option.hidden = !enabled;
+    if (motionInput) motionInput.disabled = !enabled;
 }
 
 function renderConfigCameraCard(cam, index, expanded = false) {
@@ -1391,11 +1477,12 @@ function restoreConfigCameras() {
 }
 
 function collectConfigForm(options = {}) {
+    const dailyMergeEnabled = document.getElementById('dailyMergeEnabled').checked;
     const cfg = {
         daily_merge: {
-            enabled: document.getElementById('dailyMergeEnabled').checked,
+            enabled: dailyMergeEnabled,
             time: document.getElementById('dailyMergeTime').value || '03:30',
-            merge_motion_records: document.getElementById('dailyMergeMotionRecords').checked
+            merge_motion_records: dailyMergeEnabled && document.getElementById('dailyMergeMotionRecords').checked
         },
         cameras: []
     };
