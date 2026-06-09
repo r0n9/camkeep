@@ -28,14 +28,15 @@ CamKeep is not intended to replace large enterprise video security platforms. It
 ## ✨ Feature Highlights
 
 * 🧩 **go2rtc-native ingest**: `stream_url` accepts any go2rtc-compatible source, including `rtsp://`, `onvif://`, `ffmpeg:`, `exec:`, and existing go2rtc streams.
-* 🕹️ **ONVIF PTZ control**: CamKeep discovers ONVIF control candidates and supports pan/tilt, zoom, stop, plus focus and iris controls when available.
+* 🕹️ **ONVIF control and event diagnostics**: CamKeep discovers ONVIF control candidates, supports PTZ, zoom, focus, and iris controls, and can diagnose Event service, PullPoint support, and recently received events.
 * 🖼️ **Live covers**: Each live camera card can show a persisted cover image stored at `records/<camera>/cover.jpg`; CamKeep prefers go2rtc snapshots and falls back to local FFmpeg.
 * 📺 **Compact live dashboard**: Camera cards are optimized for desktop and mobile. Covers are loaded only for visible cards, while the backend refreshes them periodically with low concurrency.
 * 🕓 **24H timeline playback**: The original card list and timeline remain, and a new docked 24-hour timeline supports dragging, mouse-wheel zoom, mobile pinch zoom, and seeking by time.
 * 🧰 **Web configuration management**: Single-page config management with form/YAML modes, collapsible camera cards, restore-before-save, single add, batch add, and importing unmanaged go2rtc streams.
 * 🎥 **Practical recording modes**: Scheduled recording, manual start/stop, motion recording, timelapse, TS/MP4 segments, historical playback, download, and deletion.
 * 🧠 **Selectable motion event source**: In normal mode, `motion_detect` can use local low-resolution frame differencing, ONVIF PullPoint, or automatic ONVIF-first fallback to frame differencing with a Time-Shift cache for event clips.
-* 🧹 **Automatic storage management**: Retention cleanup, minimum-size filtering, and optional daily hourly merge keep long-running NAS deployments manageable.
+* 🧭 **Motion markers for continuous recording**: Continuous normal recording can enable `motion_mark_enabled` separately. It does not start or stop recording; it overlays ONVIF or frame-diff motion activity on the 24H timeline.
+* 🧹 **Automatic storage management**: Retention cleanup, minimum-size filtering, and daily hourly/continuous-range merging keep long-running NAS deployments manageable. Motion clips are kept as separate files by default, or can be merged with `merge_motion_records`.
 * 🔒 **Local users and access control**: No cloud dependency, no required account, and no camera data upload. CamKeep supports local admin/viewer users, online session status, and per-camera visibility for viewers.
 
 ## Status And Modes
@@ -56,6 +57,20 @@ stream_url: "managed_by_go2rtc"
 ```
 
 `managed_by_go2rtc` is usually written by the Web UI when importing an existing go2rtc stream. It means go2rtc owns the stream definition, while CamKeep handles recording, playback, and status.
+
+## ONVIF Events And Motion Markers
+
+After ONVIF capability probing succeeds, CamKeep detects Event service and PullPoint support. The configuration page can expand ONVIF event diagnostics to show listener state, recent events, and start a 30-second PullPoint test listener.
+
+Motion recording is enabled with `motion_detect: true`. `motion_event_source` supports:
+
+* `frame_diff`: Uses local frame differencing and reads `motion_url` plus `motionDetectRatioThreshold`.
+* `onvif`: Uses only ONVIF PullPoint motion events and does not fall back when unavailable.
+* `auto`: Uses PullPoint when the ONVIF Event channel is healthy, otherwise falls back to local frame differencing.
+
+Continuous normal recording can also enable `motion_mark_enabled` and select a source with `motion_mark_event_source`. This does not control recording start or stop. It writes motion activity ranges under `records/<camera>/.markers/` and shows them on the 24H timeline as ONVIF or frame-diff motion markers.
+
+In the single-camera live view, ONVIF devices show an event overlay switch. When enabled, CamKeep only leases a PullPoint listener and displays recent events. The event list is shown when hovering over the button, and the recording strategy is unchanged.
 
 ## 🚀 Quick Deployment
 
@@ -86,6 +101,8 @@ cameras:
     mode: "normal"
     motion_detect: false
     motion_event_source: "frame_diff"
+    motion_mark_enabled: false
+    motion_mark_event_source: "auto"
     motionDetectRatioThreshold: 0.01
 ```
 
@@ -148,11 +165,11 @@ Visit `http://<Your-NAS-IP>:9110` in your browser. If `CAMKEEP_AUTH_PASSWORD` bo
 
 ## Web Console
 
-* **Live dashboard**: Cover image, online state, recording state, manual recording controls, and live preview.
-* **History playback**: Camera/date based browsing with card list, classic timeline, and 24H timeline playback.
-* **Configuration**: Form and YAML editors, batch camera add, and importing unmanaged go2rtc streams.
+* **Live dashboard**: Cover image, online state, recording state, manual recording controls, and live preview; ONVIF live windows can enable an event overlay.
+* **History playback**: Camera/date based browsing with card list, classic timeline, and 24H timeline playback with motion marker overlays.
+* **Configuration**: Form and YAML editors, batch camera add, importing unmanaged go2rtc streams, and ONVIF Event/PullPoint diagnostics.
 * **User management**: Local users, admin/viewer roles, enable/disable accounts, password resets, online session status, and per-camera access scope for viewers.
-* **ONVIF controls**: PTZ, zoom, focus, and iris controls for supported devices.
+* **ONVIF controls**: PTZ, zoom, focus, iris controls, and event test entry for supported devices.
 * **Update check**: CamKeep checks GitHub Releases asynchronously after startup and then periodically. Stable builds show an update entry when a newer stable release exists. `dev`, `test`, and custom versions are not marked as stable upgrades.
 
 ## Privacy
