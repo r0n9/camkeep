@@ -103,6 +103,21 @@ func TestFrameDiffMotionDetectionEnabledRespectsEventSource(t *testing.T) {
 	if !FrameDiffMotionDetectionEnabled(constant.Camera{Mode: "normal", MotionDetect: true, MotionEventSource: constant.MotionEventSourceAuto}) {
 		t.Fatal("expected auto event source to keep frame diff fallback task")
 	}
+	if !FrameDiffMotionDetectionEnabled(constant.Camera{Mode: "normal", MotionMarkEnabled: true}) {
+		t.Fatal("expected motion marker auto source to keep frame diff fallback task")
+	}
+	if FrameDiffMotionDetectionEnabled(constant.Camera{Mode: "normal", MotionMarkEnabled: true, MotionMarkEventSource: constant.MotionEventSourceONVIF}) {
+		t.Fatal("expected ONVIF-only marker source to skip frame diff")
+	}
+	if FrameDiffMotionDetectionEnabled(constant.Camera{
+		Mode:                  "normal",
+		MotionDetect:          true,
+		MotionEventSource:     constant.MotionEventSourceONVIF,
+		MotionMarkEnabled:     true,
+		MotionMarkEventSource: constant.MotionEventSourceFrameDiff,
+	}) {
+		t.Fatal("expected marker generation to stay disabled while motion recording mode is enabled")
+	}
 }
 
 func TestRecordingWindowEnabled(t *testing.T) {
@@ -212,6 +227,53 @@ func TestMotionDetectionShouldRunAutoStopsWhenOnvifHealthy(t *testing.T) {
 
 	if motionDetectionShouldRunAt(cam, now) {
 		t.Fatal("expected auto mode to stop frame diff while ONVIF event source is healthy")
+	}
+}
+
+func TestMotionMarkerDetectionShouldRunAutoFallbackWhenOnvifUnavailable(t *testing.T) {
+	cam := constant.Camera{
+		ID:                    "marker-auto-fallback",
+		Mode:                  "normal",
+		MotionMarkEnabled:     true,
+		MotionMarkEventSource: constant.MotionEventSourceAuto,
+		RecordTime:            "00:00-23:59",
+	}
+	setOverridesForTest(t, nil)
+	setStreamStateForTest(t, cam.ID, "online")
+	service.ReplaceOnvifCandidates(nil)
+	t.Cleanup(func() { service.ReplaceOnvifCandidates(nil) })
+
+	if !motionDetectionShouldRunAt(cam, time.Now()) {
+		t.Fatal("expected marker auto mode to run frame diff when ONVIF event source is unavailable")
+	}
+}
+
+func TestMotionMarkerDetectionShouldStopFrameDiffWhenOnvifHealthy(t *testing.T) {
+	cam := constant.Camera{
+		ID:                    "marker-auto-onvif",
+		Mode:                  "normal",
+		MotionMarkEnabled:     true,
+		MotionMarkEventSource: constant.MotionEventSourceAuto,
+		RecordTime:            "00:00-23:59",
+	}
+	candidate := onvif.Candidate{
+		ID:        cam.ID,
+		SourceURL: "onvif://admin:secret@example/onvif/device_service",
+		Endpoint:  "http://example/onvif/device_service",
+	}
+	setOverridesForTest(t, nil)
+	setStreamStateForTest(t, cam.ID, "online")
+	service.ReplaceOnvifCandidates([]onvif.Candidate{candidate})
+	t.Cleanup(func() { service.ReplaceOnvifCandidates(nil) })
+	service.UpdateOnvifProbeResult(candidate, onvif.Capabilities{
+		EventXAddr:       "http://example/onvif/events",
+		PullPointSupport: true,
+	})
+	now := time.Now()
+	service.UpdateOnvifEventListenerListening(cam.ID, now)
+
+	if motionDetectionShouldRunAt(cam, now) {
+		t.Fatal("expected marker auto mode to stop frame diff while ONVIF event source is healthy")
 	}
 }
 

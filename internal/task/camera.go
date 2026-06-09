@@ -24,7 +24,11 @@ var (
 	overrides       = make(map[string]string) // key: 摄像头ID, value: "start", "stop", 或空("auto")
 )
 
-const scheduledRecordRetryDelay = 30 * time.Second
+const (
+	scheduledRecordStateCheckDelay  = 1 * time.Second
+	scheduledRecordMaintenanceEvery = 10 * time.Second
+	scheduledRecordRetryDelay       = 30 * time.Second
+)
 
 // SetOverride 设置手动录像指令
 func SetOverride(camID, action string) error {
@@ -91,7 +95,7 @@ func CameraTask(ctx context.Context, wg *sync.WaitGroup, cam constant.Camera, ev
 		runMotionCameraTask(ctx, cam, camDir, firstOnvifEventCandidate(eventCandidates))
 		return
 	}
-	runScheduledCameraTask(ctx, cam, camDir)
+	runScheduledCameraTask(ctx, cam, camDir, firstOnvifEventCandidate(eventCandidates))
 }
 
 func firstOnvifEventCandidate(candidates []onvif.Candidate) *onvif.Candidate {
@@ -101,19 +105,45 @@ func firstOnvifEventCandidate(candidates []onvif.Candidate) *onvif.Candidate {
 	return &candidates[0]
 }
 
-func runScheduledCameraTask(ctx context.Context, cam constant.Camera, camDir string) {
+func runScheduledCameraTask(ctx context.Context, cam constant.Camera, camDir string, eventCandidate *onvif.Candidate) {
 	var ffmpegCmd *exec.Cmd
 	var ffmpegCancel context.CancelFunc
 	var ffmpegDone chan error
 	var recordErr error
 	var nextStartAfter time.Time
+	var markerSession *motionMarkerSession
+	var releaseOnvifMarkerEvents func()
 
-	ticker := time.NewTicker(10 * time.Second)
+	acquireOnvifMarkerEvents := func() {
+		if !motionMarkSourceUsesOnvif(cam, eventCandidate) || releaseOnvifMarkerEvents != nil {
+			return
+		}
+		releaseOnvifMarkerEvents = RequireOnvifMotionEvents(ctx, cam, *eventCandidate, "normal-record-motion-marker")
+	}
+
+	releaseOnvifMarkerEventDemand := func(reason string) {
+		if releaseOnvifMarkerEvents == nil {
+			return
+		}
+		if reason != "" {
+			log.Printf("[%s] %s，释放普通录制动检标记 ONVIF PullPoint 需求...", cam.ID, reason)
+		}
+		releaseOnvifMarkerEvents()
+		releaseOnvifMarkerEvents = nil
+	}
+
+	ticker := time.NewTicker(scheduledRecordStateCheckDelay)
 	defer ticker.Stop()
+	var lastMaintenanceAt time.Time
 
 	for {
 		select {
 		case <-ctx.Done():
+			releaseOnvifMarkerEventDemand("")
+			if markerSession != nil {
+				finishMotionMarkerSession(cam, markerSession, time.Now())
+				markerSession = nil
+			}
 			// 全局退出时，如果 ffmpeg 还在运行，杀掉它
 			if ffmpegCancel != nil {
 				ffmpegCancel()
@@ -125,8 +155,11 @@ func runScheduledCameraTask(ctx context.Context, cam constant.Camera, camDir str
 			return
 		case <-ticker.C:
 			now := time.Now()
-			ensureCameraDateDirs(camDir, now)
-			renameCompletedSegments(ctx, cam, camDir, now)
+			if lastMaintenanceAt.IsZero() || now.Sub(lastMaintenanceAt) >= scheduledRecordMaintenanceEvery {
+				ensureCameraDateDirs(camDir, now)
+				renameCompletedSegments(ctx, cam, camDir, now)
+				lastMaintenanceAt = now
+			}
 
 			// 判断逻辑接入覆写
 			control := getOverride(cam.ID)
@@ -210,6 +243,34 @@ func runScheduledCameraTask(ctx context.Context, cam constant.Camera, camDir str
 				ffmpegCancel = nil
 
 				isRunning = false
+			}
+
+			markerShouldRun := isRunning && shouldRun && motionMarkingEnabled(cam)
+			if markerShouldRun {
+				acquireOnvifMarkerEvents()
+			} else {
+				releaseOnvifMarkerEventDemand("")
+			}
+
+			if markerShouldRun {
+				if event, ok := motionMarkerRecentEvent(cam, now); ok {
+					if markerSession == nil {
+						markerSession = startMotionMarkerSession(cam, event, now)
+						log.Printf("[%s] 动检时间轴标记窗口已开始: source=%s start=%s",
+							cam.ID, markerSession.marker.Source, markerSession.marker.Start.Format(time.RFC3339))
+					} else if !updateMotionMarkerSession(cam, markerSession, event, now) {
+						finishMotionMarkerSession(cam, markerSession, event.At)
+						markerSession = startMotionMarkerSession(cam, event, now)
+						log.Printf("[%s] 动检时间轴标记窗口已切换: source=%s start=%s",
+							cam.ID, markerSession.marker.Source, markerSession.marker.Start.Format(time.RFC3339))
+					}
+				} else if markerSession != nil {
+					finishMotionMarkerSession(cam, markerSession, now)
+					markerSession = nil
+				}
+			} else if markerSession != nil {
+				finishMotionMarkerSession(cam, markerSession, now)
+				markerSession = nil
 			}
 
 			recordState := service.RecordStateIdle

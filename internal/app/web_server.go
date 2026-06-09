@@ -34,6 +34,7 @@ func startWebServer() {
 	protected.POST("/api/camera/:id/onvif/event-summary/release", handleReleaseCameraOnvifEventSummaryLease)
 	protected.GET("/api/camera/:id/cover", handleCameraCover)
 	protected.GET("/api/records/:id", handleRecords)
+	protected.GET("/api/camera/:id/record-markers", handleRecordMarkers)
 	protected.GET("/api/record/probe", handleProbeRecord)
 	protected.GET("/api/record/download", handleDownloadRecord)
 

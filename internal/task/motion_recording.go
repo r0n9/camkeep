@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -85,10 +86,15 @@ func motionEventSourceUsesFrameDiff(cam constant.Camera, now time.Time) bool {
 }
 
 func FrameDiffMotionDetectionEnabled(cam constant.Camera) bool {
-	if !motionRecordingEnabled(cam) {
-		return false
-	}
-	return motionEventSource(cam) != constant.MotionEventSourceONVIF
+	return motionRecordingFrameDiffDetectionEnabled(cam) || motionMarkerFrameDiffDetectionEnabled(cam)
+}
+
+func motionRecordingFrameDiffDetectionEnabled(cam constant.Camera) bool {
+	return motionRecordingEnabled(cam) && motionEventSource(cam) != constant.MotionEventSourceONVIF
+}
+
+func motionMarkerFrameDiffDetectionEnabled(cam constant.Camera) bool {
+	return motionMarkingEnabled(cam) && motionMarkEventSource(cam) != constant.MotionEventSourceONVIF
 }
 
 func statusModeForCamera(cam constant.Camera) string {
@@ -114,11 +120,24 @@ func motionRatioThreshold(cam constant.Camera) float64 {
 }
 
 func markMotionDetected(camID string, at time.Time) {
+	markMotionDetectedWithMetadata(camID, at, nil)
+}
+
+func markMotionDetectedWithStats(camID string, at time.Time, stats motionFrameStats) {
+	markMotionDetectedWithMetadata(camID, at, map[string]string{
+		"diff_pixels": strconv.Itoa(stats.DiffPixels),
+		"diff_ratio":  strconv.FormatFloat(stats.DiffRatio, 'f', 6, 64),
+		"diff_sum":    strconv.Itoa(stats.DiffSum),
+	})
+}
+
+func markMotionDetectedWithMetadata(camID string, at time.Time, metadata map[string]string) {
 	PublishDetectionEvent(DetectionEvent{
 		CameraID: camID,
 		Type:     EventTypeMotion,
 		Source:   "builtin-motion",
 		At:       at,
+		Metadata: metadata,
 	})
 }
 

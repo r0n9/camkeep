@@ -39,6 +39,7 @@
             camId,
             date,
             entries,
+            markers = [],
             selectedRecordPath = '',
             initialViewportWidth = 0,
             onPlayAtTime = () => {},
@@ -51,6 +52,7 @@
         const key = `${camId || ''}:${date || ''}`;
         const state = getState(key);
         const segments = buildSegments(entries || []);
+        const markerSegments = buildMarkerSegments(markers || [], date);
         const unknownCount = (entries || []).filter(entry => !entry.meta || !entry.meta.hasStartTime).length;
         if (segments.length > 0 && !Number.isFinite(state.pointerSeconds)) {
             state.pointerSeconds = initialPointerSeconds(segments, selectedRecordPath, date);
@@ -67,7 +69,7 @@
                 render
             );
 
-            wrapper.appendChild(createHeader(date, segments, unknownCount, state, zoomBy));
+            wrapper.appendChild(createHeader(date, segments, markerSegments, unknownCount, state, zoomBy));
             if (segments.length === 0) {
                 wrapper.appendChild(createEmptyState(unknownCount));
                 return;
@@ -93,6 +95,7 @@
 
             drawGrid(stage, scale, axisTop, stageHeight);
             drawSegments(stage, layout.segments, scale, selectedRecordPath);
+            drawMarkers(stage, markerSegments, scale);
 
             const pointer = createPointer(state.pointerSeconds, axisTop);
             const timelineShell = document.createElement('div');
@@ -103,7 +106,8 @@
                 state.pointerSeconds = nextSeconds;
                 pointer.label.textContent = formatClock(nextSeconds, true);
                 const hit = findSegmentAt(segments, nextSeconds);
-                updateStatus(status, nextSeconds, hit);
+                const marker = findMarkerAt(markerSegments, nextSeconds);
+                updateStatus(status, nextSeconds, hit, marker);
             };
 
             const commitPointer = (seconds) => {
@@ -213,7 +217,7 @@
         }, ZOOM_ANIMATION_MS);
     }
 
-    function createHeader(date, segments, unknownCount, state, zoomBy) {
+    function createHeader(date, segments, markerSegments, unknownCount, state, zoomBy) {
         const header = document.createElement('div');
         header.className = 'record24h-header';
 
@@ -222,12 +226,13 @@
         const coverageText = segments.length > 0
             ? `${segments.length} 段 · ${formatDuration(totalCoverageSeconds(segments))} 覆盖`
             : '无可定位录像';
+        const markerText = markerSegments.length > 0 ? ` · 动检 ${markerSegments.length} 段` : '';
 
         const title = document.createElement('div');
         title.className = 'record24h-title';
         title.innerHTML = `
             <strong>24H 录像分布</strong>
-            <span>${escapeHtml(date || '录像日')} · ${coverageText}${estimatedCount ? ` · ${estimatedCount} 段固定区间` : ''}${unknownCount ? ` · ${unknownCount} 段未识别` : ''}</span>
+            <span>${escapeHtml(date || '录像日')} · ${coverageText}${markerText}${estimatedCount ? ` · ${estimatedCount} 段固定区间` : ''}${unknownCount ? ` · ${unknownCount} 段未识别` : ''}</span>
         `;
 
         const actions = document.createElement('div');
@@ -288,19 +293,21 @@
         return {el, hit};
     }
 
-    function updateStatus(status, seconds, segment) {
+    function updateStatus(status, seconds, segment, marker = null) {
         const badge = status.el.parentElement
             ? status.el.parentElement.querySelector('[data-record24h-time-badge]')
             : null;
         if (badge) badge.textContent = formatClock(seconds, true);
 
         if (!segment) {
-            status.hit.textContent = `${formatClock(seconds, true)} · 该时间点无录像`;
+            status.hit.textContent = marker
+                ? `${formatClock(seconds, true)} · 该时间点无录像 · ${markerLabel(marker)}`
+                : `${formatClock(seconds, true)} · 该时间点无录像`;
             return;
         }
         const range = `${formatClock(segment.startSeconds, true)}-${formatClock(segment.endSeconds, true)}`;
         const estimated = segment.estimated ? '固定区间' : '真实区间';
-        status.hit.textContent = `${formatClock(seconds, true)} · ${segment.kind} · ${range} · ${estimated}`;
+        status.hit.textContent = `${formatClock(seconds, true)} · ${segment.kind} · ${range} · ${estimated}${marker ? ` · ${markerLabel(marker)}` : ''}`;
     }
 
     function createEmptyState(unknownCount) {
@@ -319,6 +326,7 @@
         footer.innerHTML = `
             <span class="record24h-legend"><span class="record24h-legend-dot"></span>有开始和结束时间</span>
             <span class="record24h-legend"><span class="record24h-legend-dot is-estimated"></span>只有开始时间，按固定 ${formatDuration(fallbackDurationSeconds)} 展示</span>
+            <span class="record24h-legend"><span class="record24h-legend-dot is-motion-marker"></span>动检标记</span>
         `;
         return footer;
     }
@@ -407,6 +415,20 @@
             bar.style.width = `${Math.max(MIN_SEGMENT_WIDTH, right - left)}px`;
             bar.title = `${segment.kind} · ${formatClock(segment.startSeconds, true)}-${formatClock(segment.endSeconds, true)}${segment.estimated ? ' · 固定区间' : ''}`;
             bar.innerHTML = `<span class="record24h-segment-label">${escapeHtml(segment.kind)}</span>`;
+            stage.appendChild(bar);
+        });
+    }
+
+    function drawMarkers(stage, markers, zoom) {
+        markers.forEach(marker => {
+            const left = secondsToX(marker.startSeconds, zoom);
+            const right = secondsToX(marker.endSeconds, zoom);
+            const bar = document.createElement('span');
+            bar.className = `record24h-marker is-${marker.sourceKey}`;
+            bar.style.left = `${left}px`;
+            bar.style.top = `${LANE_TOP + 22}px`;
+            bar.style.width = `${Math.max(4, right - left)}px`;
+            bar.title = `${markerLabel(marker)} · ${formatClock(marker.startSeconds, true)}-${formatClock(marker.endSeconds, true)}${marker.topic ? ` · ${marker.topic}` : ''}`;
             stage.appendChild(bar);
         });
     }
@@ -729,6 +751,39 @@
             .sort((a, b) => a.startSeconds - b.startSeconds || a.endSeconds - b.endSeconds || a.index - b.index);
     }
 
+    function buildMarkerSegments(markers, dateKey) {
+        const dayStart = dateKeyToLocalTime(dateKey);
+        if (!Number.isFinite(dayStart)) return [];
+        const dayEnd = dayStart + DAY_SECONDS * 1000;
+
+        return (markers || [])
+            .map((marker, index) => {
+                const startMs = Date.parse(marker && marker.start);
+                const endMs = Date.parse(marker && marker.end);
+                if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) return null;
+
+                const clippedStart = clamp(startMs, dayStart, dayEnd);
+                const clippedEnd = clamp(endMs, dayStart, dayEnd);
+                if (clippedEnd <= clippedStart) return null;
+
+                const startSeconds = Math.floor((clippedStart - dayStart) / 1000);
+                const endSeconds = Math.ceil((clippedEnd - dayStart) / 1000);
+                const source = String(marker.source || '').trim();
+                return {
+                    index,
+                    source,
+                    sourceKey: markerSourceKey(source),
+                    topic: String(marker.topic || '').trim(),
+                    score: Number(marker.score),
+                    reason: String(marker.reason || '').trim(),
+                    startSeconds: clampSeconds(startSeconds),
+                    endSeconds: Math.max(clampSeconds(startSeconds) + 1, clampSeconds(endSeconds))
+                };
+            })
+            .filter(Boolean)
+            .sort((a, b) => a.startSeconds - b.startSeconds || a.endSeconds - b.endSeconds || a.index - b.index);
+    }
+
     function layoutSegments(segments) {
         return {
             segments: segments.map(segment => ({...segment, lane: 0})),
@@ -754,6 +809,13 @@
             if (a.estimated !== b.estimated) return a.estimated ? 1 : -1;
             return a.durationSeconds - b.durationSeconds;
         })[0];
+    }
+
+    function findMarkerAt(markers, seconds) {
+        const hitSeconds = clampSeconds(seconds);
+        const hits = markers.filter(marker => hitSeconds >= marker.startSeconds && hitSeconds <= marker.endSeconds);
+        if (hits.length === 0) return null;
+        return hits.sort((a, b) => (a.endSeconds - a.startSeconds) - (b.endSeconds - b.startSeconds))[0];
     }
 
     function totalCoverageSeconds(segments) {
@@ -882,6 +944,42 @@
     function entryPath(entry) {
         const file = entry && entry.file;
         return String((file && (file.path || file.url || file.name)) || '').trim();
+    }
+
+    function markerSourceKey(source) {
+        source = String(source || '').toLowerCase();
+        if (source.includes('onvif')) return 'onvif';
+        return 'frame-diff';
+    }
+
+    function markerLabel(marker) {
+        const label = markerSourceLabel(marker && marker.source);
+        const score = Number(marker && marker.score);
+        const scoreText = Number.isFinite(score) && score > 0 && markerSourceKey(marker && marker.source) === 'frame-diff'
+            ? ` · ${(score * 100).toFixed(2)}%`
+            : '';
+        return `动检标记 · ${label}${scoreText}`;
+    }
+
+    function markerSourceLabel(source) {
+        switch (String(source || '').trim()) {
+            case 'onvif':
+                return 'ONVIF';
+            case 'auto_onvif':
+                return '自动/ONVIF';
+            case 'auto_frame_diff':
+                return '自动/帧差';
+            case 'frame_diff':
+                return '帧差';
+            default:
+                return '未知来源';
+        }
+    }
+
+    function dateKeyToLocalTime(dateKey) {
+        const parts = String(dateKey || '').split('-').map(Number);
+        if (parts.length !== 3 || parts.some(part => !Number.isInteger(part))) return NaN;
+        return new Date(parts[0], parts[1] - 1, parts[2], 0, 0, 0, 0).getTime();
     }
 
     function isToday(dateKey) {

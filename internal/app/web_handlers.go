@@ -927,6 +927,32 @@ func handleRecords(c *gin.Context) {
 	c.JSON(http.StatusOK, filterRecordEntries(entries, dateRange))
 }
 
+func handleRecordMarkers(c *gin.Context) {
+	camID := c.Param("id")
+	if !requireCameraAccess(c, camID) {
+		return
+	}
+	dateRange, err := parseRecordDateRange(c.Query("start"), c.Query("end"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if !dateRange.explicit {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "查询动检标记必须提供开始和结束日期"})
+		return
+	}
+
+	markers, err := task.ReadMotionMarkers(camID, dateRange.start, dateRange.end)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "读取动检标记失败"})
+		return
+	}
+	if markers == nil {
+		markers = []task.MotionMarker{}
+	}
+	c.JSON(http.StatusOK, markers)
+}
+
 func parseRecordDateRange(startText, endText string) (recordDateRange, error) {
 	startText = strings.TrimSpace(startText)
 	endText = strings.TrimSpace(endText)

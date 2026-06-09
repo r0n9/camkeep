@@ -12,8 +12,11 @@ const maxRecordRangeDays = 7;
 const recordTimelineFallbackDurationSeconds = 5 * 60;
 const recordArchiveOpenDates = new Set();
 const recordArchiveViewModes = new Map();
+const recordMarkersByDateCache = new Map();
+const recordMarkersRequestCache = new Map();
 let latestBatchCameraPreview = {valid: [], invalid: []};
 let activeRecordTimeline24hDockKey = '';
+let recordTimeline24hRenderSeq = 0;
 let matrixToolbarTimer = null;
 let configPageVisible = false;
 let recordListHeightLockToken = 0;
@@ -348,6 +351,7 @@ const DEFAULT_MIN_SIZE_KB = 1024;
 const DEFAULT_CAPTURE_INTERVAL = 1;
 const DEFAULT_MOTION_RATIO_THRESHOLD = 0.01;
 const DEFAULT_MOTION_EVENT_SOURCE = 'frame_diff';
+const DEFAULT_MOTION_MARK_EVENT_SOURCE = 'auto';
 const MOTION_EVENT_SOURCES = new Set(['frame_diff', 'onvif', 'auto']);
 let configEditMode = 'form';
 let configFormState = {daily_merge: {enabled: false, time: '03:30'}, cameras: []};
@@ -712,6 +716,8 @@ function normalizeConfigCamera(cam) {
         capture_interval: captureInterval > 0 ? captureInterval : DEFAULT_CAPTURE_INTERVAL,
         motion_detect: Boolean(readConfigValue(cam, ['motion_detect', 'MotionDetect'], false)),
         motion_event_source: normalizeMotionEventSource(readConfigValue(cam, ['motion_event_source', 'MotionEventSource'], DEFAULT_MOTION_EVENT_SOURCE)),
+        motion_mark_enabled: Boolean(readConfigValue(cam, ['motion_mark_enabled', 'MotionMarkEnabled'], false)),
+        motion_mark_event_source: normalizeMotionMarkEventSource(readConfigValue(cam, ['motion_mark_event_source', 'MotionMarkEventSource'], DEFAULT_MOTION_MARK_EVENT_SOURCE)),
         motionDetectRatioThreshold: motionRatio > 0 ? motionRatio : DEFAULT_MOTION_RATIO_THRESHOLD,
         auto_discovered: isManagedByGo2rtcURL(effectiveStreamURL) || Boolean(readConfigValue(cam, ['auto_discovered', 'AutoDiscovered'], false))
     };
@@ -720,6 +726,11 @@ function normalizeConfigCamera(cam) {
 function normalizeMotionEventSource(source) {
     source = String(source || '').trim().toLowerCase();
     return MOTION_EVENT_SOURCES.has(source) ? source : DEFAULT_MOTION_EVENT_SOURCE;
+}
+
+function normalizeMotionMarkEventSource(source) {
+    source = String(source || '').trim().toLowerCase();
+    return MOTION_EVENT_SOURCES.has(source) ? source : DEFAULT_MOTION_MARK_EVENT_SOURCE;
 }
 
 function readConfigValue(source, keys, fallback) {
@@ -1128,11 +1139,17 @@ function renderConfigCameraCard(cam, index, expanded = false) {
     const managedByGo2rtc = isManagedByGo2rtcURL(cam.stream_url);
     const onvifCapable = configCameraSupportsOnvif(cam);
     const motionEnabled = normalMode && Boolean(cam.motion_detect);
+    const motionMarkEnabled = normalMode && !motionEnabled && Boolean(cam.motion_mark_enabled);
     const motionEventSourceValue = motionEventSourceForCamera(cam, onvifCapable);
+    const motionMarkEventSourceValue = motionMarkEventSourceForCamera(cam, onvifCapable);
     const motionEventSourceOptions = onvifCapable
         ? [['frame_diff', '本地帧差'], ['onvif', 'ONVIF'], ['auto', '自动']]
         : [['frame_diff', '本地帧差']];
+    const motionMarkEventSourceOptions = onvifCapable
+        ? [['auto', '自动'], ['onvif', 'ONVIF'], ['frame_diff', '本地帧差']]
+        : [['frame_diff', '本地帧差']];
     const motionDetectAttrs = normalMode ? 'onchange="refreshConfigFormFromDom()"' : 'disabled';
+    const motionMarkSourceAttrs = motionMarkEnabled ? `onchange="refreshConfigFormFromDom()"` : 'disabled title="先启用普通录制动检标记后再选择来源"';
     const motionUrlAttrs = normalMode ? '' : 'disabled title="延时模式不使用动检流"';
     const motionThresholdAttrs = motionEnabled ? '' : 'disabled title="先启用动检录制后再调整阈值"';
     const captureIntervalAttrs = normalMode ? 'disabled title="仅延时模式生效"' : '';
@@ -1141,8 +1158,13 @@ function renderConfigCameraCard(cam, index, expanded = false) {
         ? '启用后仅事件片段会触发录像，阈值越低越敏感。'
         : '仅在延时模式下生效，动检项会被忽略。';
     const motionEventSourceNote = normalMode ? renderMotionEventSourceNote(motionEventSourceValue, onvifCapable) : '';
+    const motionMarkControls = normalMode && !motionEnabled ? `
+                    ${configCheckboxInput('普通录制动检标记', 'motion_mark_enabled', motionMarkEnabled, 'onchange="refreshConfigFormFromDom()"')}
+                    ${configSelectInput('标记来源', 'motion_mark_event_source', motionMarkEventSourceValue, motionMarkEventSourceOptions, motionMarkSourceAttrs, false)}
+    ` : '';
+    const motionMarkEventSourceNote = normalMode && !motionEnabled ? renderMotionMarkEventSourceNote(motionMarkEventSourceValue, onvifCapable, motionEnabled) : '';
     const sourceHint = managedByGo2rtc ? '使用 go2rtc 同名流' : 'CamKeep 会把接入源注册到 go2rtc';
-    const motionHint = normalMode ? '动检开启后仅事件录像' : '延时录像模式会忽略动检';
+    const motionHint = normalMode ? (motionMarkEnabled ? '普通录像会生成动检时间轴标记' : '动检开启后仅事件录像') : '延时录像模式会忽略动检';
     return `
         <div class="config-camera-card-shell">
             <div class="config-camera-card-head">
@@ -1154,6 +1176,7 @@ function renderConfigCameraCard(cam, index, expanded = false) {
                             ${managedByGo2rtc ? '<span class="config-camera-chip config-camera-chip--go2rtc">go2rtc 接管</span>' : ''}
                             ${onvifCapable ? '<span class="config-camera-chip config-camera-chip--onvif">ONVIF</span>' : ''}
                             ${motionEnabled ? '<span class="config-camera-chip config-camera-chip--motion">动检</span>' : ''}
+                            ${motionMarkEnabled ? '<span class="config-camera-chip config-camera-chip--motion">动检标记</span>' : ''}
                             <span class="config-camera-chip config-camera-chip--mode">${escapeHtml(modeValue || 'normal')} / ${escapeHtml(cam.format || DEFAULT_RECORD_FORMAT)}</span>
                         </div>
                         <p class="mt-1 truncate text-[11px] font-medium text-slate-500">${sourceHint}；${motionHint}</p>
@@ -1183,16 +1206,20 @@ function renderConfigCameraCard(cam, index, expanded = false) {
                 ${configFormSection(motionSectionTitle, motionSectionDesc, normalMode ? `
                     ${configCheckboxInput('动检录制', 'motion_detect', motionEnabled, motionDetectAttrs)}
                     ${configSelectInput('事件源', 'motion_event_source', motionEventSourceValue, motionEventSourceOptions, `onchange="refreshConfigFormFromDom()"`, false)}
+                    ${motionMarkControls}
                     ${configTextInput('动检流 motion_url', 'motion_url', cam.motion_url, '可选，低码率子码流，仅用于识别', false, 'config-field-wide', motionUrlAttrs)}
                     ${configHiddenInput('capture_interval', cam.capture_interval)}
                     ${configNumberInput('动检阈值', 'motionDetectRatioThreshold', cam.motionDetectRatioThreshold, '0.01 表示 1%', '0.001', '', motionThresholdAttrs)}
                     ${motionEventSourceNote}
+                    ${motionMarkEventSourceNote}
                 ` : `
                     ${configNumberInput('延时抓拍间隔', 'capture_interval', cam.capture_interval, '仅延时生效', '1', 'config-field-wide', captureIntervalAttrs)}
                     ${configHiddenInput('motion_url', cam.motion_url)}
                     ${configHiddenInput('motion_event_source', motionEventSourceValue)}
+                    ${configHiddenInput('motion_mark_event_source', motionMarkEventSourceValue)}
                     ${configHiddenInput('motionDetectRatioThreshold', cam.motionDetectRatioThreshold)}
                     <input data-field="motion_detect" type="checkbox" ${cam.motion_detect ? 'checked' : ''} hidden>
+                    <input data-field="motion_mark_enabled" type="checkbox" ${cam.motion_mark_enabled ? 'checked' : ''} hidden>
                     <div class="config-form-section-note config-field-wide">延时模式不使用动检录像，保留接入源与抓拍间隔即可。</div>
                 `, normalMode ? 'config-form-section--motion' : 'config-form-section--motion config-form-section--timelapse is-muted')}
                 ${renderOnvifDiagnosticsSection(cam, uiKey)}
@@ -1203,6 +1230,12 @@ function renderConfigCameraCard(cam, index, expanded = false) {
 
 function motionEventSourceForCamera(cam, onvifCapable) {
     const source = normalizeMotionEventSource(cam?.motion_event_source || DEFAULT_MOTION_EVENT_SOURCE);
+    if (!onvifCapable && source !== DEFAULT_MOTION_EVENT_SOURCE) return DEFAULT_MOTION_EVENT_SOURCE;
+    return source;
+}
+
+function motionMarkEventSourceForCamera(cam, onvifCapable) {
+    const source = normalizeMotionMarkEventSource(cam?.motion_mark_event_source || DEFAULT_MOTION_MARK_EVENT_SOURCE);
     if (!onvifCapable && source !== DEFAULT_MOTION_EVENT_SOURCE) return DEFAULT_MOTION_EVENT_SOURCE;
     return source;
 }
@@ -1218,6 +1251,24 @@ function renderMotionEventSourceNote(source, onvifCapable) {
         text = onvifCapable
             ? '本地帧差会读取 motion_url；留空时使用默认 go2rtc 流。'
             : '当前接入源不是 ONVIF，只支持本地帧差事件源。';
+    }
+    return `<div class="config-form-section-note config-field-wide">${escapeHtml(text)}</div>`;
+}
+
+function renderMotionMarkEventSourceNote(source, onvifCapable, motionEnabled) {
+    if (motionEnabled) {
+        return '<div class="config-form-section-note config-field-wide">动检录制模式下不会生成普通录制动检标记；需要完整录像索引时请关闭动检录制。</div>';
+    }
+    source = normalizeMotionMarkEventSource(source || DEFAULT_MOTION_MARK_EVENT_SOURCE);
+    let text = '';
+    if (source === 'onvif') {
+        text = '普通录像仍按计划完整保存，时间轴只标记 ONVIF PullPoint motion 事件。';
+    } else if (source === 'auto') {
+        text = '普通录像仍按计划完整保存；ONVIF 可用时用 PullPoint 标记，不可用时回退本地帧差。';
+    } else {
+        text = onvifCapable
+            ? '普通录像仍按计划完整保存，本地帧差只负责生成时间轴活动区间。'
+            : '当前接入源不是 ONVIF，普通录制动检标记只支持本地帧差。';
     }
     return `<div class="config-form-section-note config-field-wide">${escapeHtml(text)}</div>`;
 }
@@ -1359,6 +1410,8 @@ function collectConfigForm(options = {}) {
             capture_interval: readCardNumber(card, 'capture_interval', 0),
             motion_detect: mode === 'normal' && readCardCheckbox(card, 'motion_detect'),
             motion_event_source: normalizeMotionEventSource(readCardField(card, 'motion_event_source')),
+            motion_mark_enabled: mode === 'normal' && !readCardCheckbox(card, 'motion_detect') && readCardCheckbox(card, 'motion_mark_enabled'),
+            motion_mark_event_source: normalizeMotionMarkEventSource(readCardField(card, 'motion_mark_event_source')),
             motionDetectRatioThreshold: readCardFloat(card, 'motionDetectRatioThreshold', 0),
             auto_discovered: isManagedByGo2rtcURL(readCardField(card, 'stream_url'))
         };
@@ -1406,6 +1459,8 @@ function defaultConfigCameraSeed(overrides = {}) {
         capture_interval: DEFAULT_CAPTURE_INTERVAL,
         motion_detect: false,
         motion_event_source: DEFAULT_MOTION_EVENT_SOURCE,
+        motion_mark_enabled: false,
+        motion_mark_event_source: DEFAULT_MOTION_MARK_EVENT_SOURCE,
         motionDetectRatioThreshold: DEFAULT_MOTION_RATIO_THRESHOLD,
         auto_discovered: false,
         ...overrides
@@ -1740,6 +1795,8 @@ function configToYaml(cfg) {
         lines.push(`    capture_interval: ${cam.capture_interval}`);
         lines.push(`    motion_detect: ${cam.motion_detect ? 'true' : 'false'}`);
         lines.push(`    motion_event_source: ${yamlScalar(cam.motion_event_source || DEFAULT_MOTION_EVENT_SOURCE)}`);
+        lines.push(`    motion_mark_enabled: ${cam.motion_mark_enabled ? 'true' : 'false'}`);
+        lines.push(`    motion_mark_event_source: ${yamlScalar(cam.motion_mark_event_source || DEFAULT_MOTION_MARK_EVENT_SOURCE)}`);
         lines.push(`    motionDetectRatioThreshold: ${cam.motionDetectRatioThreshold}`);
         if (cam.auto_discovered) lines.push('    auto_discovered: true');
     });
@@ -1779,7 +1836,7 @@ function appendStreamToConfig(stream) {
         propIndent = listIndent + "  ";
     }
 
-    const newCamYaml = [`${listIndent}- id: "${streamId}"`, `${propIndent}order: ${nextOrder}`, `${propIndent}stream_url: "managed_by_go2rtc"`, `${propIndent}motion_url: ""`, `${propIndent}auto_discovered: true`, `${propIndent}retention_days: 7`, `${propIndent}segment_duration: 600`, `${propIndent}format: ${DEFAULT_RECORD_FORMAT}`, `${propIndent}min_size_kb: 1024`, `${propIndent}record_time: "00:00-23:59"`, `${propIndent}mode: normal`, `${propIndent}motion_detect: false`, `${propIndent}motion_event_source: ${DEFAULT_MOTION_EVENT_SOURCE}`, `${propIndent}motionDetectRatioThreshold: 0.01`].join('\n') + '\n';
+    const newCamYaml = [`${listIndent}- id: "${streamId}"`, `${propIndent}order: ${nextOrder}`, `${propIndent}stream_url: "managed_by_go2rtc"`, `${propIndent}motion_url: ""`, `${propIndent}auto_discovered: true`, `${propIndent}retention_days: 7`, `${propIndent}segment_duration: 600`, `${propIndent}format: ${DEFAULT_RECORD_FORMAT}`, `${propIndent}min_size_kb: 1024`, `${propIndent}record_time: "00:00-23:59"`, `${propIndent}mode: normal`, `${propIndent}motion_detect: false`, `${propIndent}motion_event_source: ${DEFAULT_MOTION_EVENT_SOURCE}`, `${propIndent}motion_mark_enabled: false`, `${propIndent}motion_mark_event_source: ${DEFAULT_MOTION_MARK_EVENT_SOURCE}`, `${propIndent}motionDetectRatioThreshold: 0.01`].join('\n') + '\n';
 
     if (content.trim() === '') {
         content = 'cameras:\n';
@@ -3142,6 +3199,54 @@ function buildRecordsUrl(camId) {
     return `/api/records/${encodeURIComponent(camId)}${query ? `?${query}` : ''}`;
 }
 
+function buildRecordMarkersUrl(camId, date) {
+    const params = new URLSearchParams();
+    params.set('start', date);
+    params.set('end', date);
+    return `/api/camera/${encodeURIComponent(camId)}/record-markers?${params.toString()}`;
+}
+
+async function loadRecordMarkersForDate(camId, date) {
+    date = String(date || '').trim();
+    if (!isRecordDateKey(date)) return [];
+
+    const cacheKey = getRecordArchiveGroupKey(camId, date);
+    const cacheable = !isTodayDateKey(date);
+    if (cacheable && recordMarkersByDateCache.has(cacheKey)) {
+        return recordMarkersByDateCache.get(cacheKey);
+    }
+    if (cacheable && recordMarkersRequestCache.has(cacheKey)) {
+        return recordMarkersRequestCache.get(cacheKey);
+    }
+
+    const request = fetch(buildRecordMarkersUrl(camId, date))
+        .then(resp => resp.ok ? resp.json() : [])
+        .then(markers => Array.isArray(markers) ? markers : [])
+        .catch(e => {
+            console.warn('加载动检时间轴标记失败:', e);
+            return [];
+        })
+        .then(markers => {
+            if (cacheable) {
+                recordMarkersByDateCache.set(cacheKey, markers);
+            }
+            recordMarkersRequestCache.delete(cacheKey);
+            return markers;
+        });
+    if (cacheable) {
+        recordMarkersRequestCache.set(cacheKey, request);
+    }
+    return request;
+}
+
+function isRecordDateKey(dateKey) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(String(dateKey || ''));
+}
+
+function isTodayDateKey(dateKey) {
+    return dateKey === formatDateKey(new Date());
+}
+
 function getRecordArchiveGroupKey(camId, date) {
     return `${camId}:${date}`;
 }
@@ -3201,7 +3306,7 @@ function createRecordTimeline24hAction(camId, date, entries) {
         btn.title = active ? '24H 时间轴已吸附，点击查看' : '将 24H 时间轴吸附到播放器下方';
         btn.querySelector('span').textContent = active ? '24H 已吸附' : '24H';
     };
-    btn.onclick = (event) => {
+    btn.onclick = async (event) => {
         event.stopPropagation();
         if (!window.RecordTimeline24h) {
             alert('24H 时间轴组件加载失败');
@@ -3211,7 +3316,7 @@ function createRecordTimeline24hAction(camId, date, entries) {
             snapRecordTimeline24hDockBelowPlayer();
             return;
         }
-        renderRecordTimeline24hDock(camId, date, entries, selectedRecordPath);
+        await renderRecordTimeline24hDock(camId, date, entries, selectedRecordPath);
         updateState();
     };
     updateState();
@@ -3239,23 +3344,42 @@ function clearRecordTimeline24hDock(groupKey = '') {
     if (!dock) return;
     if (groupKey && activeRecordTimeline24hDockKey !== groupKey) return;
 
+    recordTimeline24hRenderSeq += 1;
     dock.innerHTML = '';
     dock.classList.add('hidden');
     activeRecordTimeline24hDockKey = '';
     refreshRecordTimeline24hActionStates();
 }
 
-function renderRecordTimeline24hDock(camId, date, entries, selectedRecordPath) {
+async function renderRecordTimeline24hDock(camId, date, entries, selectedRecordPath) {
     const dock = getRecordTimeline24hDock();
     if (!dock || !window.RecordTimeline24h) return false;
 
     const groupKey = getRecordArchiveGroupKey(camId, date);
+    const renderSeq = ++recordTimeline24hRenderSeq;
     dock.innerHTML = '';
     dock.classList.remove('hidden');
+    activeRecordTimeline24hDockKey = groupKey;
+    refreshRecordTimeline24hActionStates();
+
+    let markers;
+    if (!isTodayDateKey(date) && recordMarkersByDateCache.has(groupKey)) {
+        markers = recordMarkersByDateCache.get(groupKey);
+    } else {
+        dock.appendChild(createRecordTimeline24hLoading(date));
+        requestAnimationFrame(snapRecordTimeline24hDockBelowPlayer);
+        markers = await loadRecordMarkersForDate(camId, date);
+        if (renderSeq !== recordTimeline24hRenderSeq || activeRecordTimeline24hDockKey !== groupKey) {
+            return false;
+        }
+    }
+
+    dock.innerHTML = '';
     dock.appendChild(window.RecordTimeline24h.create({
         camId,
         date,
         entries,
+        markers,
         selectedRecordPath,
         initialViewportWidth: dock.getBoundingClientRect().width || dock.clientWidth || 0,
         onPlayAtTime: ({entry, offsetSeconds, timeLabel}) => {
@@ -3266,10 +3390,20 @@ function renderRecordTimeline24hDock(camId, date, entries, selectedRecordPath) {
             clearCurrentRecordPlayback();
         }
     }));
-    activeRecordTimeline24hDockKey = groupKey;
     refreshRecordTimeline24hActionStates();
     requestAnimationFrame(snapRecordTimeline24hDockBelowPlayer);
     return true;
+}
+
+function createRecordTimeline24hLoading(date) {
+    const loading = document.createElement('section');
+    loading.className = 'record24h';
+    loading.innerHTML = `
+        <div class="rounded-lg border border-slate-100 bg-slate-50 px-4 py-8 text-center text-sm font-bold text-slate-400">
+            正在加载 ${escapeHtml(date || '该日')} 24H 时间轴...
+        </div>
+    `;
+    return loading;
 }
 
 function refreshRecordTimeline24hActionStates() {
@@ -3310,7 +3444,7 @@ function renderRecordDateContent(content, camId, date, entries, viewMode, onUpda
             return;
         }
         if (activeRecordTimeline24hDockKey === getRecordArchiveGroupKey(camId, date)) {
-            renderRecordTimeline24hDock(camId, date, entries, selectedRecordPath);
+            void renderRecordTimeline24hDock(camId, date, entries, selectedRecordPath);
         }
         content.appendChild(window.RecordTimeline.create({
             camId,
@@ -3326,7 +3460,7 @@ function renderRecordDateContent(content, camId, date, entries, viewMode, onUpda
         return;
     }
     if (activeRecordTimeline24hDockKey === getRecordArchiveGroupKey(camId, date)) {
-        renderRecordTimeline24hDock(camId, date, entries, selectedRecordPath);
+        void renderRecordTimeline24hDock(camId, date, entries, selectedRecordPath);
     }
     content.className = 'record-watermark-window record-archive-content-shell record-archive-file-well max-h-[360px] overflow-y-auto bg-slate-50/60 p-2 custom-scrollbar sm:max-h-[460px]';
     const fileGrid = document.createElement('div');

@@ -73,10 +73,7 @@ func motionDetectionShouldRun(cam constant.Camera) bool {
 }
 
 func motionDetectionShouldRunAt(cam constant.Camera, now time.Time) bool {
-	if !motionRecordingEnabled(cam) {
-		return false
-	}
-	if !motionEventSourceUsesFrameDiff(cam, now) {
+	if !motionFrameDiffDetectionShouldRunAt(cam, now) {
 		return false
 	}
 
@@ -87,6 +84,10 @@ func motionDetectionShouldRunAt(cam constant.Camera, now time.Time) bool {
 	}
 
 	return currentStreamState(cam.ID) != "offline"
+}
+
+func motionFrameDiffDetectionShouldRunAt(cam constant.Camera, now time.Time) bool {
+	return motionEventSourceUsesFrameDiff(cam, now) || motionMarkSourceUsesFrameDiff(cam, now)
 }
 
 func runMotionDetectorUntilDisabled(ctx context.Context, cam constant.Camera) error {
@@ -211,7 +212,7 @@ func readMotionFrames(ctx context.Context, camID string, reader io.Reader, ratio
 		stats := compareMotionFrames(prevFrame, buf, motionDetectPixelThreshold, ratioThreshold)
 		now := time.Now()
 		if stats.Motion {
-			markMotionDetected(camID, now)
+			markMotionDetectedWithStats(camID, now, stats)
 		}
 		logInterval := motionDetectIdleLogInterval
 		if stats.Motion {

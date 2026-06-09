@@ -324,6 +324,27 @@
     white-space: nowrap;
 }
 
+.record24h-marker {
+    position: absolute;
+    z-index: 4;
+    height: 6px;
+    min-width: 4px;
+    border-radius: 9999px;
+    opacity: 0.92;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.58), 0 7px 15px -10px rgba(15, 23, 42, 0.8);
+    pointer-events: none;
+}
+
+.record24h-marker.is-onvif {
+    background: linear-gradient(90deg, #047857 0%, #16a34a 48%, #86efac 100%);
+    box-shadow: 0 0 0 1px rgba(236, 253, 245, 0.7), 0 0 14px rgba(34, 197, 94, 0.26), 0 7px 15px -10px rgba(15, 23, 42, 0.8);
+}
+
+.record24h-marker.is-frame-diff {
+    background: linear-gradient(90deg, #b45309 0%, #f59e0b 54%, #fde68a 100%);
+    box-shadow: 0 0 0 1px rgba(255, 251, 235, 0.72), 0 0 12px rgba(245, 158, 11, 0.2), 0 7px 15px -10px rgba(15, 23, 42, 0.78);
+}
+
 .record24h-pointer {
     position: absolute;
     z-index: 8;
@@ -423,6 +444,11 @@
     background:
         repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.42) 0 4px, transparent 4px 8px),
         linear-gradient(90deg, #d97706, var(--record24h-estimated));
+}
+
+.record24h-legend-dot.is-motion-marker {
+    height: 6px;
+    background: linear-gradient(90deg, #16a34a 0 46%, #f59e0b 54% 100%);
 }
 
 .record24h-empty {

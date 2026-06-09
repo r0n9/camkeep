@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -48,6 +49,9 @@ func cleanCameraFiles(cam constant.Camera) {
 		if err != nil {
 			return nil
 		}
+		if d.IsDir() && d.Name() == motionMarkerDirName {
+			return filepath.SkipDir
+		}
 		if !d.IsDir() {
 			info, err := d.Info()
 			if err == nil {
@@ -57,7 +61,7 @@ func cleanCameraFiles(cam constant.Camera) {
 		return nil
 	})
 
-	if err != nil || len(items) == 0 {
+	if err != nil {
 		return
 	}
 
@@ -91,10 +95,40 @@ func cleanCameraFiles(cam constant.Camera) {
 	for _, d := range dirs {
 		if d.IsDir() {
 			dateDirPath := filepath.Join(camDir, d.Name())
+			if d.Name() == motionMarkerDirName {
+				cleanMotionMarkerFiles(cam, dateDirPath)
+				continue
+			}
 			entries, _ := os.ReadDir(dateDirPath)
 			if len(entries) == 0 {
 				os.Remove(dateDirPath)
 				log.Printf("[%s] 删除空的日期目录: %s", cam.ID, dateDirPath)
+			}
+		}
+	}
+}
+
+func cleanMotionMarkerFiles(cam constant.Camera, markerDir string) {
+	if cam.RetentionDays <= 0 {
+		return
+	}
+	entries, err := os.ReadDir(markerDir)
+	if err != nil {
+		return
+	}
+	cutoff := time.Now().AddDate(0, 0, -cam.RetentionDays)
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		day, err := time.ParseInLocation("2006-01-02", strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name())), time.Local)
+		if err != nil {
+			continue
+		}
+		if day.Before(localDayStart(cutoff)) {
+			path := filepath.Join(markerDir, entry.Name())
+			if err := os.Remove(path); err == nil {
+				log.Printf("[%s] 删除过期动检标记文件: %s", cam.ID, path)
 			}
 		}
 	}

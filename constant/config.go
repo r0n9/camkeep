@@ -23,6 +23,10 @@ type Camera struct {
 	MotionDetect    bool   `yaml:"motion_detect" json:"motion_detect"`       // 是否开启动检录制，仅 normal 模式生效
 	// motion_event_source: 动检事件源。frame_diff=本地帧差，onvif=ONVIF PullPoint，auto=ONVIF 可用优先，不可用回退帧差。
 	MotionEventSource string `yaml:"motion_event_source" json:"motion_event_source"`
+	// motion_mark_enabled: 普通录制模式下是否同时生成动检时间轴标记，不影响录像启停。
+	MotionMarkEnabled bool `yaml:"motion_mark_enabled" json:"motion_mark_enabled"`
+	// motion_mark_event_source: 普通录制动检标记事件源。frame_diff=本地帧差，onvif=ONVIF PullPoint，auto=ONVIF 可用优先，不可用回退帧差。
+	MotionMarkEventSource string `yaml:"motion_mark_event_source" json:"motion_mark_event_source"`
 	// motionDetectRatioThreshold: 判定发生运动的变化像素比例阈值，仅 motion_detect=true 时生效。
 	MotionDetectRatioThreshold float64 `yaml:"motionDetectRatioThreshold" json:"motionDetectRatioThreshold"`
 
@@ -57,6 +61,14 @@ func NormalizeMotionEventSource(source string) string {
 	default:
 		return strings.ToLower(strings.TrimSpace(source))
 	}
+}
+
+func NormalizeMotionMarkEventSource(source string) string {
+	source = strings.TrimSpace(source)
+	if source == "" {
+		return MotionEventSourceAuto
+	}
+	return NormalizeMotionEventSource(source)
 }
 
 func ValidMotionEventSource(source string) bool {

@@ -15,6 +15,7 @@ import (
 	"github.com/r0n9/camkeep/constant"
 	"github.com/r0n9/camkeep/internal/onvif"
 	"github.com/r0n9/camkeep/internal/service"
+	"github.com/r0n9/camkeep/internal/task"
 )
 
 func TestHandleStatusIncludesRecordOverride(t *testing.T) {
@@ -360,6 +361,80 @@ func TestParseRecordDateRangeLimitsSevenConsecutiveDays(t *testing.T) {
 	}
 	if _, err := parseRecordDateRange("2026-05-02", "2026-05-01"); err == nil {
 		t.Fatal("expected inverted range to fail")
+	}
+}
+
+func TestHandleRecordMarkersReturnsConfiguredCameraMarkers(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Chdir(t.TempDir())
+	setCurrentConfigForAppTest(t, constant.Config{Cameras: []constant.Camera{{ID: "cam1"}}})
+
+	start := time.Date(2026, 5, 12, 10, 0, 0, 0, time.Local)
+	if err := task.AppendMotionMarker(task.MotionMarker{
+		CameraID: "cam1",
+		Start:    start,
+		End:      start.Add(30 * time.Second),
+		Source:   "auto_onvif",
+		Topic:    "tns1:VideoSource/MotionAlarm",
+		Score:    1,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Params = gin.Params{{Key: "id", Value: "cam1"}}
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/camera/cam1/record-markers?start=2026-05-12&end=2026-05-12", nil)
+
+	handleRecordMarkers(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var markers []task.MotionMarker
+	if err := json.Unmarshal(w.Body.Bytes(), &markers); err != nil {
+		t.Fatal(err)
+	}
+	if len(markers) != 1 {
+		t.Fatalf("expected one marker, got %+v", markers)
+	}
+	if markers[0].Source != "auto_onvif" || markers[0].Topic != "tns1:VideoSource/MotionAlarm" {
+		t.Fatalf("unexpected marker payload: %+v", markers[0])
+	}
+}
+
+func TestHandleRecordMarkersRequiresExplicitDateRange(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Params = gin.Params{{Key: "id", Value: "cam1"}}
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/camera/cam1/record-markers", nil)
+
+	handleRecordMarkers(c)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected explicit date range to be required, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestHandleRecordMarkersRejectsViewerWithoutCameraAccess(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	setCurrentConfigForAppTest(t, constant.Config{Cameras: []constant.Camera{
+		{ID: "cam-allowed", Order: 1},
+		{ID: "cam-denied", Order: 2},
+	}})
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Params = gin.Params{{Key: "id", Value: "cam-denied"}}
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/camera/cam-denied/record-markers?start=2026-05-12&end=2026-05-12", nil)
+	setCurrentUser(c, currentUser{Username: "viewer", Role: userRoleViewer, Source: userSourceLocal, CameraIDs: []string{"cam-allowed"}})
+
+	handleRecordMarkers(c)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("expected denied marker request to be rejected, got %d: %s", w.Code, w.Body.String())
 	}
 }
 

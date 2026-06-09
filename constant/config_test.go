@@ -79,6 +79,27 @@ func TestNormalizeMotionEventSource(t *testing.T) {
 	}
 }
 
+func TestNormalizeMotionMarkEventSourceDefaultsToAuto(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{input: "", want: MotionEventSourceAuto},
+		{input: " AUTO ", want: MotionEventSourceAuto},
+		{input: "onvif", want: MotionEventSourceONVIF},
+		{input: "FRAME_DIFF", want: MotionEventSourceFrameDiff},
+		{input: "unknown", want: "unknown"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			if got := NormalizeMotionMarkEventSource(tt.input); got != tt.want {
+				t.Fatalf("expected %q, got %q", tt.want, got)
+			}
+		})
+	}
+}
+
 func TestValidMotionEventSource(t *testing.T) {
 	for _, source := range []string{"", MotionEventSourceFrameDiff, MotionEventSourceONVIF, MotionEventSourceAuto} {
 		if !ValidMotionEventSource(source) {

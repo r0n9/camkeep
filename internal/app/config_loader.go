@@ -164,6 +164,9 @@ func validateCameraConfig(cam constant.Camera) error {
 	if !constant.ValidMotionEventSource(cam.MotionEventSource) {
 		return fmt.Errorf("motion_event_source 仅支持 frame_diff、onvif 或 auto")
 	}
+	if !constant.ValidMotionEventSource(cam.MotionMarkEventSource) {
+		return fmt.Errorf("motion_mark_event_source 仅支持 frame_diff、onvif 或 auto")
+	}
 
 	return nil
 }
@@ -172,6 +175,7 @@ func applyConfigDefaults(cfg *constant.Config) {
 	for i := range cfg.Cameras {
 		cfg.Cameras[i].Format = normalizedRecordFormat(cfg.Cameras[i].Format)
 		cfg.Cameras[i].MotionEventSource = constant.NormalizeMotionEventSource(cfg.Cameras[i].MotionEventSource)
+		cfg.Cameras[i].MotionMarkEventSource = constant.NormalizeMotionMarkEventSource(cfg.Cameras[i].MotionMarkEventSource)
 	}
 }
 
@@ -225,6 +229,7 @@ func validateAndFixConfig(cfg constant.Config) constant.Config {
 			cam.Mode = "normal" // 普通录制模式
 		}
 		cam.MotionEventSource = constant.NormalizeMotionEventSource(cam.MotionEventSource)
+		cam.MotionMarkEventSource = constant.NormalizeMotionMarkEventSource(cam.MotionMarkEventSource)
 
 		uniqueCams = append(uniqueCams, cam)
 	}

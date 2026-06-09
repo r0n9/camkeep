@@ -1424,7 +1424,48 @@ textarea:focus,
     box-shadow: var(--nm-raise-sm) !important;
 }
 
-/* ---- 16. Motion preference ---------------------------------------------- */
+/* ---- 16. Config page layout refinement ---------------------------------- */
+#configCameraList .config-camera-card {
+    padding: 0 !important;
+    overflow: hidden;
+    border-radius: var(--nm-r) !important;
+    background: var(--nm-surface) !important;
+}
+
+.config-camera-card-head {
+    background: var(--nm-surface-2) !important;
+}
+
+.config-camera-card.is-expanded .config-camera-card-head {
+    box-shadow: inset 0 -1px 0 var(--nm-dark) !important;
+}
+
+.config-camera-card-body {
+    background: var(--nm-well) !important;
+}
+
+.config-form-section {
+    border-radius: var(--nm-r-sm) !important;
+    background: var(--nm-surface) !important;
+    box-shadow: var(--nm-raise-sm), var(--nm-edge) !important;
+}
+
+.config-form-section-header {
+    box-shadow: inset 0 -1px 0 var(--nm-dark) !important;
+}
+
+.config-toggle-control,
+.config-form-section-note {
+    border: 0 !important;
+    background: var(--nm-well) !important;
+    box-shadow: var(--nm-inset-sm) !important;
+}
+
+.config-field-tag--optional {
+    display: none !important;
+}
+
+/* ---- 17. Motion preference ---------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
         animation-duration: 0.001ms !important;

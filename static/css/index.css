@@ -5387,3 +5387,290 @@ html.dark .config-doc-content pre code {
     background: transparent;
     color: #e2e8f0;
 }
+
+/* Config page layout refinement */
+.config-workspace {
+    gap: 14px;
+}
+
+.config-tabs {
+    width: min(100%, 360px);
+}
+
+#configCameraList {
+    display: grid;
+    gap: 12px;
+    padding: 12px;
+}
+
+#configCameraList > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0 !important;
+}
+
+#configCameraList .config-camera-card {
+    padding: 0 !important;
+    overflow: hidden;
+    border-radius: 16px;
+    background: #ffffff !important;
+}
+
+.config-camera-card-shell {
+    gap: 0;
+}
+
+.config-camera-card-head {
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 250, 252, 0.92));
+}
+
+.config-camera-card.is-expanded .config-camera-card-head {
+    border-bottom: 1px solid rgba(226, 232, 240, 0.92);
+}
+
+.config-camera-card-summary {
+    align-items: center;
+    gap: 12px;
+    padding: 0;
+}
+
+.config-camera-card-summary:hover {
+    background: transparent;
+}
+
+.config-camera-title-row h4 {
+    max-width: min(420px, 100%);
+    color: #0f172a;
+    font-size: 14px;
+    line-height: 1.25;
+}
+
+.config-camera-card-index {
+    height: 28px;
+    min-width: 40px;
+    border-radius: 10px;
+    background: #111827;
+    font-size: 10px;
+    letter-spacing: 0;
+}
+
+.config-camera-chip {
+    min-height: 20px;
+    padding: 0 8px;
+}
+
+.config-camera-collapse-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+}
+
+.config-camera-delete-btn {
+    min-height: 30px;
+    align-self: center;
+}
+
+.config-camera-card-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding: 12px;
+    background: #f8fafc;
+}
+
+.config-form-section {
+    --config-section-accent: #64748b;
+    position: relative;
+    overflow: hidden;
+    border-color: #e2e8f0;
+    border-radius: 14px;
+    background: #ffffff;
+    padding: 12px;
+    box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
+}
+
+.config-form-section::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: var(--config-section-accent);
+    opacity: 0.72;
+}
+
+.config-form-section--identity {
+    --config-section-accent: #334155;
+}
+
+.config-form-section--stream {
+    --config-section-accent: #2563eb;
+    background: #ffffff;
+}
+
+.config-form-section--storage {
+    --config-section-accent: #059669;
+    background: #ffffff;
+}
+
+.config-form-section--motion {
+    --config-section-accent: #d97706;
+    background: #ffffff;
+}
+
+.config-form-section--timelapse {
+    --config-section-accent: #0284c7;
+    background: #ffffff;
+}
+
+.config-form-section-header {
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(226, 232, 240, 0.86);
+}
+
+.config-form-section-title {
+    font-size: 12px;
+    letter-spacing: 0;
+}
+
+.config-form-section-desc {
+    max-width: 760px;
+}
+
+.config-form-section-grid {
+    gap: 10px 12px;
+}
+
+.config-form-section-grid .config-field-wide,
+.config-form-section-grid .config-form-section-note {
+    grid-column: 1 / -1;
+}
+
+.config-field-tag--optional {
+    display: none;
+}
+
+.config-field-label {
+    margin-bottom: 6px;
+}
+
+.config-field input,
+.config-field select,
+.config-managed-rtsp {
+    min-height: 36px;
+}
+
+.config-toggle-control {
+    min-height: 36px;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    border-radius: 10px;
+    background: #f8fafc;
+    padding: 0 10px;
+}
+
+.config-form-section-note {
+    border-style: solid;
+    background: #f8fafc;
+    line-height: 1.5;
+}
+
+@media (min-width: 1180px) {
+    .config-camera-card-body {
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+    }
+
+    .config-form-section,
+    .config-form-section--identity,
+    .config-form-section--stream,
+    .config-onvif-diagnostics {
+        grid-column: 1 / -1;
+    }
+
+    .config-form-section--storage {
+        grid-column: span 5;
+    }
+
+    .config-form-section--motion {
+        grid-column: span 7;
+    }
+
+    .config-form-section--timelapse {
+        grid-column: 1 / -1;
+    }
+
+    .config-form-section--identity .config-form-section-grid {
+        grid-template-columns:
+            minmax(180px, 1.25fr)
+            minmax(90px, 0.55fr)
+            minmax(120px, 0.75fr)
+            minmax(90px, 0.5fr)
+            minmax(140px, 0.75fr);
+    }
+
+    .config-form-section--storage .config-form-section-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .config-form-section--motion .config-form-section-grid {
+        grid-template-columns:
+            minmax(120px, 0.75fr)
+            minmax(170px, 1fr)
+            minmax(120px, 0.75fr)
+            minmax(170px, 1fr);
+    }
+}
+
+@media (max-width: 640px) {
+    #configCameraList {
+        padding: 10px;
+    }
+
+    .config-camera-card-head {
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .config-camera-card-summary {
+        align-items: flex-start;
+    }
+
+    .config-camera-delete-btn {
+        align-self: stretch;
+    }
+}
+
+html.dark #configCameraList .config-camera-card {
+    background: #0f172a !important;
+}
+
+html.dark .config-camera-card-head {
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(2, 6, 23, 0.78));
+}
+
+html.dark .config-camera-card.is-expanded .config-camera-card-head,
+html.dark .config-form-section-header {
+    border-color: rgba(51, 65, 85, 0.92);
+}
+
+html.dark .config-camera-title-row h4 {
+    color: #f8fafc;
+}
+
+html.dark .config-camera-card-body {
+    background: rgba(2, 6, 23, 0.34);
+}
+
+html.dark .config-form-section,
+html.dark .config-form-section--stream,
+html.dark .config-form-section--storage,
+html.dark .config-form-section--motion,
+html.dark .config-form-section--timelapse {
+    background: rgba(15, 23, 42, 0.74);
+}
+
+html.dark .config-toggle-control,
+html.dark .config-form-section-note {
+    border-color: rgba(51, 65, 85, 0.92);
+    background: rgba(2, 6, 23, 0.34);
+}
