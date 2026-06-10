@@ -82,6 +82,24 @@ function releaseCameraCoverObjectURLs() {
     cameraCardRenderKeys.clear();
 }
 
+function collapseCameraNodeActions(exceptGroup = null) {
+    document.querySelectorAll('.camera-node-card-actions.is-expanded').forEach(group => {
+        if (group === exceptGroup) return;
+        group.classList.remove('is-expanded');
+        group.querySelector('.camera-node-action-toggle')?.setAttribute('aria-expanded', 'false');
+    });
+}
+
+function toggleCameraNodeActions(toggle) {
+    const group = toggle.closest('.camera-node-card-actions');
+    if (!group) return;
+
+    const nextExpanded = !group.classList.contains('is-expanded');
+    collapseCameraNodeActions(group);
+    group.classList.toggle('is-expanded', nextExpanded);
+    toggle.setAttribute('aria-expanded', nextExpanded ? 'true' : 'false');
+}
+
 function buildCameraCardView(id, cam) {
     ensureCameraCoverLoaded(id, cam);
     const coverURL = buildCameraCoverURL(id);
@@ -96,34 +114,48 @@ function buildCameraCardView(id, cam) {
     const stopActionClass = overrideState === 'stop' ? 'is-active' : '';
     const autoActionClass = overrideState === 'auto' ? 'is-active' : '';
     const adminActions = canAdmin() ? `
-            <div class="camera-node-card-actions grid shrink-0 grid-cols-3 overflow-hidden rounded-md border border-slate-200 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]">
-                <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'start')"
-                        class="camera-node-action-btn camera-node-action-btn--start ${startActionClass} flex h-6 w-6 items-center justify-center border-r border-slate-200 text-emerald-600 transition-all hover:bg-emerald-500 hover:text-white active:scale-95"
-                        title="强制录制"
-                        aria-label="强制录制">
-                    <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
-                        <circle cx="12" cy="12" r="5"></circle>
+            <div class="camera-node-card-actions flex shrink-0 items-center" aria-label="录制控制">
+                <div class="camera-node-action-list flex items-center">
+                    <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'start')"
+                            class="camera-node-action-btn camera-node-action-btn--start ${startActionClass} flex items-center justify-center transition-all active:scale-95"
+                            title="强制录制"
+                            aria-label="强制录制">
+                        <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="5"></circle>
+                        </svg>
+                        <span class="camera-node-action-label">强录</span>
+                    </button>
+                    <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'stop')"
+                            class="camera-node-action-btn camera-node-action-btn--stop ${stopActionClass} flex items-center justify-center transition-all active:scale-95"
+                            title="强制停止"
+                            aria-label="强制停止">
+                        <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
+                            <rect x="7" y="7" width="10" height="10" rx="1.5"></rect>
+                        </svg>
+                        <span class="camera-node-action-label">停录</span>
+                    </button>
+                    <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'auto')"
+                            class="camera-node-action-btn camera-node-action-btn--auto ${autoActionClass} flex items-center justify-center transition-all active:scale-95"
+                            title="恢复计划"
+                            aria-label="恢复计划">
+                        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.3">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h10v10H7z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 3v4M15 3v4M7 11h10"></path>
+                        </svg>
+                        <span class="camera-node-action-label">计划</span>
+                    </button>
+                </div>
+                <button type="button"
+                        onclick="event.stopPropagation(); toggleCameraNodeActions(this)"
+                        class="camera-node-action-toggle hidden items-center justify-center transition-all active:scale-95"
+                        title="展开录制控制"
+                        aria-label="展开录制控制"
+                        aria-expanded="false">
+                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 8h12M6 16h12"></path>
+                        <circle cx="9" cy="8" r="1.4" fill="currentColor" stroke="none"></circle>
+                        <circle cx="15" cy="16" r="1.4" fill="currentColor" stroke="none"></circle>
                     </svg>
-                    <span class="camera-node-action-label">强录</span>
-                </button>
-                <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'stop')"
-                        class="camera-node-action-btn camera-node-action-btn--stop ${stopActionClass} flex h-6 w-6 items-center justify-center border-r border-slate-200 text-rose-600 transition-all hover:bg-rose-500 hover:text-white active:scale-95"
-                        title="强制停止"
-                        aria-label="强制停止">
-                    <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
-                        <rect x="7" y="7" width="10" height="10" rx="1.5"></rect>
-                    </svg>
-                    <span class="camera-node-action-label">停录</span>
-                </button>
-                <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'auto')"
-                        class="camera-node-action-btn camera-node-action-btn--auto ${autoActionClass} flex h-6 w-6 items-center justify-center text-indigo-600 transition-all hover:bg-indigo-500 hover:text-white active:scale-95"
-                        title="恢复计划"
-                        aria-label="恢复计划">
-                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.3">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h10v10H7z"></path>
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 3v4M15 3v4M7 11h10"></path>
-                    </svg>
-                    <span class="camera-node-action-label">计划</span>
                 </button>
             </div>
     ` : '';
@@ -142,6 +174,11 @@ function buildCameraCardView(id, cam) {
         streamText = '<span class="text-[8px] leading-none text-red-500 font-bold">断线</span>';
         streamTitle = '摄像机实时流状态: 断线';
     }
+    const streamStateClass = streamState === 'online'
+        ? 'camera-node-stream-pill--online'
+        : streamState === 'idle'
+            ? 'camera-node-stream-pill--idle'
+            : 'camera-node-stream-pill--offline';
 
     const modeValue = (cam.mode || 'normal').toLowerCase();
     const modeDisplay = modeValue === 'motion'
@@ -159,24 +196,22 @@ function buildCameraCardView(id, cam) {
     const className = `camera-node-card ${coverBackgroundClass} ${recordStateView.cardClass} ${isSelected ? 'is-selected' : ''} overflow-hidden rounded-md border cursor-pointer transition-all group`;
     const style = coverURL ? `--camera-node-cover-bg: url("${escapeCssURL(coverURL)}");` : '';
     const html = `
-        <div class="flex items-center gap-1 p-1">
+        <div class="camera-node-card-body flex items-center gap-1 p-1">
             ${buildCameraCoverMarkup(id, cam, streamState)}
-            <div class="flex min-w-0 flex-1 flex-col justify-center gap-0.5 py-0.5">
-                <div class="min-w-0">
-                    <div class="flex min-w-0 items-center gap-1">
-                        <span class="truncate text-[11px] font-extrabold leading-3 tracking-tight text-gray-800">${id}</span>
-                        <span class="shrink-0 rounded ${modeBadgeClass} px-1 py-0.5 text-[7px] font-bold leading-none">${modeDisplay}</span>
+            <div class="camera-node-card-content flex min-w-0 flex-1 flex-col justify-center gap-0.5">
+                <div class="camera-node-card-title-row flex min-w-0 items-center gap-1">
+                        <span class="camera-node-id truncate text-[11px] font-extrabold leading-3 text-gray-800">${escapeHtml(id)}</span>
+                        <span class="camera-node-mode-badge shrink-0 rounded ${modeBadgeClass} px-1 py-0.5 text-[7px] font-bold leading-none">${modeDisplay}</span>
                         <span class="camera-node-record-chip ${recordStateView.chipClass}" title="本地录制状态: ${escapeHtml(recordStateView.title)}">${recordStateView.label}</span>
-                    </div>
-                    <div class="mt-0.5 flex flex-wrap items-center gap-0.5">
-                        <span class="inline-flex h-3.5 items-center rounded bg-slate-50 px-1 ring-1 ring-slate-100" title="${escapeHtml(streamTitle)}">
+                </div>
+                <div class="camera-node-card-control-row flex min-w-0 items-center justify-between gap-1">
+                        <span class="camera-node-stream-pill ${streamStateClass} inline-flex h-3.5 min-w-0 items-center rounded bg-slate-50 px-1 ring-1 ring-slate-100" title="${escapeHtml(streamTitle)}">
                             <span class="mr-0.5 h-1.5 w-1.5 shrink-0 rounded-full ${streamLight}"></span>
                             ${streamText}
                         </span>
-                    </div>
+                        ${adminActions}
                 </div>
             </div>
-            ${adminActions}
         </div>
 
         <div class="camera-node-card-footer camera-node-schedule-pill ${recordSchedule.pillClass} flex min-w-0 items-center gap-1 border-t px-2 py-0.5"
@@ -706,3 +741,15 @@ function applySelectedCameraCardStyles() {
         item.classList.toggle('is-selected', item.dataset.camId === currentSelectedCam);
     });
 }
+
+document.addEventListener('click', event => {
+    if (!event.target.closest('.camera-node-card-actions')) {
+        collapseCameraNodeActions();
+    }
+});
+
+document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+        collapseCameraNodeActions();
+    }
+});

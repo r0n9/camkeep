@@ -190,6 +190,41 @@
     animation: none;
 }
 
+.camera-node-card-body {
+    min-height: 52px;
+}
+
+.camera-node-card-content {
+    overflow: hidden;
+}
+
+.camera-node-card-title-row {
+    min-height: 16px;
+    overflow: hidden;
+}
+
+.camera-node-id {
+    flex: 1 1 auto;
+    min-width: 0;
+    letter-spacing: 0;
+}
+
+.camera-node-mode-badge {
+    max-width: 32px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.camera-node-card-control-row {
+    min-height: 24px;
+}
+
+.camera-node-stream-pill {
+    flex: 1 1 auto;
+    max-width: max-content;
+}
+
 .camera-node-record-chip {
     --camera-node-chip-heartbeat-ring: var(--camera-node-pulse);
     display: inline-flex;
@@ -531,31 +566,87 @@ html.dark .record24h-dock-action.is-active {
 }
 
 .camera-node-action-btn {
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96));
+    width: 21px;
+    height: 22px;
+    flex: 0 0 21px;
+    position: relative;
+    overflow: hidden;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    color: var(--camera-node-action-color, #64748b);
+    opacity: 0.72;
+    box-shadow: none;
+    outline: none;
+    transform-origin: center;
+    transition:
+        background-color 0.16s ease,
+        box-shadow 0.16s ease,
+        color 0.16s ease,
+        flex-basis 0.16s ease,
+        opacity 0.16s ease,
+        transform 0.16s ease;
+}
+
+.camera-node-action-btn::after {
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+    width: 3px;
+    height: 3px;
+    border-radius: 9999px;
+    background: currentColor;
+    content: "";
+    opacity: 0;
+    transform: scale(0.35);
+    transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.camera-node-action-btn svg {
+    width: 12px !important;
+    height: 12px !important;
+}
+
+.camera-node-action-btn:hover,
+.camera-node-action-btn:focus-visible {
+    background: var(--camera-node-action-hover-bg, rgba(100, 116, 139, 0.1));
+    opacity: 1;
+}
+
+.camera-node-action-btn:focus-visible {
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.24);
 }
 
 .camera-node-action-btn.is-active {
-    color: #ffffff !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 10px 18px -14px var(--camera-node-action-glow, rgba(15, 23, 42, 0.35));
+    background: var(--camera-node-action-active-bg, rgba(100, 116, 139, 0.12));
+    color: var(--camera-node-action-color, #334155) !important;
+    opacity: 1;
 }
 
-.camera-node-action-btn--start.is-active {
-    --camera-node-action-glow: rgba(5, 150, 105, 0.72);
-    background: linear-gradient(180deg, #10b981, #047857) !important;
+.camera-node-action-btn.is-active::after {
+    opacity: 0.88;
+    transform: scale(1);
 }
 
-.camera-node-action-btn--stop.is-active {
-    --camera-node-action-glow: rgba(225, 29, 72, 0.72);
-    background: linear-gradient(180deg, #fb7185, #be123c) !important;
+.camera-node-action-btn--start {
+    --camera-node-action-color: #059669;
+    --camera-node-action-hover-bg: rgba(16, 185, 129, 0.12);
+    --camera-node-action-active-bg: rgba(16, 185, 129, 0.16);
+    --camera-node-action-ring: rgba(5, 150, 105, 0.28);
 }
 
-.camera-node-action-btn--auto.is-active {
-    --camera-node-action-glow: rgba(79, 70, 229, 0.66);
-    background: linear-gradient(180deg, #6366f1, #4338ca) !important;
+.camera-node-action-btn--stop {
+    --camera-node-action-color: #e11d48;
+    --camera-node-action-hover-bg: rgba(244, 63, 94, 0.12);
+    --camera-node-action-active-bg: rgba(244, 63, 94, 0.16);
+    --camera-node-action-ring: rgba(225, 29, 72, 0.28);
 }
 
-.camera-node-action-btn:last-child {
-    border-right-width: 0;
+.camera-node-action-btn--auto {
+    --camera-node-action-color: #2563eb;
+    --camera-node-action-hover-bg: rgba(37, 99, 235, 0.1);
+    --camera-node-action-active-bg: rgba(37, 99, 235, 0.14);
+    --camera-node-action-ring: rgba(37, 99, 235, 0.26);
 }
 
 .camera-node-action-label {
@@ -563,61 +654,98 @@ html.dark .record24h-dock-action.is-active {
 }
 
 .camera-node-card-actions {
-    width: auto;
+    gap: 0;
+    width: 67px;
+    height: 22px;
+    justify-content: flex-end;
+    transition: gap 0.16s ease, width 0.16s ease;
+}
+
+.camera-node-action-list {
+    gap: 0;
+    width: 67px;
+    height: 22px;
+    justify-content: flex-end;
+    transition: gap 0.16s ease, width 0.16s ease;
+}
+
+.camera-node-action-toggle {
+    width: 0;
+    height: 22px;
+    flex: 0 0 0;
+    overflow: hidden;
+    border: 0;
+    border-radius: 9999px;
+    background: rgba(100, 116, 139, 0.1);
+    color: #94a3b8;
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.8);
+    transition:
+        background-color 0.16s ease,
+        color 0.16s ease,
+        flex-basis 0.16s ease,
+        opacity 0.16s ease,
+        transform 0.16s ease,
+        width 0.16s ease;
+}
+
+.camera-node-action-toggle:hover,
+.camera-node-action-toggle:focus-visible,
+.camera-node-card-actions.is-expanded .camera-node-action-toggle {
+    background: rgba(59, 130, 246, 0.14);
+    color: #3b82f6;
+}
+
+.camera-node-card:not(:hover):not(:focus-within) .camera-node-action-btn:not(.is-active) {
+    width: 0 !important;
+    flex-basis: 0;
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.72);
+}
+
+.camera-node-card:hover .camera-node-action-list,
+.camera-node-card:focus-within .camera-node-action-list {
+    gap: 2px;
 }
 
 html.dark .camera-node-card-actions {
-    border-color: rgba(71, 85, 105, 0.9) !important;
-    background: #0f172a !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 8px 18px -16px rgba(0, 0, 0, 0.95) !important;
+    background: transparent !important;
+    box-shadow: none !important;
 }
 
-html.dark .camera-node-action-btn {
-    border-color: rgba(71, 85, 105, 0.9) !important;
-    background: linear-gradient(180deg, rgba(30, 41, 59, 0.96), rgba(15, 23, 42, 0.96));
+html.dark .camera-node-action-toggle {
+    background: rgba(148, 163, 184, 0.12);
+    color: #94a3b8;
 }
 
-html.dark .camera-node-action-btn[class~="text-emerald-600"] {
-    color: #34d399 !important;
+html.dark .camera-node-action-toggle:hover,
+html.dark .camera-node-action-toggle:focus-visible,
+html.dark .camera-node-card-actions.is-expanded .camera-node-action-toggle {
+    background: rgba(96, 165, 250, 0.16);
+    color: #bfdbfe;
 }
 
-html.dark .camera-node-action-btn[class~="text-rose-600"] {
-    color: #fb7185 !important;
+html.dark .camera-node-action-btn--start {
+    --camera-node-action-color: #34d399;
+    --camera-node-action-hover-bg: rgba(52, 211, 153, 0.13);
+    --camera-node-action-active-bg: rgba(52, 211, 153, 0.17);
+    --camera-node-action-ring: rgba(52, 211, 153, 0.26);
 }
 
-html.dark .camera-node-action-btn[class~="text-indigo-600"] {
-    color: #a5b4fc !important;
+html.dark .camera-node-action-btn--stop {
+    --camera-node-action-color: #fb7185;
+    --camera-node-action-hover-bg: rgba(251, 113, 133, 0.13);
+    --camera-node-action-active-bg: rgba(251, 113, 133, 0.17);
+    --camera-node-action-ring: rgba(251, 113, 133, 0.28);
 }
 
-html.dark .camera-node-action-btn[class~="text-emerald-600"]:hover {
-    color: #ecfdf5 !important;
-    background: linear-gradient(180deg, #10b981, #047857) !important;
-}
-
-html.dark .camera-node-action-btn[class~="text-rose-600"]:hover {
-    color: #fff1f2 !important;
-    background: linear-gradient(180deg, #f43f5e, #be123c) !important;
-}
-
-html.dark .camera-node-action-btn[class~="text-indigo-600"]:hover {
-    color: #eef2ff !important;
-    background: linear-gradient(180deg, #6366f1, #4338ca) !important;
-}
-
-html.dark .camera-node-action-btn.is-active {
-    color: #ffffff !important;
-}
-
-html.dark .camera-node-action-btn--start.is-active {
-    background: linear-gradient(180deg, #10b981, #047857) !important;
-}
-
-html.dark .camera-node-action-btn--stop.is-active {
-    background: linear-gradient(180deg, #fb7185, #be123c) !important;
-}
-
-html.dark .camera-node-action-btn--auto.is-active {
-    background: linear-gradient(180deg, #6366f1, #4338ca) !important;
+html.dark .camera-node-action-btn--auto {
+    --camera-node-action-color: #93c5fd;
+    --camera-node-action-hover-bg: rgba(147, 197, 253, 0.12);
+    --camera-node-action-active-bg: rgba(147, 197, 253, 0.16);
+    --camera-node-action-ring: rgba(147, 197, 253, 0.26);
 }
 
 @keyframes camera-node-status-pulse {
@@ -667,15 +795,283 @@ html.dark .camera-node-action-btn--auto.is-active {
 
 @media (max-width: 1024px) {
     .camera-node-action-btn {
-        width: 60px !important;
-        height: 34px !important;
-        font-size: 10px;
+        width: 21px !important;
+        height: 22px !important;
+        font-size: 9px;
         font-weight: 800;
     }
 
+    .camera-node-card-actions {
+        width: 67px;
+        height: 22px;
+    }
+
     .camera-node-action-btn svg {
-        width: 18px !important;
-        height: 18px !important;
+        width: 12px !important;
+        height: 12px !important;
+    }
+}
+
+@media (max-width: 520px), (hover: none) {
+    .camera-node-card-body {
+        gap: 6px !important;
+        min-height: 52px;
+        padding: 4px 5px !important;
+    }
+
+    .camera-node-card-content {
+        align-self: stretch;
+        align-items: flex-start;
+        justify-content: center;
+        gap: 4px;
+    }
+
+    .camera-node-card-title-row {
+        width: 100%;
+        max-width: 100%;
+        min-height: 18px;
+        justify-content: flex-start;
+        gap: 4px;
+    }
+
+    .camera-node-id {
+        flex: 1 1 0;
+        max-width: none;
+        font-size: 11px;
+        line-height: 14px;
+    }
+
+    .camera-node-mode-badge {
+        display: inline-flex;
+        height: 14px;
+        max-width: none;
+        align-items: center;
+        border-radius: 4px;
+        padding: 0 4px !important;
+        font-size: 7px;
+        font-weight: 800;
+        box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.04);
+    }
+
+    .camera-node-record-chip {
+        height: 15px;
+        gap: 2px;
+        padding: 0 4px;
+        font-size: 7px;
+        font-weight: 800;
+    }
+
+    .camera-node-record-chip::before {
+        width: 4px;
+        height: 4px;
+    }
+
+    .camera-node-card-control-row {
+        display: grid !important;
+        grid-template-columns: 50px minmax(0, 1fr);
+        align-items: center;
+        width: 100%;
+        max-width: 100%;
+        min-height: 26px;
+        justify-content: flex-start !important;
+        gap: 5px;
+    }
+
+    .camera-node-stream-pill {
+        height: 24px !important;
+        position: relative;
+        width: 50px;
+        min-width: 0;
+        max-width: 50px;
+        flex: none;
+        justify-content: flex-start;
+        overflow: hidden;
+        border-radius: 0 !important;
+        padding: 0 0 0 7px !important;
+        background: transparent !important;
+        color: var(--camera-node-stream-text, #475569);
+        box-shadow:
+            inset 2px 0 0 var(--camera-node-stream-accent, #94a3b8);
+        white-space: nowrap;
+        --tw-ring-shadow: 0 0 #0000 !important;
+    }
+
+    .camera-node-stream-pill--online {
+        --camera-node-stream-accent: #059669;
+        --camera-node-stream-text: #047857;
+        --camera-node-stream-dot-bg: rgba(5, 150, 105, 0.12);
+    }
+
+    .camera-node-stream-pill--idle {
+        --camera-node-stream-accent: #2563eb;
+        --camera-node-stream-text: #2563eb;
+        --camera-node-stream-dot-bg: rgba(37, 99, 235, 0.12);
+    }
+
+    .camera-node-stream-pill--offline {
+        --camera-node-stream-accent: #e11d48;
+        --camera-node-stream-text: #be123c;
+        --camera-node-stream-dot-bg: rgba(225, 29, 72, 0.12);
+    }
+
+    .camera-node-stream-pill > span:first-child {
+        width: 6px !important;
+        height: 6px !important;
+        margin-right: 4px !important;
+        border: 2px solid var(--camera-node-stream-dot-bg, rgba(148, 163, 184, 0.14));
+        box-shadow: none !important;
+    }
+
+    .camera-node-stream-pill > span:last-child {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: 8px;
+        font-weight: 900;
+        letter-spacing: 0;
+        color: var(--camera-node-stream-text, currentColor) !important;
+    }
+
+    .camera-node-action-btn {
+        width: auto !important;
+        height: 24px !important;
+        flex: 1 1 0;
+        flex-basis: 0;
+        min-width: 0;
+        justify-self: stretch;
+        gap: 3px;
+        border-radius: 5px;
+        background: rgba(248, 250, 252, 0.74);
+        opacity: 0.9;
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.66),
+            0 0 0 1px rgba(148, 163, 184, 0.16);
+    }
+
+    .camera-node-action-btn svg {
+        width: 10.5px !important;
+        height: 10.5px !important;
+    }
+
+    .camera-node-action-label {
+        display: inline;
+        font-size: 7.5px;
+        font-weight: 800;
+        line-height: 1;
+    }
+
+    .camera-node-card-actions {
+        width: 100%;
+        min-width: 0;
+        flex: none;
+        height: 24px;
+        gap: 0;
+    }
+
+    .camera-node-action-list {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        width: 100%;
+        min-width: 0;
+        height: 24px;
+        gap: 4px;
+    }
+
+    .camera-node-action-toggle {
+        display: none !important;
+    }
+
+    .camera-node-card:not(:hover):not(:focus-within) .camera-node-action-btn:not(.is-active),
+    .camera-node-card-actions:not(.is-expanded) .camera-node-action-btn:not(.is-active) {
+        width: auto !important;
+        flex-basis: 0;
+        min-width: 0;
+        opacity: 0.9;
+        pointer-events: auto;
+        transform: none;
+    }
+
+    .camera-node-card:hover .camera-node-action-list,
+    .camera-node-card:focus-within .camera-node-action-list {
+        gap: 4px;
+    }
+
+    .camera-node-card-actions.is-expanded {
+        width: auto;
+        gap: 0;
+    }
+
+    .camera-node-card-actions.is-expanded .camera-node-action-list {
+        width: 100%;
+        gap: 4px;
+    }
+
+    .camera-node-card-actions.is-expanded .camera-node-action-btn {
+        width: auto !important;
+        flex-basis: 0;
+        min-width: 0;
+        opacity: 0.9;
+        pointer-events: auto;
+        transform: none;
+    }
+
+    .camera-node-action-btn.is-active,
+    .camera-node-card-actions.is-expanded .camera-node-action-btn.is-active {
+        opacity: 1;
+        background: var(--camera-node-action-active-bg, rgba(100, 116, 139, 0.12));
+        color: var(--camera-node-action-color, #334155) !important;
+        box-shadow:
+            inset 0 -2px 0 var(--camera-node-action-color, #64748b),
+            inset 0 1px 0 rgba(255, 255, 255, 0.72),
+            0 0 0 1px var(--camera-node-action-ring, rgba(100, 116, 139, 0.24));
+    }
+
+    .camera-node-action-btn.is-active::after {
+        opacity: 0;
+    }
+
+    .camera-node-card-actions.is-expanded .camera-node-action-toggle {
+        display: none !important;
+    }
+
+    html.dark .camera-node-stream-pill {
+        background: transparent !important;
+        box-shadow:
+            inset 2px 0 0 var(--camera-node-stream-accent, #64748b);
+        --tw-ring-shadow: 0 0 #0000 !important;
+    }
+
+    html.dark .camera-node-stream-pill--online {
+        --camera-node-stream-accent: #34d399;
+        --camera-node-stream-text: #6ee7b7;
+        --camera-node-stream-dot-bg: rgba(52, 211, 153, 0.16);
+    }
+
+    html.dark .camera-node-stream-pill--idle {
+        --camera-node-stream-accent: #60a5fa;
+        --camera-node-stream-text: #93c5fd;
+        --camera-node-stream-dot-bg: rgba(96, 165, 250, 0.16);
+    }
+
+    html.dark .camera-node-stream-pill--offline {
+        --camera-node-stream-accent: #fb7185;
+        --camera-node-stream-text: #fda4af;
+        --camera-node-stream-dot-bg: rgba(251, 113, 133, 0.16);
+    }
+
+    html.dark .camera-node-action-btn {
+        background: rgba(15, 23, 42, 0.34);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.055),
+            0 0 0 1px rgba(71, 85, 105, 0.38);
+    }
+
+    html.dark .camera-node-action-btn.is-active {
+        background: var(--camera-node-action-active-bg, rgba(100, 116, 139, 0.12));
+        box-shadow:
+            inset 0 -2px 0 var(--camera-node-action-color, #94a3b8),
+            inset 0 1px 0 rgba(255, 255, 255, 0.08),
+            0 0 0 1px var(--camera-node-action-ring, rgba(148, 163, 184, 0.26));
     }
 }
 
@@ -683,6 +1079,29 @@ html.dark .camera-node-action-btn--auto.is-active {
     .camera-node-cover {
         flex-basis: 76px !important;
         width: 76px !important;
+    }
+
+    .camera-node-id {
+        font-size: 10px;
+    }
+
+    .camera-node-card-control-row {
+        grid-template-columns: 46px minmax(0, 1fr);
+        gap: 4px;
+    }
+
+    .camera-node-stream-pill {
+        width: 46px;
+        max-width: 46px;
+        padding-left: 6px !important;
+    }
+
+    .camera-node-action-list {
+        gap: 3px;
+    }
+
+    .camera-node-action-label {
+        font-size: 7px;
     }
 }
 
@@ -1163,17 +1582,16 @@ html.dark .camera-node-live-btn svg {
 /* action buttons on each node (start/stop/auto) */
 .camera-node-card-actions {
     border: 0 !important;
-    border-radius: var(--nm-r-sm) !important;
-    background: var(--nm-surface) !important;
-    box-shadow: var(--nm-raise-sm) !important;
-    overflow: hidden;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    overflow: visible;
 }
 .camera-node-action-btn {
-    background: transparent !important;
     border: 0 !important;
 }
 .camera-node-action-btn:active {
-    box-shadow: var(--nm-inset-sm) !important;
+    box-shadow: none !important;
 }
 
 /* ==========================================================================
@@ -1247,33 +1665,33 @@ html[data-skin="classic"] .live-stat-item:active {
 
 /* 录制控制按钮：扁平容器 + 彩色 hover + 按下内陷 */
 html[data-skin="classic"] .camera-node-card-actions {
-    border: 1px solid #e2e8f0 !important;
+    border: 0 !important;
 }
 
 html[data-skin="classic"].dark .camera-node-card-actions {
-    border-color: #2b3344 !important;
+    border: 0 !important;
 }
 
 html[data-skin="classic"] .camera-node-action-btn--start:hover {
-    background: #10b981 !important;
-    color: #ffffff !important;
+    background: var(--camera-node-action-hover-bg) !important;
+    color: var(--camera-node-action-color) !important;
 }
 
 html[data-skin="classic"] .camera-node-action-btn--stop:hover {
-    background: #f43f5e !important;
-    color: #ffffff !important;
+    background: var(--camera-node-action-hover-bg) !important;
+    color: var(--camera-node-action-color) !important;
 }
 
 html[data-skin="classic"] .camera-node-action-btn--auto:hover {
-    background: #6366f1 !important;
-    color: #ffffff !important;
+    background: var(--camera-node-action-hover-bg) !important;
+    color: var(--camera-node-action-color) !important;
 }
 
 html[data-skin="classic"] .camera-node-action-btn:active {
     transform: scale(0.9);
-    box-shadow: inset 0 2px 4px rgba(15, 23, 42, 0.20) !important;
+    box-shadow: none !important;
 }
 
 html[data-skin="classic"].dark .camera-node-action-btn:active {
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5) !important;
+    box-shadow: none !important;
 }
