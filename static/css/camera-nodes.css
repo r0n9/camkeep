@@ -35,12 +35,12 @@
     inset: 0;
     z-index: 0;
     border-radius: inherit;
-    background: var(--camera-node-cover-bg) center / cover no-repeat;
+    background: var(--camera-node-cover-bg) center / 100% 100% no-repeat;
     content: "";
     filter: blur(4px) saturate(1.02);
     opacity: 0.2;
     pointer-events: none;
-    transform: scale(1.06);
+    transform: none;
 }
 
 #camList {
