@@ -235,6 +235,18 @@ h1, h2, .config-page-title, .config-doc-hero h1, .config-doc-content h1 {
     transform: none;
 }
 
+@media (max-width: 520px) {
+    .nm-toolbar #configNavBtn,
+    .nm-toolbar #userNavBtn,
+    .nm-toolbar .account-menu-button {
+        width: 32px !important;
+        min-width: 32px !important;
+        max-width: 32px !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+}
+
 /* version + update badges become soft inset pills */
 .brand-meta {
     gap: 8px !important;
