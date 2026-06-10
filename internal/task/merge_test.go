@@ -94,6 +94,51 @@ func TestScanMergeFragmentsCountsSkippedMotionFiles(t *testing.T) {
 	}
 }
 
+func TestScanMergeFragmentsCollectsUnknownForSingleFileRepair(t *testing.T) {
+	dir := t.TempDir()
+	createMergeTestFile(t, dir, "cam1_20260512_090000_unknown.mp4")
+	createMergeTestFile(t, dir, "cam1_20260512_090500_091000.mp4")
+	createMergeTestFile(t, dir, "cam1_20260512_091500_unknown.tmp.mp4")
+	createMergeTestFile(t, dir, "manual_unknown.mp4")
+
+	scanResult, err := scanMergeFragments(dir, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := mergeTestBaseNames(scanResult.fragments); !reflect.DeepEqual(got, []string{"cam1_20260512_090500_091000.mp4"}) {
+		t.Fatalf("unexpected merge fragments: %v", got)
+	}
+	if got := mergeTestBaseNames(scanResult.singleFileRepairs); !reflect.DeepEqual(got, []string{"cam1_20260512_090000_unknown.mp4"}) {
+		t.Fatalf("unexpected single file repairs: %v", got)
+	}
+	if scanResult.skippedTemp != 1 {
+		t.Fatalf("expected one temp file, got %d", scanResult.skippedTemp)
+	}
+	if scanResult.skippedNoTime != 1 {
+		t.Fatalf("expected one unknown file without start time, got %d", scanResult.skippedNoTime)
+	}
+}
+
+func TestScanMergeFragmentsSkipsRepairedOutputs(t *testing.T) {
+	dir := t.TempDir()
+	createMergeTestFile(t, dir, "cam1_20260512_090000_090500_repaired.mp4")
+	createMergeTestFile(t, dir, "cam1_20260512_090000_090500_repaired_2.mp4")
+	createMergeTestFile(t, dir, "cam1_repaired_20260512_090500_091000.mp4")
+
+	scanResult, err := scanMergeFragments(dir, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := mergeTestBaseNames(scanResult.fragments); !reflect.DeepEqual(got, []string{"cam1_repaired_20260512_090500_091000.mp4"}) {
+		t.Fatalf("unexpected merge fragments: %v", got)
+	}
+	if scanResult.skippedRepaired != 2 {
+		t.Fatalf("expected two repaired files to be skipped, got %d", scanResult.skippedRepaired)
+	}
+}
+
 func TestSortMergeFragmentsUsesEmbeddedStartTime(t *testing.T) {
 	fragments := []string{
 		"/records/cam1/2026-05-12/cam1_20260512_091000_091500.ts",
@@ -218,6 +263,31 @@ func TestMergeOutputNameUsesNormalRange(t *testing.T) {
 	group.kind = "motion"
 	if got := mergeOutputName("cam1", group, ".mp4"); got != "cam1_20260512_090000_motion_merged.mp4" {
 		t.Fatalf("unexpected motion merge output name: %s", got)
+	}
+}
+
+func TestRepairedFragmentOutputNameIncludesRangeAndSuffix(t *testing.T) {
+	start := time.Date(2026, 5, 12, 9, 0, 0, 0, time.Local)
+
+	if got := repairedFragmentOutputName("cam1", start, 5*time.Minute, 0); got != "cam1_20260512_090000_090500_repaired.mp4" {
+		t.Fatalf("unexpected repaired output name: %s", got)
+	}
+	if got := repairedFragmentOutputName("cam1", start, 5*time.Minute, 1); got != "cam1_20260512_090000_090500_repaired_2.mp4" {
+		t.Fatalf("unexpected repaired output name with index: %s", got)
+	}
+}
+
+func TestNextRepairedFragmentPathAvoidsExistingFiles(t *testing.T) {
+	dir := t.TempDir()
+	createMergeTestFile(t, dir, "cam1_20260512_090000_090500_repaired.mp4")
+	start := time.Date(2026, 5, 12, 9, 0, 0, 0, time.Local)
+
+	path, err := nextRepairedFragmentPath(dir, "cam1", start, 5*time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := filepath.Base(path); got != "cam1_20260512_090000_090500_repaired_2.mp4" {
+		t.Fatalf("unexpected repaired output path: %s", got)
 	}
 }
 

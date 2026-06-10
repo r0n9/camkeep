@@ -36,7 +36,7 @@ CamKeep is not intended to replace large enterprise video security platforms. It
 * 🎥 **Practical recording modes**: Scheduled recording, manual start/stop, motion recording, timelapse, TS/MP4 segments, historical playback, download, and deletion.
 * 🧠 **Selectable motion event source**: In normal mode, `motion_detect` can use local low-resolution frame differencing, ONVIF PullPoint, or automatic ONVIF-first fallback to frame differencing with a Time-Shift cache for event clips.
 * 🧭 **Motion markers for continuous recording**: Continuous normal recording can enable `motion_mark_enabled` separately. It does not start or stop recording; it overlays ONVIF or frame-diff motion activity on the 24H timeline.
-* 🧹 **Automatic storage management**: Retention cleanup, minimum-size filtering, and daily hourly/continuous-range merging keep long-running NAS deployments manageable. Motion clips are kept as separate files by default, or can be merged with `merge_motion_records`.
+* 🧹 **Automatic storage management**: Retention cleanup, minimum-size filtering, daily hourly/continuous-range merging, and single-file MP4 repair for leftover normal `_unknown` recordings keep long-running NAS deployments manageable. Motion clips are kept as separate files by default, or can be merged with `merge_motion_records`.
 * 🔒 **Local users and access control**: No cloud dependency, no required account, and no camera data upload. CamKeep supports local admin/viewer users, online session status, and per-camera visibility for viewers.
 
 ## Status And Modes
