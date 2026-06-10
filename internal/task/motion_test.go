@@ -254,6 +254,87 @@ func TestMotionDetectionShouldRunAutoStopsWhenOnvifHealthy(t *testing.T) {
 	}
 }
 
+func TestMotionDetectionShouldRunAutoStartsFrameDiffAfterOnvifTrigger(t *testing.T) {
+	resetDetectionEventsForTest(t)
+	cam := constant.Camera{
+		ID:                "motion-auto-onvif-followup",
+		Mode:              "normal",
+		MotionDetect:      true,
+		MotionEventSource: constant.MotionEventSourceAuto,
+		RecordTime:        "00:00-23:59",
+	}
+	candidate := onvif.Candidate{
+		ID:        cam.ID,
+		SourceURL: "onvif://admin:secret@example/onvif/device_service",
+		Endpoint:  "http://example/onvif/device_service",
+	}
+	setOverridesForTest(t, nil)
+	setStreamStateForTest(t, cam.ID, "online")
+	resetMotionAutoFrameDiffFollowUpForTest(t, cam.ID)
+	service.ReplaceOnvifCandidates([]onvif.Candidate{candidate})
+	t.Cleanup(func() { service.ReplaceOnvifCandidates(nil) })
+	service.UpdateOnvifProbeResult(candidate, onvif.Capabilities{
+		EventXAddr:       "http://example/onvif/events",
+		PullPointSupport: true,
+	})
+	now := time.Now()
+	service.UpdateOnvifEventListenerListening(cam.ID, now)
+
+	if motionDetectionShouldRunAt(cam, now) {
+		t.Fatal("expected healthy ONVIF auto mode to keep frame diff idle before ONVIF trigger")
+	}
+
+	handleOnvifEventNotification(cam.ID, onvif.EventNotification{
+		Topic:     "tns1:VideoSource/MotionAlarm",
+		Operation: "Changed",
+		At:        now,
+		Data:      []onvif.EventItem{{Name: "State", Value: "true"}},
+	})
+
+	if !motionDetectionShouldRunAt(cam, now.Add(time.Second)) {
+		t.Fatal("expected ONVIF trigger to start frame diff follow-up in auto mode")
+	}
+}
+
+func TestMotionDetectionShouldRunAutoFollowUpExtendsWithFrameDiffMotion(t *testing.T) {
+	cam := constant.Camera{
+		ID:                "motion-auto-followup-extend",
+		Mode:              "normal",
+		MotionDetect:      true,
+		MotionEventSource: constant.MotionEventSourceAuto,
+		RecordTime:        "00:00-23:59",
+	}
+	candidate := onvif.Candidate{
+		ID:        cam.ID,
+		SourceURL: "onvif://admin:secret@example/onvif/device_service",
+		Endpoint:  "http://example/onvif/device_service",
+	}
+	setOverridesForTest(t, nil)
+	setStreamStateForTest(t, cam.ID, "online")
+	resetMotionAutoFrameDiffFollowUpForTest(t, cam.ID)
+	service.ReplaceOnvifCandidates([]onvif.Candidate{candidate})
+	t.Cleanup(func() { service.ReplaceOnvifCandidates(nil) })
+	service.UpdateOnvifProbeResult(candidate, onvif.Capabilities{
+		EventXAddr:       "http://example/onvif/events",
+		PullPointSupport: true,
+	})
+	now := time.Now()
+	service.UpdateOnvifEventListenerListening(cam.ID, now)
+
+	startMotionAutoFrameDiffFollowUp(cam.ID, now.Add(-14*time.Second))
+	if !motionDetectionShouldRunAt(cam, now) {
+		t.Fatal("expected follow-up to be active before original deadline")
+	}
+
+	markMotionDetectedWithStats(cam.ID, now, motionFrameStats{Motion: true, DiffPixels: 10, DiffRatio: 0.02})
+	if !motionDetectionShouldRunAt(cam, now.Add(10*time.Second)) {
+		t.Fatal("expected frame diff motion to extend ONVIF follow-up window")
+	}
+	if motionDetectionShouldRunAt(cam, now.Add(motionAutoFrameDiffFollowUp+time.Second)) {
+		t.Fatal("expected frame diff follow-up to expire after idle timeout")
+	}
+}
+
 func TestMotionDetectTaskDoesNotResetOnvifEventWhenFrameDiffIdle(t *testing.T) {
 	resetDetectionEventsForTest(t)
 	cam := constant.Camera{
@@ -270,6 +351,7 @@ func TestMotionDetectTaskDoesNotResetOnvifEventWhenFrameDiffIdle(t *testing.T) {
 	}
 	setOverridesForTest(t, nil)
 	setStreamStateForTest(t, cam.ID, "online")
+	resetMotionAutoFrameDiffFollowUpForTest(t, cam.ID)
 	service.ReplaceOnvifCandidates([]onvif.Candidate{candidate})
 	t.Cleanup(func() { service.ReplaceOnvifCandidates(nil) })
 	service.UpdateOnvifProbeResult(candidate, onvif.Capabilities{
@@ -619,6 +701,25 @@ func resetMotionTimeShiftTmpFallbackForTest(t *testing.T, camID string) {
 			delete(motionTimeShiftTmpFallback, camID)
 		}
 		motionTimeShiftFallbackMux.Unlock()
+	})
+}
+
+func resetMotionAutoFrameDiffFollowUpForTest(t *testing.T, camID string) {
+	t.Helper()
+
+	motionAutoFrameDiffFollowUpMux.Lock()
+	oldValue, hadOldValue := motionAutoFrameDiffFollowUpUntil[camID]
+	delete(motionAutoFrameDiffFollowUpUntil, camID)
+	motionAutoFrameDiffFollowUpMux.Unlock()
+
+	t.Cleanup(func() {
+		motionAutoFrameDiffFollowUpMux.Lock()
+		if hadOldValue {
+			motionAutoFrameDiffFollowUpUntil[camID] = oldValue
+		} else {
+			delete(motionAutoFrameDiffFollowUpUntil, camID)
+		}
+		motionAutoFrameDiffFollowUpMux.Unlock()
 	})
 }
 

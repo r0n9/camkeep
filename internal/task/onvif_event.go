@@ -268,6 +268,7 @@ func handleOnvifEventNotificationWithOptions(camID string, notification onvif.Ev
 			"data":      dataText,
 		},
 	})
+	startMotionAutoFrameDiffFollowUp(camID, eventAt)
 	log.Printf("[%s] ONVIF PullPoint motion 事件已发布: topic=%q at=%s data=%s",
 		camID, notification.Topic, eventAt.Format(time.RFC3339), dataText)
 }

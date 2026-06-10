@@ -338,6 +338,7 @@ func runMotionCameraTask(ctx context.Context, cam constant.Camera, camDir string
 			harvestShouldRun := recordingWindow && streamState != "offline"
 			if !harvestShouldRun {
 				resetMotionDetected(cam.ID)
+				clearMotionAutoFrameDiffFollowUp(cam.ID)
 			}
 
 			if harvestCmd != nil && harvestDone != nil {

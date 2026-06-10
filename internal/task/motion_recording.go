@@ -21,6 +21,7 @@ import (
 
 const (
 	motionRecordIdleTimeout        = 15 * time.Second
+	motionAutoFrameDiffFollowUp    = motionRecordIdleTimeout
 	motionTimeShiftPreRecord       = 5 * time.Second
 	motionTimeShiftSegmentDuration = 1 * time.Minute
 	motionTimeShiftSegmentCount    = 3
@@ -33,8 +34,10 @@ const (
 )
 
 var (
-	motionTimeShiftFallbackMux sync.RWMutex
-	motionTimeShiftTmpFallback = make(map[string]bool)
+	motionTimeShiftFallbackMux       sync.RWMutex
+	motionTimeShiftTmpFallback       = make(map[string]bool)
+	motionAutoFrameDiffFollowUpMux   sync.RWMutex
+	motionAutoFrameDiffFollowUpUntil = make(map[string]time.Time)
 )
 
 type eventRecordSession struct {
@@ -88,7 +91,10 @@ func motionEventSourceUsesFrameDiff(cam constant.Camera, now time.Time) bool {
 	case constant.MotionEventSourceONVIF:
 		return false
 	case constant.MotionEventSourceAuto:
-		return !service.OnvifEventSourceUsable(cam.ID, now)
+		if !service.OnvifEventSourceUsable(cam.ID, now) {
+			return true
+		}
+		return motionAutoFrameDiffFollowUpActive(cam.ID, now)
 	default:
 		return true
 	}
@@ -133,6 +139,7 @@ func markMotionDetected(camID string, at time.Time) {
 }
 
 func markMotionDetectedWithStats(camID string, at time.Time, stats motionFrameStats) {
+	extendMotionAutoFrameDiffFollowUpIfActive(camID, at)
 	markMotionDetectedWithMetadata(camID, at, map[string]string{
 		"diff_pixels": strconv.Itoa(stats.DiffPixels),
 		"diff_ratio":  strconv.FormatFloat(stats.DiffRatio, 'f', 6, 64),
@@ -152,6 +159,68 @@ func markMotionDetectedWithMetadata(camID string, at time.Time, metadata map[str
 
 func resetMotionDetected(camID string) {
 	ResetCameraDetectionEvents(camID)
+}
+
+// auto follow-up is tracked separately from DetectionEvent because frame-diff
+// events overwrite the latest motion event after ONVIF opens the window.
+func startMotionAutoFrameDiffFollowUp(camID string, at time.Time) {
+	extendMotionAutoFrameDiffFollowUp(camID, at)
+}
+
+func extendMotionAutoFrameDiffFollowUpIfActive(camID string, at time.Time) {
+	if !motionAutoFrameDiffFollowUpActive(camID, at) {
+		return
+	}
+	extendMotionAutoFrameDiffFollowUp(camID, at)
+}
+
+func extendMotionAutoFrameDiffFollowUp(camID string, at time.Time) {
+	camID = strings.TrimSpace(camID)
+	if camID == "" {
+		return
+	}
+	if at.IsZero() {
+		at = time.Now()
+	}
+	until := at.Add(motionAutoFrameDiffFollowUp)
+
+	motionAutoFrameDiffFollowUpMux.Lock()
+	if existing := motionAutoFrameDiffFollowUpUntil[camID]; until.After(existing) {
+		motionAutoFrameDiffFollowUpUntil[camID] = until
+	}
+	motionAutoFrameDiffFollowUpMux.Unlock()
+}
+
+func motionAutoFrameDiffFollowUpActive(camID string, now time.Time) bool {
+	camID = strings.TrimSpace(camID)
+	if camID == "" {
+		return false
+	}
+	if now.IsZero() {
+		now = time.Now()
+	}
+
+	motionAutoFrameDiffFollowUpMux.RLock()
+	until := motionAutoFrameDiffFollowUpUntil[camID]
+	active := !until.IsZero() && now.Before(until)
+	motionAutoFrameDiffFollowUpMux.RUnlock()
+	if active {
+		return true
+	}
+	if !until.IsZero() {
+		clearMotionAutoFrameDiffFollowUp(camID)
+	}
+	return false
+}
+
+func clearMotionAutoFrameDiffFollowUp(camID string) {
+	camID = strings.TrimSpace(camID)
+	if camID == "" {
+		return
+	}
+	motionAutoFrameDiffFollowUpMux.Lock()
+	delete(motionAutoFrameDiffFollowUpUntil, camID)
+	motionAutoFrameDiffFollowUpMux.Unlock()
 }
 
 func motionDetectedRecently(camID string, now time.Time) bool {

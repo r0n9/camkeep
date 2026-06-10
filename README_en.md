@@ -34,7 +34,7 @@ CamKeep is not intended to replace large enterprise video security platforms. It
 * 🕓 **24H timeline playback**: The original card list and timeline remain, and a new docked 24-hour timeline supports dragging, mouse-wheel zoom, mobile pinch zoom, and seeking by time.
 * 🧰 **Web configuration management**: Single-page config management with form/YAML modes, collapsible camera cards, restore-before-save, single add, batch add, and importing unmanaged go2rtc streams.
 * 🎥 **Practical recording modes**: Scheduled recording, manual start/stop, motion recording, timelapse, TS/MP4 segments, historical playback, download, and deletion.
-* 🧠 **Selectable motion event source**: In normal mode, `motion_detect` can use local low-resolution frame differencing, ONVIF PullPoint, or automatic ONVIF-first fallback to frame differencing with a Time-Shift cache for event clips.
+* 🧠 **Selectable motion event source**: In normal mode, `motion_detect` can use local low-resolution frame differencing, ONVIF PullPoint, or ONVIF-triggered frame-diff follow-up with a Time-Shift cache for event clips.
 * 🧭 **Motion markers for continuous recording**: Continuous normal recording can enable `motion_mark_enabled` separately. It does not start or stop recording; it overlays ONVIF or frame-diff motion activity on the 24H timeline.
 * 🧹 **Automatic storage management**: Retention cleanup, minimum-size filtering, daily hourly/continuous-range merging, and single-file MP4 repair for leftover normal `_unknown` recordings keep long-running NAS deployments manageable. Motion clips are kept as separate files by default, or can be merged with `merge_motion_records`.
 * 🔒 **Local users and access control**: No cloud dependency, no required account, and no camera data upload. CamKeep supports local admin/viewer users, online session status, and per-camera visibility for viewers.
@@ -66,7 +66,7 @@ Motion recording is enabled with `motion_detect: true`. `motion_event_source` su
 
 * `frame_diff`: Uses local frame differencing and reads `motion_url` plus `motionDetectRatioThreshold`.
 * `onvif`: Uses only ONVIF PullPoint motion events and does not fall back when unavailable.
-* `auto`: Uses PullPoint when the ONVIF Event channel is healthy, otherwise falls back to local frame differencing.
+* `auto`: Uses PullPoint to trigger recording when the ONVIF Event channel is healthy, then briefly starts local frame-diff follow-up to extend/end the event window. If ONVIF is unhealthy, it falls back to local frame differencing.
 
 Continuous normal recording can also enable `motion_mark_enabled` and select a source with `motion_mark_event_source`. This does not control recording start or stop. It writes motion activity ranges under `records/<camera>/.markers/` and shows them on the 24H timeline as ONVIF or frame-diff motion markers.
 
