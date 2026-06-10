@@ -3774,6 +3774,8 @@ function parseRecordMeta(file) {
     const kindInfo = classifyRecordKindByName(name);
     const timeDisplay = timeParts && timeParts.start ? `${timeParts.start.hourText}:${timeParts.start.minuteText}:${timeParts.start.secondText}` : (kindInfo.merged ? name : '整段录像');
     const sortKey = timeParts && timeParts.start ? `${timeParts.start.hourText}${timeParts.start.minuteText}${timeParts.start.secondText}_${name}` : name;
+    const durationSeconds = recordDurationSeconds(timeParts);
+    const durationDisplay = durationSeconds !== null ? formatRecordDuration(durationSeconds) : '';
 
     return {
         date,
@@ -3788,6 +3790,8 @@ function parseRecordMeta(file) {
         startSeconds: timeParts && timeParts.start ? timeParts.start.startSeconds : null,
         hasEndTime: Boolean(timeParts && timeParts.end),
         endSeconds: timeParts && timeParts.end ? timeParts.end.startSeconds : null,
+        durationSeconds,
+        durationDisplay,
         timelineEndSeconds: timeParts ? timeParts.timelineEndSeconds : null,
         estimatedEndSeconds: timeParts ? timeParts.estimatedEndSeconds : null
     };
@@ -3932,6 +3936,30 @@ function normalizeRecordTimeParts(hourText, minuteText, secondText) {
     };
 }
 
+function recordDurationSeconds(timeParts) {
+    if (!timeParts || !timeParts.start || !timeParts.end) return null;
+    const startSeconds = timeParts.start.startSeconds;
+    const endSeconds = timeParts.end.startSeconds;
+    if (!Number.isFinite(startSeconds) || !Number.isFinite(endSeconds)) return null;
+    let duration = endSeconds - startSeconds;
+    if (duration < 0) duration += 86400;
+    return duration >= 0 ? duration : null;
+}
+
+function formatRecordDuration(seconds) {
+    seconds = Math.max(0, Math.round(Number(seconds) || 0));
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const remainSeconds = seconds % 60;
+    if (hours > 0) {
+        return `${hours}小时${String(minutes).padStart(2, '0')}分${String(remainSeconds).padStart(2, '0')}秒`;
+    }
+    if (minutes > 0) {
+        return `${minutes}分${String(remainSeconds).padStart(2, '0')}秒`;
+    }
+    return `${remainSeconds}秒`;
+}
+
 function createRecordItem(camId, file, meta, options = {}) {
     const item = document.createElement('div');
     const recordPath = getRecordPath(file);
@@ -3942,6 +3970,9 @@ function createRecordItem(camId, file, meta, options = {}) {
     const actionVisibilityClass = explicitActions
         ? 'opacity-100'
         : 'opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100';
+    const durationBadge = meta.durationDisplay
+        ? `<span class="${timeline ? 'record-timeline-card-detail' : 'font-mono text-[9px] font-bold leading-none text-emerald-600'}" title="录像时长">${timeline ? '' : '时长 '}${escapeHtml(meta.durationDisplay)}</span>`
+        : '';
     item.className = timeline
         ? `group record-timeline-card ${cursorClass} rounded-lg border border-slate-200 bg-white shadow-sm transition-all hover:border-blue-300 hover:shadow active:scale-[0.99]`
         : `group flex ${cursorClass} items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5 shadow-sm transition-all hover:border-blue-300 hover:shadow active:scale-[0.99]`;
@@ -4001,6 +4032,7 @@ function createRecordItem(camId, file, meta, options = {}) {
             <span data-record-playing class="hidden record-timeline-card-playing rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold leading-none text-emerald-700 ring-1 ring-emerald-200">播放中</span>
             <span class="record-timeline-card-detail">${meta.ext}</span>
             <span class="record-timeline-card-detail">${file.size}</span>
+            ${durationBadge}
         </div>
     ` : `
         <div class="flex min-w-0 flex-1 items-center gap-2">
@@ -4014,6 +4046,7 @@ function createRecordItem(camId, file, meta, options = {}) {
                     <span data-record-playing class="hidden rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold leading-none text-emerald-700 ring-1 ring-emerald-200">播放中</span>
                     <span class="font-mono text-[9px] font-medium leading-none text-slate-400">${meta.ext}</span>
                     <span class="font-mono text-[9px] font-medium leading-none text-slate-400">${file.size}</span>
+                    ${durationBadge}
                 </div>
             </div>
         </div>
