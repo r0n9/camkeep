@@ -184,6 +184,27 @@ func TestScheduledRecordingWindowEnabledSkipsEndBoundary(t *testing.T) {
 	}
 }
 
+func TestMotionDetectionForNormalMarkerUsesScheduledBoundaryGuard(t *testing.T) {
+	cam := constant.Camera{
+		ID:                "normal-marker-boundary",
+		Mode:              "normal",
+		MotionMarkEnabled: true,
+		RecordTime:        "08:00-09:00",
+	}
+	setOverridesForTest(t, nil)
+	setStreamStateForTest(t, cam.ID, "online")
+
+	if !motionDetectionShouldRunAt(cam, time.Date(2026, 6, 11, 8, 59, 57, 0, time.Local)) {
+		t.Fatal("expected normal marker frame-diff detector to run before boundary guard window")
+	}
+	if motionDetectionShouldRunAt(cam, time.Date(2026, 6, 11, 8, 59, 59, 0, time.Local)) {
+		t.Fatal("expected normal marker frame-diff detector to stop before end boundary")
+	}
+	if motionDetectionShouldRunAt(cam, time.Date(2026, 6, 11, 9, 0, 0, 0, time.Local)) {
+		t.Fatal("expected normal marker frame-diff detector not to start on end boundary")
+	}
+}
+
 func TestMotionDetectionShouldRunRespectsOverrideStop(t *testing.T) {
 	cam := constant.Camera{ID: "motion-override-stop", Mode: "normal", MotionDetect: true}
 	setOverridesForTest(t, map[string]string{cam.ID: "stop"})

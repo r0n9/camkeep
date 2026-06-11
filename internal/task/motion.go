@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/r0n9/camkeep/constant"
-	"github.com/r0n9/camkeep/util"
 )
 
 const (
@@ -77,8 +76,7 @@ func motionDetectionShouldRunAt(cam constant.Camera, now time.Time) bool {
 	}
 
 	control := getOverride(cam.ID)
-	inTimeRange := util.IsWithinTimeRange(cam.RecordTime)
-	if !recordingWindowEnabled(control, inTimeRange) {
+	if !scheduledRecordingWindowEnabled(control, cam.RecordTime, now) {
 		return false
 	}
 
