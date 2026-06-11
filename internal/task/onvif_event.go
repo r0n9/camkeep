@@ -292,6 +292,9 @@ func isOnvifMotionNotification(notification onvif.EventNotification) bool {
 	if !isOnvifMotionTopic(notification.Topic) {
 		return false
 	}
+	if state, ok := onvifTopicMotionState(notification.Topic, notification.Data); ok {
+		return state
+	}
 	if state, ok := onvifMotionState(notification.Data); ok {
 		return state
 	}
@@ -307,6 +310,14 @@ func isOnvifMotionTopic(topic string) bool {
 		strings.Contains(topic, "ruleengine")
 }
 
+func onvifTopicMotionState(topic string, items []onvif.EventItem) (bool, bool) {
+	topic = strings.ToLower(strings.TrimSpace(topic))
+	if strings.Contains(topic, "ruleengine/fielddetector/objectsinside") {
+		return onvifEventItemBool(items, "isinside")
+	}
+	return false, false
+}
+
 func onvifMotionState(items []onvif.EventItem) (bool, bool) {
 	for _, item := range items {
 		switch strings.ToLower(strings.TrimSpace(item.Name)) {
@@ -314,6 +325,15 @@ func onvifMotionState(items []onvif.EventItem) (bool, bool) {
 			if value, ok := parseOnvifEventBool(item.Value); ok {
 				return value, true
 			}
+		}
+	}
+	return false, false
+}
+
+func onvifEventItemBool(items []onvif.EventItem, name string) (bool, bool) {
+	for _, item := range items {
+		if strings.EqualFold(strings.TrimSpace(item.Name), name) {
+			return parseOnvifEventBool(item.Value)
 		}
 	}
 	return false, false
