@@ -119,7 +119,8 @@ function buildCameraCardView(id, cam) {
                     <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'start')"
                             class="camera-node-action-btn camera-node-action-btn--start ${startActionClass} flex items-center justify-center transition-all active:scale-95"
                             title="强制录制"
-                            aria-label="强制录制">
+                            aria-label="强制录制"
+                            aria-pressed="${overrideState === 'start'}">
                         <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
                             <circle cx="12" cy="12" r="5"></circle>
                         </svg>
@@ -128,7 +129,8 @@ function buildCameraCardView(id, cam) {
                     <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'stop')"
                             class="camera-node-action-btn camera-node-action-btn--stop ${stopActionClass} flex items-center justify-center transition-all active:scale-95"
                             title="强制停止"
-                            aria-label="强制停止">
+                            aria-label="强制停止"
+                            aria-pressed="${overrideState === 'stop'}">
                         <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
                             <rect x="7" y="7" width="10" height="10" rx="1.5"></rect>
                         </svg>
@@ -137,7 +139,8 @@ function buildCameraCardView(id, cam) {
                     <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'auto')"
                             class="camera-node-action-btn camera-node-action-btn--auto ${autoActionClass} flex items-center justify-center transition-all active:scale-95"
                             title="恢复计划"
-                            aria-label="恢复计划">
+                            aria-label="恢复计划"
+                            aria-pressed="${overrideState === 'auto'}">
                         <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.3">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h10v10H7z"></path>
                             <path stroke-linecap="round" stroke-linejoin="round" d="M9 3v4M15 3v4M7 11h10"></path>

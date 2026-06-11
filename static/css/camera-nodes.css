@@ -590,15 +590,16 @@ html.dark .record24h-dock-action.is-active {
 
 .camera-node-action-btn::after {
     position: absolute;
-    right: 3px;
+    right: 6px;
     bottom: 3px;
-    width: 3px;
-    height: 3px;
+    left: 6px;
+    height: 2px;
     border-radius: 9999px;
     background: currentColor;
     content: "";
     opacity: 0;
-    transform: scale(0.35);
+    transform: scaleX(0.45);
+    transform-origin: center;
     transition: opacity 0.16s ease, transform 0.16s ease;
 }
 
@@ -624,8 +625,8 @@ html.dark .record24h-dock-action.is-active {
 }
 
 .camera-node-action-btn.is-active::after {
-    opacity: 0.88;
-    transform: scale(1);
+    opacity: 0.82;
+    transform: scaleX(1);
 }
 
 .camera-node-action-btn--start {
