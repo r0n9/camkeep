@@ -207,6 +207,64 @@ func TestGetProfilesSelectsPTZProfile(t *testing.T) {
 	}
 }
 
+func TestGetProfilesFallsBackToInitializedMediaEndpoint(t *testing.T) {
+	var sawDirectMediaRequest bool
+	var sawInitializedMediaRequest bool
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		bodyText := string(body)
+		w.Header().Set("Content-Type", "application/soap+xml")
+
+		switch {
+		case strings.Contains(bodyText, "GetProfiles") && r.URL.Path == "/media":
+			sawDirectMediaRequest = true
+			http.Error(w, "direct media endpoint rejected GetProfiles", http.StatusBadGateway)
+		case strings.Contains(bodyText, "GetCapabilities"):
+			_, _ = w.Write([]byte(capabilitiesSOAPResponseForURL(server.URL + "/media-discovered")))
+		case strings.Contains(bodyText, "GetProfiles") && r.URL.Path == "/media-discovered":
+			sawInitializedMediaRequest = true
+			_, _ = w.Write([]byte(`
+<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:trt="http://www.onvif.org/ver10/media/wsdl" xmlns:tt="http://www.onvif.org/ver10/schema">
+  <s:Body>
+    <trt:GetProfilesResponse>
+      <trt:Profiles token="initialized-ptz">
+        <tt:Name>Initialized PTZ</tt:Name>
+        <tt:VideoSourceConfiguration>
+          <tt:SourceToken>video_1</tt:SourceToken>
+        </tt:VideoSourceConfiguration>
+        <tt:PTZConfiguration></tt:PTZConfiguration>
+      </trt:Profiles>
+    </trt:GetProfilesResponse>
+  </s:Body>
+</s:Envelope>`))
+		default:
+			t.Fatalf("unexpected ONVIF request path=%s body=%s", r.URL.Path, bodyText)
+		}
+	}))
+	defer server.Close()
+
+	client := &Client{Endpoint: server.URL + "/device_service", HTTPClient: server.Client()}
+	profiles, err := client.GetProfiles(context.Background(), server.URL+"/media")
+	if err != nil {
+		t.Fatalf("expected initialized media fallback to pass, got %v", err)
+	}
+	if !sawDirectMediaRequest || !sawInitializedMediaRequest {
+		t.Fatalf("expected both direct and initialized media requests, direct=%t initialized=%t", sawDirectMediaRequest, sawInitializedMediaRequest)
+	}
+
+	profile, ok := SelectPTZProfile(profiles)
+	if !ok {
+		t.Fatal("expected a PTZ profile to be selected")
+	}
+	if profile.Token != "initialized-ptz" || profile.VideoSourceToken != "video_1" {
+		t.Fatalf("unexpected selected profile: %+v", profile)
+	}
+}
+
 func TestSelectVideoSourceProfileFallsBackToProfileWithoutPTZ(t *testing.T) {
 	profile, ok := SelectVideoSourceProfile([]MediaProfile{
 		{Token: "ptz-only", HasPTZ: true},

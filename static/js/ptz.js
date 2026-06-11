@@ -184,10 +184,6 @@
         if (!panel || getActiveCamId() !== camId) return;
         const ptzAvailable = status && status.ptz_state === 'available';
         const imagingAvailable = status && status.imaging_state === 'available';
-        if (status && status.ptz_state === 'unavailable' && !imagingAvailable) {
-            hidePanel();
-            return;
-        }
 
         const text = panelStateText(status);
         const collapsedClass = state.panelCollapsed ? 'w-[34px]' : 'w-[236px]';
@@ -483,10 +479,20 @@
                     step
                 })
             });
-            if (!resp.ok) throw new Error(await readError(resp));
+            if (!resp.ok) {
+                const detail = await readError(resp);
+                console.error(`[PTZ] ${label}接口调用失败`, {
+                    camera_id: camId,
+                    status: resp.status,
+                    error: detail
+                });
+                setFeedback(`${label}调用失败，可能不支持`, true);
+                return;
+            }
             setFeedback(successText);
         } catch (e) {
-            setFeedback(e.message || `${label}失败`, true);
+            console.error(`[PTZ] ${label}接口调用失败`, e);
+            setFeedback(`${label}调用失败，可能不支持`, true);
         } finally {
             state.actionInFlight = false;
         }

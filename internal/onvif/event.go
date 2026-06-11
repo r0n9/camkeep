@@ -65,17 +65,14 @@ func (c *Client) PullMessages(ctx context.Context, subscriptionReference string,
 	if subscriptionReference == "" {
 		return nil, fmt.Errorf("ONVIF PullPoint subscription reference 为空")
 	}
-
-	backend, err := c.newBackend(c.Endpoint)
-	if err != nil {
-		return nil, err
+	if timeout <= 0 {
+		return nil, fmt.Errorf("ONVIF PullPoint timeout 必须大于 0")
+	}
+	if messageLimit <= 0 {
+		return nil, fmt.Errorf("ONVIF PullPoint message limit 必须大于 0")
 	}
 
-	messages, err := backend.PullMessages(ctx, subscriptionReference, timeout, messageLimit)
-	if err != nil {
-		return nil, err
-	}
-	return mapEventNotifications(messages), nil
+	return c.pullMessages(ctx, subscriptionReference, timeout, messageLimit)
 }
 
 func (c *Client) RenewSubscription(ctx context.Context, subscriptionReference string, termination time.Duration) (time.Time, time.Time, error) {
@@ -111,36 +108,4 @@ func (c *Client) eventBackend(eventXAddr string) (*onvifgo.Client, error) {
 	}
 	backend.SetEventEndpoint(eventXAddr)
 	return backend, nil
-}
-
-func mapEventNotifications(messages []onvifgo.NotificationMessage) []EventNotification {
-	result := make([]EventNotification, 0, len(messages))
-	for _, message := range messages {
-		result = append(result, EventNotification{
-			Topic:           strings.TrimSpace(message.Topic),
-			Operation:       strings.TrimSpace(message.Message.PropertyOperation),
-			At:              message.Message.UtcTime,
-			ProducerAddress: strings.TrimSpace(message.ProducerAddress),
-			Source:          mapEventItems(message.Message.Source),
-			Key:             mapEventItems(message.Message.Key),
-			Data:            mapEventItems(message.Message.Data),
-		})
-	}
-	return result
-}
-
-func mapEventItems(items []onvifgo.SimpleItem) []EventItem {
-	result := make([]EventItem, 0, len(items))
-	for _, item := range items {
-		name := strings.TrimSpace(item.Name)
-		value := strings.TrimSpace(item.Value)
-		if name == "" && value == "" {
-			continue
-		}
-		result = append(result, EventItem{
-			Name:  name,
-			Value: value,
-		})
-	}
-	return result
 }

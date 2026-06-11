@@ -105,11 +105,33 @@ func (c *Client) GetProfiles(ctx context.Context, mediaXAddr string) ([]MediaPro
 		return nil, fmt.Errorf("ONVIF media xaddr 为空")
 	}
 
+	profiles, err := c.getProfilesFromEndpoint(ctx, mediaXAddr)
+	if err == nil {
+		return profiles, nil
+	}
+	directErr := err
+
+	backend, err := c.initializedBackend(ctx, mediaXAddr)
+	if err != nil {
+		return nil, fmt.Errorf("ONVIF GetProfiles 失败: %v; 初始化服务端点失败: %w", directErr, err)
+	}
+	profiles, err = c.getProfilesFromBackend(ctx, backend)
+	if err != nil {
+		return nil, fmt.Errorf("ONVIF GetProfiles 失败: %v; 初始化服务端点后仍失败: %w", directErr, err)
+	}
+	return profiles, nil
+}
+
+func (c *Client) getProfilesFromEndpoint(ctx context.Context, mediaXAddr string) ([]MediaProfile, error) {
 	backend, err := c.newBackend(mediaXAddr)
 	if err != nil {
 		return nil, err
 	}
 
+	return c.getProfilesFromBackend(ctx, backend)
+}
+
+func (c *Client) getProfilesFromBackend(ctx context.Context, backend *onvifgo.Client) ([]MediaProfile, error) {
 	profiles, err := backend.GetProfiles(ctx)
 	if err != nil {
 		return nil, err
