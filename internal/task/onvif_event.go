@@ -312,6 +312,12 @@ func isOnvifMotionTopic(topic string) bool {
 
 func onvifTopicMotionState(topic string, items []onvif.EventItem) (bool, bool) {
 	topic = strings.ToLower(strings.TrimSpace(topic))
+	if strings.Contains(topic, "videosource/motionalarm") {
+		return onvifEventItemBool(items, "state")
+	}
+	if strings.Contains(topic, "ruleengine/cellmotiondetector/motion") {
+		return onvifEventItemBool(items, "ismotion")
+	}
 	if strings.Contains(topic, "ruleengine/fielddetector/objectsinside") {
 		return onvifEventItemBool(items, "isinside")
 	}

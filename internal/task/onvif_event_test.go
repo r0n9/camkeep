@@ -32,6 +32,14 @@ func TestIsOnvifMotionNotification(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "rule engine motion false",
+			notification: onvif.EventNotification{
+				Topic: "tns1:RuleEngine/CellMotionDetector/Motion",
+				Data:  []onvif.EventItem{{Name: "IsMotion", Value: "false"}},
+			},
+			want: false,
+		},
+		{
 			name: "field detector objects inside true",
 			notification: onvif.EventNotification{
 				Topic: "tns1:RuleEngine/FieldDetector/ObjectsInside",
@@ -138,6 +146,21 @@ func TestHandleOnvifEventNotificationIgnoresMotionFalse(t *testing.T) {
 
 	if _, ok := RecentDetectionEvent("cam1", EventTypeMotion, time.Now(), 5*time.Second); ok {
 		t.Fatal("expected false motion event not to be published")
+	}
+}
+
+func TestHandleOnvifEventNotificationIgnoresCellMotionFalse(t *testing.T) {
+	resetDetectionEventsForTest(t)
+
+	eventAt := time.Now().Add(-time.Second)
+	handleOnvifEventNotification("cam1", onvif.EventNotification{
+		Topic: "tns1:RuleEngine/CellMotionDetector/Motion",
+		At:    eventAt,
+		Data:  []onvif.EventItem{{Name: "IsMotion", Value: "false"}},
+	})
+
+	if _, ok := RecentDetectionEvent("cam1", EventTypeMotion, time.Now(), 5*time.Second); ok {
+		t.Fatal("expected IsMotion=false event not to be published")
 	}
 }
 
