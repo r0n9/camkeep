@@ -28,6 +28,7 @@ const (
 	scheduledRecordStateCheckDelay  = 1 * time.Second
 	scheduledRecordMaintenanceEvery = 10 * time.Second
 	scheduledRecordRetryDelay       = 30 * time.Second
+	scheduledRecordBoundaryGuard    = 2 * time.Second
 )
 
 // SetOverride 设置手动录像指令
@@ -80,6 +81,14 @@ func recordingWindowEnabled(control string, inTimeRange bool) bool {
 	default:
 		return inTimeRange
 	}
+}
+
+func scheduledRecordingWindowEnabled(control, recordTime string, now time.Time) bool {
+	inTimeRange := util.IsTimeWithinTimeRange(now, recordTime)
+	if !recordingWindowEnabled(control, inTimeRange) {
+		return false
+	}
+	return control == "start" || !util.IsTimeRangeEndingSoon(now, recordTime, scheduledRecordBoundaryGuard)
 }
 
 // CameraTask 负责单个摄像头的生命周期管理
@@ -163,10 +172,9 @@ func runScheduledCameraTask(ctx context.Context, cam constant.Camera, camDir str
 
 			// 判断逻辑接入覆写
 			control := getOverride(cam.ID)
-			inTimeRange := util.IsWithinTimeRange(cam.RecordTime)
 			streamState := currentStreamState(cam.ID)
 
-			shouldRun := recordingWindowEnabled(control, inTimeRange)
+			shouldRun := scheduledRecordingWindowEnabled(control, cam.RecordTime, now)
 
 			// idle 只表示近期 TCP 可达且等待拉流验证，仍允许录制任务发起一次真实拉流。
 			// 只有明确的 offline 才拦截，避免设备恢复供电后没有消费者触发 go2rtc 刷新。

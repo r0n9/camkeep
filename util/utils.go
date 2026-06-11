@@ -11,7 +11,10 @@ import (
 // IsWithinTimeRange 判断当前时间是否在录制区间内。
 // 支持多个区间，例如 "08:00-12:00,14:00-18:00"；单个区间支持跨天，例如 "22:00-06:00"。
 func IsWithinTimeRange(timeStr string) bool {
-	now := time.Now()
+	return IsTimeWithinTimeRange(time.Now(), timeStr)
+}
+
+func IsTimeWithinTimeRange(now time.Time, timeStr string) bool {
 	return IsClockWithinTimeRange(fmt.Sprintf("%02d:%02d", now.Hour(), now.Minute()), timeStr)
 }
 
@@ -90,6 +93,60 @@ func minutesInRange(now, start, end int) bool {
 	}
 	// 处理跨天情况 (如 22:00 到 06:00)
 	return now >= start || now <= end
+}
+
+func IsTimeRangeEndingSoon(now time.Time, timeStr string, lead time.Duration) bool {
+	if timeStr == "" {
+		return false
+	}
+	if lead < 0 {
+		lead = 0
+	}
+
+	nowSecond := now.Hour()*3600 + now.Minute()*60 + now.Second()
+	leadSeconds := int(lead.Seconds())
+	for _, item := range splitTimeRanges(timeStr) {
+		start, end, ok := parseTimeRange(item)
+		if !ok || start == end {
+			continue
+		}
+		if allDayTimeRange(start, end) {
+			return false
+		}
+		endSecond := rangeEndBoundarySecond(end)
+		if start <= end {
+			if nearRangeEndBoundary(nowSecond, endSecond, leadSeconds) {
+				return true
+			}
+			continue
+		}
+		if nowSecond >= start*60 {
+			if nearRangeEndBoundary(nowSecond, endSecond+24*60*60, leadSeconds) {
+				return true
+			}
+		} else if nearRangeEndBoundary(nowSecond, endSecond, leadSeconds) {
+			return true
+		}
+	}
+	return false
+}
+
+func allDayTimeRange(start, end int) bool {
+	return start == 0 && (end == 24*60 || end == 23*60+59)
+}
+
+func rangeEndBoundarySecond(end int) int {
+	if end == 23*60+59 {
+		return 24 * 60 * 60
+	}
+	return end * 60
+}
+
+func nearRangeEndBoundary(nowSecond, boundarySecond, leadSeconds int) bool {
+	if nowSecond <= boundarySecond {
+		return boundarySecond-nowSecond <= leadSeconds
+	}
+	return nowSecond < boundarySecond+60
 }
 
 // EscapeRTSPAuth 专门用于安全地转义 RTSP URL 中的账号和密码

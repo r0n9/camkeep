@@ -166,6 +166,24 @@ func TestRecordingWindowEnabled(t *testing.T) {
 	}
 }
 
+func TestScheduledRecordingWindowEnabledSkipsEndBoundary(t *testing.T) {
+	if !scheduledRecordingWindowEnabled("", "08:00-09:00", time.Date(2026, 6, 11, 8, 59, 57, 0, time.Local)) {
+		t.Fatal("expected schedule to run before boundary guard window")
+	}
+	if scheduledRecordingWindowEnabled("", "08:00-09:00", time.Date(2026, 6, 11, 8, 59, 59, 0, time.Local)) {
+		t.Fatal("expected schedule to stop before end boundary")
+	}
+	if scheduledRecordingWindowEnabled("", "08:00-09:00", time.Date(2026, 6, 11, 9, 0, 0, 0, time.Local)) {
+		t.Fatal("expected schedule not to start on end boundary")
+	}
+	if !scheduledRecordingWindowEnabled("start", "08:00-09:00", time.Date(2026, 6, 11, 9, 0, 0, 0, time.Local)) {
+		t.Fatal("expected manual start override to ignore schedule boundary guard")
+	}
+	if !scheduledRecordingWindowEnabled("", "00:00-23:59", time.Date(2026, 6, 11, 23, 59, 59, 0, time.Local)) {
+		t.Fatal("expected default all-day schedule to stay continuous")
+	}
+}
+
 func TestMotionDetectionShouldRunRespectsOverrideStop(t *testing.T) {
 	cam := constant.Camera{ID: "motion-override-stop", Mode: "normal", MotionDetect: true}
 	setOverridesForTest(t, map[string]string{cam.ID: "stop"})
