@@ -27,48 +27,33 @@ CamKeep is not intended to replace large enterprise video security platforms. It
 
 ## ✨ Feature Highlights
 
-* 🧩 **go2rtc-native ingest**: `stream_url` accepts any go2rtc-compatible source, including `rtsp://`, `onvif://`, `ffmpeg:`, `exec:`, and existing go2rtc streams.
+* 🧩 **go2rtc-native ingest**: Supports RTSP, ONVIF, FFmpeg, scripts, and other go2rtc-compatible sources, including existing go2rtc streams.
 * 🕹️ **ONVIF control and event diagnostics**: CamKeep discovers ONVIF control candidates, supports PTZ, zoom, focus, and iris controls, and can diagnose Event service, PullPoint support, and recently received events.
-* 🖼️ **Live covers**: Each live camera card can show a persisted cover image stored at `records/<camera>/cover.jpg`; CamKeep prefers go2rtc snapshots and falls back to local FFmpeg.
+* 🖼️ **Live covers**: Each live camera card can show a persisted cover image; CamKeep prefers go2rtc snapshots and falls back to local FFmpeg.
 * 📺 **Compact live dashboard**: Camera cards are optimized for desktop and mobile. Covers are loaded only for visible cards, while the backend refreshes them periodically with low concurrency.
 * 🕓 **24H timeline playback**: The original card list and timeline remain, and a new docked 24-hour timeline supports dragging, mouse-wheel zoom, mobile pinch zoom, and seeking by time.
 * 🧰 **Web configuration management**: Single-page config management with form/YAML modes, collapsible camera cards, restore-before-save, single add, batch add, and importing unmanaged go2rtc streams.
 * 🎥 **Practical recording modes**: Scheduled recording, manual start/stop, motion recording, timelapse, TS/MP4 segments, historical playback, download, and deletion.
-* 🧠 **Selectable motion event source**: In normal mode, `motion_detect` can use local low-resolution frame differencing, ONVIF PullPoint, or ONVIF-triggered frame-diff follow-up with a Time-Shift cache for event clips.
-* 🧭 **Motion markers for continuous recording**: Continuous normal recording can enable `motion_mark_enabled` separately. It does not start or stop recording; it overlays ONVIF or frame-diff motion activity on the 24H timeline.
-* 🧹 **Automatic storage management**: Retention cleanup, minimum-size filtering, daily hourly/continuous-range merging, and single-file MP4 repair for leftover normal `_unknown` recordings keep long-running NAS deployments manageable. Motion clips are kept as separate files by default, or can be merged with `merge_motion_records`.
+* 🧠 **Selectable motion event source**: Use local low-resolution frame differencing, ONVIF PullPoint, or an automatic combination of both with a Time-Shift cache for event clips.
+* 🧭 **Motion markers for continuous recording**: Continuous recording can overlay activity ranges on the 24H timeline without changing when recording starts or stops.
+* 🧹 **Automatic storage management**: Retention cleanup, minimum-size filtering, daily hourly/continuous-range merging, and automatic repair for leftover recording fragments keep long-running NAS deployments manageable. Motion clips can also be merged when desired.
 * 🔒 **Local users and access control**: No cloud dependency, no required account, and no camera data upload. CamKeep supports local admin/viewer users, online session status, and per-camera visibility for viewers.
-
-## Status And Modes
-
-The `/api/status` field `mode` represents the runtime recording mode: `normal`, `motion`, or `timelapse`. `record_state` represents only the current state: `idle`, `recording`, `motion_detecting`, or `motion_recording`. Do not infer the recording mode from `record_state`.
 
 ## Source Configuration
 
-`stream_url` is the camera source field. It means “go2rtc source”, not just an RTSP URL. The legacy `rtsp_url` field remains compatible, but new configs should use `stream_url`.
-
-Common examples:
-
-```yaml
-stream_url: "rtsp://admin:password@192.168.1.10:554/Streaming/Channels/101"
-stream_url: "onvif://admin:password@192.168.1.11"
-stream_url: "ffmpeg:rtsp://admin:password@192.168.1.12/live#video=copy#audio=aac"
-stream_url: "managed_by_go2rtc"
-```
-
-`managed_by_go2rtc` is usually written by the Web UI when importing an existing go2rtc stream. It means go2rtc owns the stream definition, while CamKeep handles recording, playback, and status.
+CamKeep reuses go2rtc's ingest capabilities, so camera sources are not limited to plain RTSP URLs. You can use RTSP, ONVIF, FFmpeg, and other source types, or scan and import existing go2rtc streams from the Web configuration page. After import, go2rtc still owns the stream definition while CamKeep handles recording, playback, status, and device controls.
 
 ## ONVIF Events And Motion Markers
 
 After ONVIF capability probing succeeds, CamKeep detects Event service and PullPoint support. The configuration page can expand ONVIF event diagnostics to show listener state, recent events, and start a 30-second PullPoint test listener.
 
-Motion recording is enabled with `motion_detect: true`. `motion_event_source` supports:
+Motion recording can use three event sources:
 
-* `frame_diff`: Uses local frame differencing and reads `motion_url` plus `motionDetectRatioThreshold`.
-* `onvif`: Uses only ONVIF PullPoint motion events and does not fall back when unavailable.
-* `auto`: Uses PullPoint to trigger recording when the ONVIF Event channel is healthy, then briefly starts local frame-diff follow-up to extend/end the event window. If ONVIF is unhealthy, it falls back to local frame differencing.
+* Local frame differencing: watches low-resolution frame changes, useful for cameras without ONVIF events.
+* ONVIF PullPoint: uses motion events reported by the camera and usually costs less CPU.
+* Auto mode: prefers ONVIF events when healthy, then briefly follows up with frame differencing to extend or end the event window; falls back to local detection when ONVIF is unavailable.
 
-Continuous normal recording can also enable `motion_mark_enabled` and select a source with `motion_mark_event_source`. This does not control recording start or stop. It writes motion activity ranges under `records/<camera>/.markers/` and shows them on the 24H timeline as ONVIF or frame-diff motion markers.
+Continuous recording can also enable motion markers. They do not control recording start or stop; they only add activity ranges to the 24H timeline so you can jump to moments with people, vehicles, or visible scene changes.
 
 In the single-camera live view, ONVIF devices show an event overlay switch. When enabled, CamKeep only leases a PullPoint listener and displays recent events. The event list is shown when hovering over the button, and the recording strategy is unchanged.
 
@@ -78,41 +63,28 @@ The Docker image includes go2rtc and FFmpeg. Host networking is recommended, esp
 
 ### 1. Prepare Directory And Optional Config
 
-Create a base directory on your NAS or server, for example `/vol1/CamKeep`. For first-time deployment, you only need the `config/` and `records/` directories; if `config/conf.yaml` is missing, CamKeep will generate a default template on first start. You can still pre-create the file if you want a custom starting config. See [Configuration Usage](./conf_usage.md) for all fields.
+Create a base directory on your NAS or server, for example `/vol1/CamKeep`. For first-time deployment, you only need the `config/` and `records/` directories; if the config file is missing, CamKeep will generate a default template on first start. The easiest path is to start the service first and then add cameras in the Web configuration page. See [Configuration Usage](./conf_usage.md) for the full YAML reference.
 
-The snippet below is only an optional starting example. You can also start the service first and then edit the generated template in Web Configuration.
+The Web configuration page supports form editing, batch add, go2rtc import, ONVIF event diagnostics, and restore-before-save:
+
+![CamKeep camera configuration page](camkeep_cam_config.png)
+
+If you prefer a hand-written starting file, a minimal camera entry only needs an ID, a source, and a recording schedule. The rest can be tuned later in the Web UI.
 
 ```yaml
-daily_merge:
-  enabled: false
-  time: "03:30"
-  merge_motion_records: false
-
 cameras:
   - id: "front-door"
-    order: 0
     stream_url: "rtsp://admin:password@192.168.1.100:554/stream"
-    motion_url: ""
-    retention_days: 7
-    segment_duration: 300
-    format: "ts"
-    min_size_kb: 1024
     record_time: "00:00-23:59"
-    mode: "normal"
-    motion_detect: false
-    motion_event_source: "frame_diff"
-    motion_mark_enabled: false
-    motion_mark_event_source: "auto"
-    motionDetectRatioThreshold: 0.01
 ```
 
 The `records` directory stores video files and the latest persisted cover image for each camera.
 
 ### 2. Start The Service
 
-Login authentication is controlled by the local user file `config/users.json`. `CAMKEEP_AUTH_PASSWORD` is only used to bootstrap or add the built-in `admin` account; after the user file exists, login uses `users.json`, and changing the environment variable will not overwrite existing user passwords.
+Login is managed by local users. On first start, you can use the admin password shown in the examples below to bootstrap the built-in `admin` account; after that, manage accounts, passwords, and permissions in Web User Management. Changing the startup environment variable will not overwrite existing passwords.
 
-If `CAMKEEP_AUTH_PASSWORD` is not set and `users.json` is empty, the Web console starts with authentication disabled. You can create the first `admin` user from User Management, which enables login protection. `CAMKEEP_SESSION_SECRET` is an optional session signing key; if it is left empty, CamKeep generates a temporary key and users must log in again after restart. Set it only when you want sessions to survive restarts. When serving CamKeep through an HTTPS reverse proxy, you can set `CAMKEEP_AUTH_COOKIE_SECURE=true`.
+If no initial admin password is provided and no users exist yet, the Web console starts with authentication disabled. Create the first `admin` user from User Management to enable login protection. Persistent sessions and HTTPS-only cookies can be configured later for more advanced deployments.
 
 #### Docker Run
 
@@ -161,11 +133,9 @@ docker-compose up -d
 
 Keeping `--shm-size=512m` or `shm_size: "512m"` is recommended. CamKeep stores the motion-recording Time-Shift buffer in the container `/dev/shm` first, while Docker usually defaults it to 64MB. High-bitrate streams or multiple motion-recording cameras can otherwise make FFmpeg fail to write the buffer, which may show up as short motion clips or a stopped Time-Shift engine. 512MB is suitable for typical 1-2 camera setups; use `1g` or more for multiple cameras or high-bitrate main streams. If motion recording is not used, this can be lowered or omitted.
 
-To keep existing login sessions after service restarts, optionally set a fixed `CAMKEEP_SESSION_SECRET`.
-
 ### 3. Open The Console
 
-Visit `http://<Your-NAS-IP>:9110` in your browser. If `CAMKEEP_AUTH_PASSWORD` bootstrapped the admin account, log in as `admin` with that password. Manage later users, passwords, and permissions in Web User Management.
+Visit `http://<Your-NAS-IP>:9110` in your browser. If the example environment variable bootstrapped the admin account, log in as `admin` with the password you set. Manage later users, passwords, and permissions in Web User Management.
 
 ## Web Console
 
