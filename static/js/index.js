@@ -1303,7 +1303,7 @@ function renderConfigCameraCard(cam, index, expanded = false) {
                     ${managedByGo2rtc ? configManagedStreamField(cam.id) : configTextInput('接入源 stream_url', 'stream_url', cam.stream_url, 'rtsp://... / onvif://... / ffmpeg:...', true, 'config-field-wide')}
                 `, managedByGo2rtc ? 'config-form-section--stream is-go2rtc-managed' : 'config-form-section--stream')}
                 ${configFormSection('录像策略', '控制保留、切片和磁盘占用。', `
-                    ${configNumberInput('保留天数', 'retention_days', cam.retention_days, '0 不清理')}
+                    ${configNumberInput('保留天数', 'retention_days', cam.retention_days, '7，0 或负数不清理')}
                     ${configNumberInput('切片秒数', 'segment_duration', cam.segment_duration, '300 / 600')}
                     ${configNumberInput('最小文件 KB', 'min_size_kb', cam.min_size_kb, '1024')}
                 `, 'config-form-section--storage')}
@@ -1634,7 +1634,7 @@ function readBatchCameraDefaults() {
     const format = readBatchCameraChoice('batchCameraDefaultFormat', ['mp4', 'ts'], DEFAULT_RECORD_FORMAT);
     const recordTime = (document.getElementById('batchCameraDefaultRecordTime')?.value || '').trim() || DEFAULT_RECORD_TIME;
     const segmentDuration = readBatchCameraInteger('batchCameraDefaultSegmentDuration', DEFAULT_SEGMENT_DURATION, 1);
-    const retentionDays = readBatchCameraInteger('batchCameraDefaultRetentionDays', DEFAULT_RETENTION_DAYS, -1);
+    const retentionDays = readBatchCameraInteger('batchCameraDefaultRetentionDays', DEFAULT_RETENTION_DAYS);
     return {
         mode,
         format,
@@ -1673,8 +1673,8 @@ function isAllDayRecordTime(recordTime) {
 }
 
 function formatBatchRetentionDays(retentionDays) {
-    if (retentionDays < 0) return '不自动清理';
-    return `保留 ${retentionDays || DEFAULT_RETENTION_DAYS} 天`;
+    if (retentionDays <= 0) return '不自动清理';
+    return `保留 ${retentionDays} 天`;
 }
 
 function renderBatchCameraPreviewMarkup(result) {

@@ -48,6 +48,7 @@ func loadOrInitConfig() constant.Config {
 					},
 				},
 			}
+			applyConfigDefaults(&defaultCfg)
 
 			// 将默认配置序列化为 YAML
 			out, err := yaml.Marshal(defaultCfg)
@@ -147,9 +148,6 @@ func validateCameraConfig(cam constant.Camera) error {
 	if cam.SegmentDuration < 0 {
 		return fmt.Errorf("segment_duration 不能为负数")
 	}
-	if cam.RetentionDays < -1 {
-		return fmt.Errorf("retention_days 不能小于 -1")
-	}
 	if cam.CaptureInterval < 0 {
 		return fmt.Errorf("capture_interval 不能为负数")
 	}
@@ -173,10 +171,35 @@ func validateCameraConfig(cam constant.Camera) error {
 }
 
 func applyConfigDefaults(cfg *constant.Config) {
+	if strings.TrimSpace(cfg.DailyMerge.Time) == "" {
+		cfg.DailyMerge.Time = "03:30"
+	}
 	for i := range cfg.Cameras {
-		cfg.Cameras[i].Format = normalizedRecordFormat(cfg.Cameras[i].Format)
-		cfg.Cameras[i].MotionEventSource = constant.NormalizeMotionEventSource(cfg.Cameras[i].MotionEventSource)
-		cfg.Cameras[i].MotionMarkEventSource = constant.NormalizeMotionMarkEventSource(cfg.Cameras[i].MotionMarkEventSource)
+		applyCameraDefaults(&cfg.Cameras[i])
+	}
+}
+
+func applyCameraDefaults(cam *constant.Camera) {
+	if cam.SegmentDuration == 0 {
+		cam.SegmentDuration = 600
+	}
+	cam.Format = normalizedRecordFormat(cam.Format)
+	if cam.MinSizeKb == 0 {
+		cam.MinSizeKb = 1024
+	}
+	if strings.TrimSpace(cam.RecordTime) == "" {
+		cam.RecordTime = "00:00-23:59"
+	}
+	if strings.TrimSpace(cam.Mode) == "" {
+		cam.Mode = "normal"
+	}
+	if cam.CaptureInterval == 0 {
+		cam.CaptureInterval = 1
+	}
+	cam.MotionEventSource = constant.NormalizeMotionEventSource(cam.MotionEventSource)
+	cam.MotionMarkEventSource = constant.NormalizeMotionMarkEventSource(cam.MotionMarkEventSource)
+	if cam.MotionDetectRatioThreshold == 0 {
+		cam.MotionDetectRatioThreshold = 0.01
 	}
 }
 
@@ -213,24 +236,7 @@ func validateAndFixConfig(cfg constant.Config) constant.Config {
 		}
 
 		// 预置默认录像策略。如果用户在 conf.yaml 中没写，就走这里的兜底。
-		if cam.RetentionDays == 0 {
-			cam.RetentionDays = 7
-		}
-		if cam.SegmentDuration == 0 {
-			cam.SegmentDuration = 600
-		}
-		cam.Format = normalizedRecordFormat(cam.Format)
-		if cam.MinSizeKb == 0 {
-			cam.MinSizeKb = 1024
-		}
-		if cam.RecordTime == "" {
-			cam.RecordTime = "00:00-23:59"
-		}
-		if cam.Mode == "" {
-			cam.Mode = "normal" // 普通录制模式
-		}
-		cam.MotionEventSource = constant.NormalizeMotionEventSource(cam.MotionEventSource)
-		cam.MotionMarkEventSource = constant.NormalizeMotionMarkEventSource(cam.MotionMarkEventSource)
+		applyCameraDefaults(&cam)
 
 		uniqueCams = append(uniqueCams, cam)
 	}

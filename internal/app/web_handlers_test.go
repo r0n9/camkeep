@@ -671,6 +671,54 @@ cameras:
 	}
 }
 
+func TestApplyConfigDefaultsFillsCameraDefaultsWithoutOverridingRetentionZero(t *testing.T) {
+	cfg := constant.Config{
+		Cameras: []constant.Camera{
+			{
+				ID:        "batch-cam",
+				StreamURL: "rtsp://example/live",
+			},
+		},
+	}
+
+	applyConfigDefaults(&cfg)
+
+	if cfg.DailyMerge.Time != "03:30" {
+		t.Fatalf("expected default daily merge time, got %q", cfg.DailyMerge.Time)
+	}
+	cam := cfg.Cameras[0]
+	if cam.RetentionDays != 0 {
+		t.Fatalf("expected retention days 0 to mean no cleanup, got %d", cam.RetentionDays)
+	}
+	if cam.SegmentDuration != 600 {
+		t.Fatalf("expected default segment duration 600, got %d", cam.SegmentDuration)
+	}
+	if cam.Format != constant.DefaultRecordFormat {
+		t.Fatalf("expected default format %q, got %q", constant.DefaultRecordFormat, cam.Format)
+	}
+	if cam.MinSizeKb != 1024 {
+		t.Fatalf("expected default min size 1024, got %d", cam.MinSizeKb)
+	}
+	if cam.RecordTime != "00:00-23:59" {
+		t.Fatalf("expected default record time, got %q", cam.RecordTime)
+	}
+	if cam.Mode != "normal" {
+		t.Fatalf("expected default mode normal, got %q", cam.Mode)
+	}
+	if cam.CaptureInterval != 1 {
+		t.Fatalf("expected default capture interval 1, got %d", cam.CaptureInterval)
+	}
+	if cam.MotionEventSource != constant.MotionEventSourceFrameDiff {
+		t.Fatalf("expected default motion event source %q, got %q", constant.MotionEventSourceFrameDiff, cam.MotionEventSource)
+	}
+	if cam.MotionMarkEventSource != constant.MotionEventSourceAuto {
+		t.Fatalf("expected default motion mark event source %q, got %q", constant.MotionEventSourceAuto, cam.MotionMarkEventSource)
+	}
+	if cam.MotionDetectRatioThreshold != 0.01 {
+		t.Fatalf("expected default motion threshold 0.01, got %f", cam.MotionDetectRatioThreshold)
+	}
+}
+
 func TestParseConfigYAMLSupportsLegacyRTSPURL(t *testing.T) {
 	cfg, err := parseConfigYAML([]byte(`
 cameras:
@@ -697,6 +745,36 @@ cameras:
 	}
 	if got := cfg.Cameras[0].EffectiveStreamURL(); got != "rtsp://new.example/live" {
 		t.Fatalf("expected stream_url to win, got %q", got)
+	}
+}
+
+func TestParseConfigYAMLAllowsNegativeRetentionDays(t *testing.T) {
+	cfg, err := parseConfigYAML([]byte(`
+cameras:
+  - id: "cam_01"
+    stream_url: "rtsp://example/live"
+    retention_days: -2
+`))
+	if err != nil {
+		t.Fatalf("expected negative retention days to mean no cleanup, got %v", err)
+	}
+	if got := cfg.Cameras[0].RetentionDays; got != -2 {
+		t.Fatalf("expected retention days -2 to be preserved, got %d", got)
+	}
+}
+
+func TestParseConfigYAMLAllowsZeroRetentionDays(t *testing.T) {
+	cfg, err := parseConfigYAML([]byte(`
+cameras:
+  - id: "cam_01"
+    stream_url: "rtsp://example/live"
+    retention_days: 0
+`))
+	if err != nil {
+		t.Fatalf("expected zero retention days to mean no cleanup, got %v", err)
+	}
+	if got := cfg.Cameras[0].RetentionDays; got != 0 {
+		t.Fatalf("expected retention days 0 to be preserved, got %d", got)
 	}
 }
 
@@ -936,15 +1014,6 @@ cameras:
     segment_duration: -1
 `,
 			want: "segment_duration",
-		},
-		{
-			name: "invalid retention days",
-			yaml: `
-cameras:
-  - id: "cam_01"
-    retention_days: -2
-`,
-			want: "retention_days",
 		},
 		{
 			name: "negative min size",
