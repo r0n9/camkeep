@@ -137,9 +137,11 @@ const (
 	recordDateLayout    = "2006-01-02"
 	maxRecordRangeDays  = 7
 	defaultRecordDayMax = 7
+	go2rtcHTTPTimeout   = 3 * time.Second
 )
 
 var recordDatePattern = regexp.MustCompile(`\d{4}-\d{2}-\d{2}`)
+var go2rtcInternalHTTPClient = &http.Client{Timeout: go2rtcHTTPTimeout}
 
 func handleIndex(c *gin.Context) {
 	user, _ := getCurrentUser(c)
@@ -1223,7 +1225,12 @@ func handleProbeRecord(c *gin.Context) {
 
 func handleUnmanagedStreams(c *gin.Context) {
 	go2rtcHost := fmt.Sprintf("http://%s:%d", constant.DefaultGo2rtcHost, constant.DefaultGo2rtcApiPort)
-	resp, err := http.Get(go2rtcHost + "/api/streams")
+	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, go2rtcHost+"/api/streams", nil)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "构造 go2rtc 请求失败"})
+		return
+	}
+	resp, err := go2rtcInternalHTTPClient.Do(req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "无法连接到 go2rtc"})
 		return
@@ -1584,7 +1591,13 @@ func handleWebRTCProxy(c *gin.Context) {
 	// 直接发起 WebRTC 握手：
 	go2rtcWebRTCURL := fmt.Sprintf("%s/api/webrtc?src=%s", go2rtcHost, camID)
 
-	resp, err := http.Post(go2rtcWebRTCURL, "application/sdp", bytes.NewReader(sdpOffer))
+	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodPost, go2rtcWebRTCURL, bytes.NewReader(sdpOffer))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "构造视频网关请求失败"})
+		return
+	}
+	req.Header.Set("Content-Type", "application/sdp")
+	resp, err := go2rtcInternalHTTPClient.Do(req)
 	if err != nil {
 		log.Printf("[%s] 连接 go2rtc 失败: %v", camID, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "视频流网关连接失败"})

@@ -3,6 +3,7 @@ package app
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -985,6 +986,84 @@ func TestBuildGo2rtcStreamScanResponseUsesConfigSourceLabels(t *testing.T) {
 	}
 }
 
+func TestGo2rtcInternalHTTPClientHasTimeout(t *testing.T) {
+	if go2rtcInternalHTTPClient.Timeout != go2rtcHTTPTimeout {
+		t.Fatalf("expected go2rtc client timeout %s, got %s", go2rtcHTTPTimeout, go2rtcInternalHTTPClient.Timeout)
+	}
+}
+
+func TestHandleUnmanagedStreamsUsesGo2rtcInternalClient(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	setCurrentConfigForAppTest(t, constant.Config{})
+
+	var gotMethod, gotPath string
+	swapGo2rtcInternalHTTPClientForTest(t, &http.Client{
+		Timeout: go2rtcHTTPTimeout,
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			gotMethod = req.Method
+			gotPath = req.URL.Path
+			return jsonResponseForTest(req, http.StatusOK, `{"streams":{"external":{}}}`)
+		}),
+	})
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/go2rtc/unmanaged-streams", nil)
+
+	handleUnmanagedStreams(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if gotMethod != http.MethodGet || gotPath != "/api/streams" {
+		t.Fatalf("expected GET /api/streams through shared client, got %s %s", gotMethod, gotPath)
+	}
+}
+
+func TestHandleWebRTCProxyUsesGo2rtcInternalClient(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	setCurrentConfigForAppTest(t, constant.Config{Cameras: []constant.Camera{{ID: "cam1"}}})
+
+	var gotMethod, gotPath, gotContentType, gotBody string
+	swapGo2rtcInternalHTTPClientForTest(t, &http.Client{
+		Timeout: go2rtcHTTPTimeout,
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			body, err := io.ReadAll(req.Body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			gotMethod = req.Method
+			gotPath = req.URL.Path
+			gotContentType = req.Header.Get("Content-Type")
+			gotBody = string(body)
+			return textResponseForTest(req, http.StatusOK, "application/sdp", "answer-sdp")
+		}),
+	})
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Params = gin.Params{{Key: "id", Value: "cam1"}}
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/webrtc/cam1", strings.NewReader("offer-sdp"))
+
+	handleWebRTCProxy(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if gotMethod != http.MethodPost || gotPath != "/api/webrtc" {
+		t.Fatalf("expected POST /api/webrtc through shared client, got %s %s", gotMethod, gotPath)
+	}
+	if gotContentType != "application/sdp" {
+		t.Fatalf("expected application/sdp content type, got %q", gotContentType)
+	}
+	if gotBody != "offer-sdp" {
+		t.Fatalf("expected SDP offer to be forwarded, got %q", gotBody)
+	}
+	if body := w.Body.String(); body != "answer-sdp" {
+		t.Fatalf("expected SDP answer body, got %q", body)
+	}
+}
+
 func TestReadGo2rtcConfigStreamSources(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "go2rtc.yaml")
 	if err := os.WriteFile(configPath, []byte(`
@@ -1178,6 +1257,36 @@ func recordFilePaths(files []recordFile) []string {
 		paths = append(paths, file.Path)
 	}
 	return paths
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (fn roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return fn(req)
+}
+
+func swapGo2rtcInternalHTTPClientForTest(t *testing.T, client *http.Client) {
+	t.Helper()
+
+	oldClient := go2rtcInternalHTTPClient
+	go2rtcInternalHTTPClient = client
+	t.Cleanup(func() {
+		go2rtcInternalHTTPClient = oldClient
+	})
+}
+
+func jsonResponseForTest(req *http.Request, statusCode int, body string) (*http.Response, error) {
+	return textResponseForTest(req, statusCode, "application/json", body)
+}
+
+func textResponseForTest(req *http.Request, statusCode int, contentType, body string) (*http.Response, error) {
+	return &http.Response{
+		StatusCode:    statusCode,
+		Header:        http.Header{"Content-Type": []string{contentType}},
+		Body:          io.NopCloser(strings.NewReader(body)),
+		ContentLength: int64(len(body)),
+		Request:       req,
+	}, nil
 }
 
 func writeRecordFileForTest(t *testing.T, path string) {
