@@ -1210,19 +1210,39 @@ html.dark .theme-seg-btn.is-active {
 
 #video-wrapper:fullscreen #video-grid,
 #video-wrapper:-webkit-full-screen #video-grid {
-    padding: 0;
-    gap: 0;
+    padding: 1px;
+    gap: 1px;
+    background: rgba(148, 163, 184, 0.28) !important;
 }
 
 #video-wrapper:fullscreen #video-stage,
 #video-wrapper:-webkit-full-screen #video-stage,
-#video-wrapper:fullscreen #video-grid,
-#video-wrapper:-webkit-full-screen #video-grid,
 #video-wrapper:fullscreen .matrix-cell,
 #video-wrapper:-webkit-full-screen .matrix-cell {
     background: #000000 !important;
-    border-color: #000000 !important;
+    border-color: rgba(148, 163, 184, 0.32) !important;
     box-shadow: none !important;
+}
+
+#video-wrapper:fullscreen .matrix-empty-state,
+#video-wrapper:-webkit-full-screen .matrix-empty-state {
+    color: rgba(226, 232, 240, 0.82) !important;
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.72);
+}
+
+#video-wrapper:fullscreen .matrix-empty-state svg,
+#video-wrapper:-webkit-full-screen .matrix-empty-state svg {
+    opacity: 0.5 !important;
+}
+
+#video-wrapper:fullscreen .matrix-empty-state span,
+#video-wrapper:-webkit-full-screen .matrix-empty-state span {
+    opacity: 0.72 !important;
+}
+
+#video-wrapper:fullscreen .matrix-cell:hover .matrix-empty-state,
+#video-wrapper:-webkit-full-screen .matrix-cell:hover .matrix-empty-state {
+    color: #ffffff !important;
 }
 
 #video-wrapper:fullscreen #video-stage,

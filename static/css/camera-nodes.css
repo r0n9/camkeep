@@ -1753,6 +1753,7 @@ html.dark .camera-node-live-btn svg {
    从而复用上面所有既有布局/hover/active 规则，无需重写，也不影响新拟态皮肤。
    ========================================================================== */
 html[data-skin="classic"] #camStatsPanel.live-stats-panel,
+html[data-skin="classic"] #camList,
 html[data-skin="classic"] .camera-node-card-actions {
     --nm-surface: #ffffff;
     --nm-surface-2: #f8fafc;
@@ -1781,6 +1782,7 @@ html[data-skin="classic"] .camera-node-card-actions {
 }
 
 html[data-skin="classic"].dark #camStatsPanel.live-stats-panel,
+html[data-skin="classic"].dark #camList,
 html[data-skin="classic"].dark .camera-node-card-actions {
     --nm-surface: #1f2937;
     --nm-surface-2: #243044;
@@ -1805,6 +1807,19 @@ html[data-skin="classic"] #camStatsPanel.live-stats-panel {
 
 html[data-skin="classic"].dark #camStatsPanel.live-stats-panel {
     border-color: #2b3344 !important;
+}
+
+/* 节点列表滚动区：classic 下恢复与统计面板同宽的外部面板 */
+html[data-skin="classic"] #camList {
+    border: 1px solid #e2e8f0 !important;
+    background: #f8fafc !important;
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 1px rgba(15, 23, 42, 0.04) !important;
+}
+
+html[data-skin="classic"].dark #camList {
+    border-color: #2b3344 !important;
+    background: #131a27 !important;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45) !important;
 }
 
 /* 统计格子：补一条按下(mousedown)的物理反馈，hover 抬升沿用既有规则 */

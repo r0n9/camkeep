@@ -2081,6 +2081,29 @@ function setLayout(layoutCount) {
     renderGrid();
 }
 
+function matrixGridMetrics() {
+    if (currentLayout === 1) return {cols: 1, rows: 1};
+    if (currentLayout === 4) return {cols: 2, rows: 2};
+    if (compactGrid) return {cols: 2, rows: 3};
+    return {cols: 3, rows: 2};
+}
+
+function matrixCellPositionClasses(index) {
+    const {cols, rows} = matrixGridMetrics();
+    const col = index % cols;
+    const row = Math.floor(index / cols);
+    return [
+        row === 0 ? 'is-top-edge' : '',
+        row === rows - 1 ? 'is-bottom-edge' : '',
+        col === 0 ? 'is-left-edge' : '',
+        col === cols - 1 ? 'is-right-edge' : '',
+        row === 0 && col === 0 ? 'is-top-left' : '',
+        row === 0 && col === cols - 1 ? 'is-top-right' : '',
+        row === rows - 1 && col === 0 ? 'is-bottom-left' : '',
+        row === rows - 1 && col === cols - 1 ? 'is-bottom-right' : ''
+    ].filter(Boolean).join(' ');
+}
+
 function renderGrid() {
     const grid = document.getElementById('video-grid');
     grid.className = 'player-grid min-w-0 flex-1 h-full p-0.5 bg-black grid gap-0.5 transition-all duration-300 ' + (currentLayout === 1 ? 'grid-cols-1 grid-rows-1' : currentLayout === 4 ? 'grid-cols-2 grid-rows-2' : compactGrid ? 'grid-cols-2 grid-rows-3' : 'grid-cols-3 grid-rows-2');
@@ -2094,6 +2117,7 @@ function renderGrid() {
         const activeCellClass = currentLayout > 1 && isFocused ? 'matrix-active-cell' : '';
         const stateClass = [
             currentLayout === 1 ? 'is-single-layout' : '',
+            matrixCellPositionClasses(i),
             data ? 'has-content' : '',
             data && data.source ? 'has-video' : ''
         ].filter(Boolean).join(' ');

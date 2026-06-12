@@ -478,6 +478,8 @@ html.dark .version-status-badge.is-unknown #versionStatusText {
 #video-wrapper.nm-screen {
     --player-stage-radius: var(--nm-r-lg);
     --player-stage-inset: 2px;
+    --player-cell-inner-radius: 4px;
+    --player-cell-outer-radius: calc(var(--player-stage-radius) - var(--player-stage-inset));
 }
 
 #video-wrapper.nm-screen #video-stage,
@@ -489,7 +491,19 @@ html.dark .version-status-badge.is-unknown #versionStatusText {
 }
 
 #video-wrapper.nm-screen .matrix-cell.is-single-layout {
-    border-radius: calc(var(--player-stage-radius) - var(--player-stage-inset)) calc(var(--player-stage-radius) - var(--player-stage-inset)) 0 0;
+    border-radius: var(--player-cell-outer-radius) var(--player-cell-outer-radius) 0 0;
+}
+
+#video-wrapper.nm-screen .matrix-cell:not(.is-single-layout) {
+    border-radius: var(--player-cell-inner-radius);
+}
+
+#video-wrapper.nm-screen .matrix-cell:not(.is-single-layout).is-top-left {
+    border-top-left-radius: var(--player-cell-outer-radius);
+}
+
+#video-wrapper.nm-screen .matrix-cell:not(.is-single-layout).is-top-right {
+    border-top-right-radius: var(--player-cell-outer-radius);
 }
 
 @media (max-width: 640px) {
