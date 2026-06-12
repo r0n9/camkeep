@@ -9,7 +9,10 @@
         stopTimer: null,
         activeMove: null,
         actionInFlight: false,
-        speedValue: 0.55
+        speedValue: 0.55,
+        speedDragging: false,
+        lastRenderKey: '',
+        pendingRender: null
     };
 
     function getPanel() {
@@ -62,6 +65,16 @@
         if (!panel) return;
         panel.className = PANEL_HIDDEN_CLASS;
         panel.innerHTML = '';
+        state.lastRenderKey = '';
+        state.pendingRender = null;
+    }
+
+    function hidePanelWhenSafe() {
+        if (panelInteractionActive()) {
+            state.pendingRender = {hide: true};
+            return;
+        }
+        hidePanel();
     }
 
     function clearStopTimer() {
@@ -137,6 +150,48 @@
         if (label) label.innerText = speedText;
         slider.title = speedText;
         slider.setAttribute('aria-valuetext', speedText);
+    }
+
+    function panelRenderKey(camId, status) {
+        return JSON.stringify({
+            camId,
+            collapsed: state.panelCollapsed,
+            capability_state: status?.capability_state || '',
+            ptz_state: status?.ptz_state || '',
+            imaging_state: status?.imaging_state || '',
+            last_error: status?.last_error || ''
+        });
+    }
+
+    function panelInteractionActive() {
+        return Boolean(state.activeMove || state.speedDragging);
+    }
+
+    function renderPanelIfNeeded(camId, status, options = {}) {
+        const panel = getPanel();
+        if (!panel || getActiveCamId() !== camId) return;
+        if (!options.force && panelInteractionActive()) {
+            state.pendingRender = {camId, status};
+            return;
+        }
+
+        const renderKey = panelRenderKey(camId, status);
+        if (!options.force && state.lastRenderKey === renderKey) return;
+
+        renderPanel(camId, status);
+        state.lastRenderKey = renderKey;
+        state.pendingRender = null;
+    }
+
+    function flushPendingRender() {
+        const pending = state.pendingRender;
+        if (!pending || panelInteractionActive()) return;
+        state.pendingRender = null;
+        if (pending.hide) {
+            hidePanel();
+            return;
+        }
+        renderPanelIfNeeded(pending.camId, pending.status);
     }
 
     function moveButton(title, x, y, zoom, path, disabled = '') {
@@ -253,7 +308,7 @@
             </div>
 
             <div class="ptz-speed-panel mt-2 flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1.5${speedDisabledClass}">
-                <input id="ptz-speed" type="range" min="0.15" max="1" step="0.05" value="${state.speedValue}" oninput="window.PTZ.updateSpeedLabel()" aria-label="控制速度" class="block min-w-0 flex-1 accent-blue-500" ${speedDisabled}>
+                <input id="ptz-speed" type="range" min="0.15" max="1" step="0.05" value="${state.speedValue}" oninput="window.PTZ.updateSpeedLabel()" onpointerdown="window.PTZ.beginSpeedInteraction(event)" onpointerup="window.PTZ.endSpeedInteraction(event)" onpointercancel="window.PTZ.endSpeedInteraction(event)" onlostpointercapture="window.PTZ.endSpeedInteraction(event)" onfocus="window.PTZ.beginSpeedInteraction()" onblur="window.PTZ.endSpeedInteraction()" aria-label="控制速度" class="block min-w-0 flex-1 accent-blue-500" ${speedDisabled}>
                 <span id="ptz-speed-label" class="w-8 shrink-0 text-right font-mono text-[10px] font-black text-slate-300">55%</span>
             </div>
         </div>
@@ -264,24 +319,24 @@
     async function refreshPanel(options = {}) {
         const camId = getActiveCamId();
         if (!camId) {
-            hidePanel();
+            hidePanelWhenSafe();
             return;
         }
         if (!canProbePTZ(camId)) {
             state.onvifStatusCache.delete(camId);
-            hidePanel();
+            hidePanelWhenSafe();
             return;
         }
 
         const cached = state.onvifStatusCache.get(camId);
-        if (cached) renderPanel(camId, cached);
+        if (cached) renderPanelIfNeeded(camId, cached);
         const statusFromList = statusFromCachedCapability(camId);
         if (statusFromList) {
             state.onvifStatusCache.set(camId, {...cached, ...statusFromList});
-            renderPanel(camId, state.onvifStatusCache.get(camId));
+            renderPanelIfNeeded(camId, state.onvifStatusCache.get(camId));
         }
         if (!options.force) {
-            if (!cached && !statusFromList) hidePanel();
+            if (!cached && !statusFromList) hidePanelWhenSafe();
             return;
         }
 
@@ -290,14 +345,14 @@
             if (getActiveCamId() !== camId) return;
             if (!resp.ok) {
                 state.onvifStatusCache.delete(camId);
-                hidePanel();
+                hidePanelWhenSafe();
                 return;
             }
             const status = await resp.json();
             state.onvifStatusCache.set(camId, status);
-            renderPanel(camId, status);
+            renderPanelIfNeeded(camId, status);
         } catch (e) {
-            if (!cached) hidePanel();
+            if (!cached) hidePanelWhenSafe();
         }
     }
 
@@ -306,7 +361,7 @@
         state.panelCollapsed = !state.panelCollapsed;
         const camId = getActiveCamId();
         if (!camId || !canSendPTZCommand(camId)) return;
-        renderPanel(camId, state.onvifStatusCache.get(camId));
+        renderPanelIfNeeded(camId, state.onvifStatusCache.get(camId));
     }
 
     function suppressGesture(event) {
@@ -440,8 +495,12 @@
 
         const camId = getActiveCamId();
         const stopCamId = move?.camId || camId;
-        if (!stopCamId || !canSendPTZCommand(stopCamId)) return;
+        if (!stopCamId || !canSendPTZCommand(stopCamId)) {
+            flushPendingRender();
+            return;
+        }
         await sendStop(stopCamId, force);
+        flushPendingRender();
     }
 
     async function sendStop(camId, force = false) {
@@ -506,9 +565,27 @@
         await adjustImaging(event, 'iris', direction, '光圈', '光圈已调整');
     }
 
+    function beginSpeedInteraction(event) {
+        if (event && !shouldHandlePointer(event)) return;
+        state.speedDragging = true;
+        if (event) capturePointer(event);
+    }
+
+    function endSpeedInteraction(event) {
+        if (event && !shouldHandlePointer(event)) return;
+        if (event?.currentTarget) releasePointer({
+            target: event.currentTarget,
+            pointerId: event.pointerId
+        });
+        state.speedDragging = false;
+        flushPendingRender();
+    }
+
     window.PTZ = {
         adjustFocus,
         adjustIris,
+        beginSpeedInteraction,
+        endSpeedInteraction,
         getActiveCamId,
         hidePanel,
         refreshPanel,
