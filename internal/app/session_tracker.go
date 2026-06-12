@@ -8,7 +8,10 @@ import (
 	"time"
 )
 
-const activeSessionWindow = 2 * time.Minute
+const (
+	activeSessionWindow         = 2 * time.Minute
+	sessionTrackerPruneInterval = time.Minute
+)
 
 type userSessionView struct {
 	IP         string    `json:"ip"`
@@ -26,15 +29,18 @@ type trackedSession struct {
 }
 
 type sessionTracker struct {
-	mux          sync.Mutex
-	sessions     map[string]trackedSession
-	activeWindow time.Duration
+	mux           sync.Mutex
+	sessions      map[string]trackedSession
+	activeWindow  time.Duration
+	pruneInterval time.Duration
+	lastPrunedAt  time.Time
 }
 
 func newSessionTracker() *sessionTracker {
 	return &sessionTracker{
-		sessions:     make(map[string]trackedSession),
-		activeWindow: activeSessionWindow,
+		sessions:      make(map[string]trackedSession),
+		activeWindow:  activeSessionWindow,
+		pruneInterval: sessionTrackerPruneInterval,
 	}
 }
 
@@ -45,6 +51,7 @@ func (t *sessionTracker) trackLogin(token string, user currentUser, ip string, n
 
 	t.mux.Lock()
 	defer t.mux.Unlock()
+	t.pruneExpiredIfDueLocked(now)
 	t.sessions[sessionKey(token)] = trackedSession{
 		UserID:     user.ID,
 		IP:         ip,
@@ -62,6 +69,7 @@ func (t *sessionTracker) touch(token string, user currentUser, ip string, now, e
 	key := sessionKey(token)
 	t.mux.Lock()
 	defer t.mux.Unlock()
+	t.pruneExpiredIfDueLocked(now)
 	session := t.sessions[key]
 	if session.UserID == "" {
 		session.UserID = user.ID
@@ -129,11 +137,31 @@ func (t *sessionTracker) activeSessionsByUser(now time.Time, currentToken string
 	return result
 }
 
+func (t *sessionTracker) pruneExpiredIfDueLocked(now time.Time) {
+	if t.pruneInterval > 0 && !t.lastPrunedAt.IsZero() && now.Before(t.lastPrunedAt.Add(t.pruneInterval)) {
+		return
+	}
+	t.pruneExpiredLocked(now)
+	t.lastPrunedAt = now
+}
+
+func (t *sessionTracker) pruneExpiredLocked(now time.Time) {
+	for key, session := range t.sessions {
+		if session.isExpired(now) {
+			delete(t.sessions, key)
+		}
+	}
+}
+
 func (s trackedSession) isActive(now time.Time, activeWindow time.Duration) bool {
-	if s.UserID == "" || s.ExpiresAt.Before(now) || s.ExpiresAt.Equal(now) {
+	if s.isExpired(now) {
 		return false
 	}
 	return now.Sub(s.LastSeenAt) <= activeWindow
+}
+
+func (s trackedSession) isExpired(now time.Time) bool {
+	return s.UserID == "" || !s.ExpiresAt.After(now)
 }
 
 func sessionKey(token string) string {
