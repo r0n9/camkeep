@@ -2069,9 +2069,11 @@ function setLayout(layoutCount) {
     [1, 4, 6].forEach(num => {
         const btn = document.getElementById(`btn-layout-${num}`);
         if (num === layoutCount) {
+            btn.classList.add('is-active');
             btn.classList.add('bg-blue-600/50', 'text-white');
             btn.classList.remove('text-gray-400');
         } else {
+            btn.classList.remove('is-active');
             btn.classList.remove('bg-blue-600/50', 'text-white');
             btn.classList.add('text-gray-400');
         }
@@ -2081,26 +2083,29 @@ function setLayout(layoutCount) {
 
 function renderGrid() {
     const grid = document.getElementById('video-grid');
-    grid.className = 'min-w-0 flex-1 h-full p-1 bg-black grid gap-1 transition-all duration-300 ' + (currentLayout === 1 ? 'grid-cols-1 grid-rows-1' : currentLayout === 4 ? 'grid-cols-2 grid-rows-2' : compactGrid ? 'grid-cols-2 grid-rows-3' : 'grid-cols-3 grid-rows-2');
+    grid.className = 'player-grid min-w-0 flex-1 h-full p-0.5 bg-black grid gap-0.5 transition-all duration-300 ' + (currentLayout === 1 ? 'grid-cols-1 grid-rows-1' : currentLayout === 4 ? 'grid-cols-2 grid-rows-2' : compactGrid ? 'grid-cols-2 grid-rows-3' : 'grid-cols-3 grid-rows-2');
 
     stopAllCellPlayback();
     grid.innerHTML = '';
 
     for (let i = 0; i < currentLayout; i++) {
         const isFocused = i === activeCell;
-        const activeCellClass = isFocused ? 'matrix-active-cell' : '';
-        const cellFocusClass = currentLayout === 1
-            ? 'border-gray-800'
-            : (isFocused ? 'border-blue-500 shadow-[inset_0_0_20px_rgba(59,130,246,0.3)]' : 'border-gray-800 hover:border-gray-600');
+        const data = cellData[i];
+        const activeCellClass = currentLayout > 1 && isFocused ? 'matrix-active-cell' : '';
+        const stateClass = [
+            currentLayout === 1 ? 'is-single-layout' : '',
+            data ? 'has-content' : '',
+            data && data.source ? 'has-video' : ''
+        ].filter(Boolean).join(' ');
         const liveIframeClass = currentLayout === 1
             ? 'w-full h-full border-0 hidden'
             : 'w-full h-full border-0 hidden pointer-events-none';
         const cellHtml = `
-            <div id="cell-${i}" onclick="setActiveCell(${i})" ondblclick="toggleCellFullscreen(${i})" class="matrix-cell relative w-full h-full bg-gray-900 border-[2px] transition-colors overflow-hidden group cursor-pointer ${activeCellClass} ${cellFocusClass}">
+            <div id="cell-${i}" onclick="setActiveCell(${i})" ondblclick="toggleCellFullscreen(${i})" class="matrix-cell relative w-full h-full bg-gray-900 border transition-colors overflow-hidden group cursor-pointer ${activeCellClass} ${stateClass}">
                 <iframe id="live-iframe-${i}" class="${liveIframeClass}" allow="autoplay; fullscreen; microphone; camera"></iframe>
                 <div id="dplayer-${i}" class="w-full h-full hidden"></div>
                 <video id="native-player-${i}" class="w-full h-full object-contain hidden bg-black" playsinline controls></video>
-                <div id="empty-state-${i}" class="absolute inset-0 flex flex-col items-center justify-center text-gray-700 pointer-events-none group-hover:text-gray-500 transition-colors">
+                <div id="empty-state-${i}" class="matrix-empty-state absolute inset-0 flex flex-col items-center justify-center text-gray-700 pointer-events-none group-hover:text-gray-500 transition-colors">
                     <svg class="w-8 h-8 mb-2 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                     <span class="text-xs font-bold tracking-wider uppercase opacity-50">窗口 ${i + 1}</span>
                 </div>
@@ -2116,7 +2121,7 @@ function renderGrid() {
                     <div class="live-cell-title hidden" id="label-${i}"></div>
                     <div id="onvif-event-overlay-${i}" class="onvif-event-overlay hidden" aria-live="polite"></div>
                 </div>
-                <button onclick="event.stopPropagation(); clearCell(${i})" class="absolute top-2 right-2 z-20 hidden h-7 w-7 items-center justify-center rounded bg-black/65 text-white/80 border border-white/10 backdrop-blur-md opacity-0 pointer-events-none transition-all duration-200 group-hover:opacity-100 group-hover:pointer-events-auto hover:bg-red-500 hover:text-white" id="close-cell-${i}" title="关闭该窗口">
+                <button onclick="event.stopPropagation(); clearCell(${i})" class="matrix-cell-close absolute top-2 right-2 z-20 hidden h-7 w-7 items-center justify-center rounded bg-black/65 text-white/80 border border-white/10 backdrop-blur-md opacity-0 pointer-events-none transition-all duration-200 group-hover:opacity-100 group-hover:pointer-events-auto hover:bg-red-500 hover:text-white" id="close-cell-${i}" title="关闭该窗口">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>
@@ -2142,6 +2147,18 @@ function renderGrid() {
     updateFocusUI();
     refreshOnvifEventOverlay();
     refreshPTZPanel();
+}
+
+function syncCellFrameState(index) {
+    const cell = document.getElementById(`cell-${index}`);
+    if (!cell) return;
+    const data = cellData[index];
+
+    cell.classList.remove('border-blue-500', 'border-gray-800', 'hover:border-gray-600', 'shadow-[inset_0_0_20px_rgba(59,130,246,0.3)]');
+    cell.classList.toggle('is-single-layout', currentLayout === 1);
+    cell.classList.toggle('has-content', Boolean(data));
+    cell.classList.toggle('has-video', Boolean(data && data.source));
+    cell.classList.toggle('matrix-active-cell', currentLayout > 1 && index === activeCell);
 }
 
 function closeActiveCell() {
@@ -2179,6 +2196,7 @@ function clearCell(index) {
         closeBtn.classList.add('hidden');
         closeBtn.classList.remove('flex');
     }
+    syncCellFrameState(index);
     updateFocusUI();
     refreshOnvifEventOverlay();
     refreshPTZPanel();
@@ -2249,19 +2267,7 @@ function setActiveCell(index) {
 
 function updateFocusUI() {
     for (let i = 0; i < currentLayout; i++) {
-        const cell = document.getElementById(`cell-${i}`);
-        if (cell) {
-            if (currentLayout === 1) {
-                cell.classList.remove('border-blue-500', 'shadow-[inset_0_0_20px_rgba(59,130,246,0.3)]', 'hover:border-gray-600');
-                cell.classList.add('border-gray-800');
-            } else if (i === activeCell) {
-                cell.classList.add('border-blue-500', 'shadow-[inset_0_0_20px_rgba(59,130,246,0.3)]');
-                cell.classList.remove('border-gray-800');
-            } else {
-                cell.classList.remove('border-blue-500', 'shadow-[inset_0_0_20px_rgba(59,130,246,0.3)]');
-                cell.classList.add('border-gray-800');
-            }
-        }
+        syncCellFrameState(i);
     }
     const focusTitle = cellData[activeCell] ? cellData[activeCell].title : '空闲';
     document.getElementById('currentCam').innerText = `[窗口 ${activeCell + 1}] ${focusTitle}`;
@@ -2995,6 +3001,7 @@ function showProbeLoadingInCell(index, title, recordPath = '') {
             </div>
         `;
     }
+    syncCellFrameState(index);
     updateFocusUI();
     refreshOnvifEventOverlay();
 }
@@ -3049,6 +3056,7 @@ function showCodecNoticeInCell(index, data) {
             </div>
         </div>
     `;
+    syncCellFrameState(index);
     refreshOnvifEventOverlay();
 }
 
@@ -3124,6 +3132,7 @@ function executePlayInCell(index, source, isLive, title, forceNative = false, wa
     resetEmptyState(index);
     emptyState.classList.add('hidden');
     emptyState.classList.add('pointer-events-none');
+    syncCellFrameState(index);
     label.classList.remove('hidden');
     label.innerText = title;
     if (closeBtn) {
@@ -4288,7 +4297,7 @@ function revealMatrixToolbar() {
             wrapper.classList.remove('rounded-xl', 'border');
             wrapper.classList.add('rounded-none', 'border-0', 'h-screen', 'max-h-none');
             stage.classList.add('h-full');
-            grid.classList.remove('p-1', 'gap-1');
+            grid.classList.remove('p-0.5', 'gap-0.5');
             grid.classList.add('p-0', 'gap-0');
             wrapper.classList.remove('matrix-toolbar-idle');
             wrapper.classList.add('matrix-toolbar-visible');
@@ -4312,7 +4321,7 @@ function revealMatrixToolbar() {
             toolbar.removeEventListener('mouseleave', revealMatrixToolbar);
             toolbar.removeEventListener('focusin', revealMatrixToolbar);
             stage.classList.remove('h-full');
-            grid.classList.add('p-1', 'gap-1');
+            grid.classList.add('p-0.5', 'gap-0.5');
             grid.classList.remove('p-0', 'gap-0');
         }
     });

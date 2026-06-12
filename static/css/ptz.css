@@ -14,16 +14,11 @@
     min-width: 0;
     align-items: center;
     justify-content: center;
-    border: 1px solid rgba(51, 65, 85, 0.9);
+    border: 1px solid var(--ptz-btn-border);
     border-radius: 8px;
-    background:
-        radial-gradient(circle at 50% 10%, rgba(255, 255, 255, 0.13), transparent 36%),
-        linear-gradient(145deg, rgba(30, 41, 59, 0.98), rgba(15, 23, 42, 0.98));
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.08),
-        inset 0 -10px 18px rgba(2, 6, 23, 0.2),
-        0 8px 18px -14px rgba(2, 6, 23, 0.95);
-    color: #cbd5e1;
+    background: var(--ptz-btn-bg);
+    box-shadow: var(--ptz-btn-shadow);
+    color: var(--ptz-btn-fg);
     transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease, color 140ms ease, transform 90ms ease;
     touch-action: none;
     -webkit-tap-highlight-color: transparent;
@@ -36,7 +31,7 @@
     position: absolute;
     inset: 1px;
     border-radius: 7px;
-    background: linear-gradient(145deg, rgba(255, 255, 255, 0.16), transparent 48%, rgba(2, 6, 23, 0.18));
+    background: var(--ptz-btn-before-bg);
     content: "";
     opacity: 0.7;
     pointer-events: none;
@@ -46,18 +41,14 @@
 .ptz-btn svg {
     position: relative;
     z-index: 1;
-    filter: drop-shadow(0 1px 1px rgba(2, 6, 23, 0.45));
+    filter: var(--ptz-control-icon-filter);
 }
 
 .ptz-btn:hover {
-    border-color: rgba(56, 189, 248, 0.82);
-    background:
-        radial-gradient(circle at 50% 8%, rgba(255, 255, 255, 0.28), transparent 40%),
-        linear-gradient(145deg, #2563eb, #0891b2);
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.26),
-        0 12px 22px -13px rgba(14, 165, 233, 0.85);
-    color: #fff;
+    border-color: var(--ptz-btn-hover-border);
+    background: var(--ptz-btn-hover-bg);
+    box-shadow: var(--ptz-btn-hover-shadow);
+    color: var(--ptz-btn-hover-fg);
     transform: translateY(-1px);
 }
 
@@ -74,6 +65,8 @@
 
 .ptz-btn:active,
 .ptz-btn.is-pressing {
+    background: var(--ptz-btn-press-bg);
+    box-shadow: var(--ptz-btn-press-shadow);
     transform: translateY(1px) scale(0.97);
 }
 
@@ -87,29 +80,24 @@
 }
 
 .ptz-btn.ptz-stop {
-    border-color: rgba(248, 113, 113, 0.36);
-    background:
-        radial-gradient(circle at 50% 35%, rgba(248, 113, 113, 0.28), transparent 54%),
-        linear-gradient(145deg, rgba(60, 24, 33, 0.98), rgba(15, 23, 42, 0.98));
-    color: #fecaca;
+    border-color: var(--ptz-stop-border);
+    background: var(--ptz-stop-bg);
+    color: var(--ptz-stop-fg);
 }
 
 .ptz-btn.ptz-stop:hover {
     border-color: rgba(248, 113, 113, 0.9);
-    background:
-        radial-gradient(circle at 50% 8%, rgba(255, 255, 255, 0.25), transparent 42%),
-        linear-gradient(145deg, #dc2626, #be123c);
+    background: var(--ptz-stop-hover-bg);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.24),
         0 12px 22px -13px rgba(248, 113, 113, 0.85);
 }
 
 .ptz-tool-panel {
-    border: 1px solid rgba(30, 41, 59, 0.88);
+    border: 1px solid var(--ptz-btn-border);
     border-radius: 8px;
-    background:
-        linear-gradient(145deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.62));
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    background: var(--ptz-tool-bg);
+    box-shadow: var(--ptz-tool-shadow);
 }
 
 .ptz-control-grid {
@@ -126,15 +114,11 @@
     align-items: center;
     justify-content: center;
     gap: 4px;
-    border: 1px solid rgba(51, 65, 85, 0.9);
+    border: 1px solid var(--ptz-btn-border);
     border-radius: 8px;
-    background:
-        radial-gradient(circle at 50% 0, rgba(255, 255, 255, 0.12), transparent 42%),
-        linear-gradient(145deg, rgba(30, 41, 59, 0.94), rgba(15, 23, 42, 0.98));
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.08),
-        0 8px 18px -16px rgba(2, 6, 23, 0.95);
-    color: #cbd5e1;
+    background: var(--ptz-action-bg);
+    box-shadow: var(--ptz-action-shadow);
+    color: var(--ptz-btn-fg);
     font-size: 10px;
     font-weight: 800;
     line-height: 1;
@@ -157,7 +141,7 @@
     height: 30px;
     background-image: url("/static/image/ptz-icons.png");
     background-repeat: no-repeat;
-    filter: drop-shadow(0 1px 1px rgba(2, 6, 23, 0.4));
+    filter: var(--ptz-control-icon-filter);
 }
 
 .ptz-icon-zoom-in {
@@ -190,9 +174,7 @@
 
 .ptz-action-btn:hover {
     border-color: rgba(45, 212, 191, 0.82);
-    background:
-        radial-gradient(circle at 50% 8%, rgba(255, 255, 255, 0.25), transparent 42%),
-        linear-gradient(145deg, #0e7490, #2563eb);
+    background: var(--ptz-action-hover-bg);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.24),
         0 12px 22px -14px rgba(20, 184, 166, 0.76);
@@ -209,6 +191,7 @@
 
 .ptz-action-btn:active,
 .ptz-action-btn.is-pressing {
+    box-shadow: var(--ptz-action-active-shadow);
     transform: translateY(1px) scale(0.98);
 }
 
@@ -224,20 +207,15 @@
 
 .ptz-dial {
     padding: 6px;
-    border: 1px solid rgba(30, 41, 59, 0.86);
+    border: 1px solid var(--ptz-btn-border);
     border-radius: 8px;
-    background:
-        radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.16), transparent 58%),
-        linear-gradient(145deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.68));
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.06),
-        inset 0 0 24px rgba(2, 6, 23, 0.36);
+    background: var(--ptz-dial-bg);
+    box-shadow: var(--ptz-dial-shadow);
 }
 
 .ptz-collapse-tab {
     position: relative;
-    background:
-        linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.7));
+    background: var(--ptz-collapse-bg);
 }
 
 .ptz-collapse-tab::before {
@@ -246,13 +224,17 @@
     bottom: 10px;
     left: 0;
     width: 1px;
-    background: linear-gradient(180deg, transparent, rgba(59, 130, 246, 0.65), transparent);
+    background: linear-gradient(180deg, transparent, var(--ptz-collapse-accent), transparent);
     content: "";
 }
 
 .ptz-collapse-tab:hover {
-    background:
-        linear-gradient(180deg, rgba(30, 41, 59, 0.96), rgba(15, 23, 42, 0.92));
+    background: var(--ptz-collapse-hover-bg);
+}
+
+.ptz-speed-panel {
+    background: var(--ptz-speed-bg) !important;
+    border-color: var(--ptz-btn-border) !important;
 }
 
 .vertical-rl {

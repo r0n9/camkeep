@@ -470,14 +470,38 @@ html.dark .version-status-badge.is-unknown #versionStatusText {
 .nm-screen {
     border: 0 !important;
     border-radius: var(--nm-r-lg) !important;
+    background: var(--player-shell-bg) !important;
     box-shadow: var(--nm-raise-lg),
-                inset 0 0 0 1px rgba(0, 0, 0, 0.55),
-                inset 0 2px 6px rgba(0, 0, 0, 0.6) !important;
+                var(--player-shell-inner-shadow) !important;
 }
+
+#video-wrapper.nm-screen {
+    --player-stage-radius: var(--nm-r-lg);
+    --player-stage-inset: 2px;
+}
+
+#video-wrapper.nm-screen #video-stage,
+#video-wrapper.nm-screen #video-grid {
+    border-top-left-radius: var(--player-stage-radius);
+    border-top-right-radius: var(--player-stage-radius);
+    border-bottom-right-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+#video-wrapper.nm-screen .matrix-cell.is-single-layout {
+    border-radius: calc(var(--player-stage-radius) - var(--player-stage-inset)) calc(var(--player-stage-radius) - var(--player-stage-inset)) 0 0;
+}
+
+@media (max-width: 640px) {
+    #dashboardPage #video-wrapper.nm-screen {
+        --player-stage-radius: 14px;
+    }
+}
+
 #video-toolbar {
-    background: #1a1f2b !important;
+    background: var(--player-toolbar-bg) !important;
     border: 0 !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    box-shadow: var(--player-toolbar-shadow);
 }
 
 /* ---- 7. History records panel ------------------------------------------- */
@@ -1310,56 +1334,43 @@ textarea:focus,
 }
 
 /* ---- 12. PTZ joystick (hero) -------------------------------------------- */
-/* The PTZ panel lives on the dark video stage in both themes, so it keeps a
-   dark tactile treatment — but upgraded to a true convex/concave language. */
-#ptz-panel {
-    --nm-dark: rgba(0, 0, 0, 0.62);
-    --nm-light: rgba(255, 255, 255, 0.06);
-}
+/* PTZ shares the player stage palette so it follows light/dark mode changes. */
 .ptz-dial {
     border: 0 !important;
     border-radius: 18px !important;
-    background: radial-gradient(circle at 50% 42%, rgba(59, 130, 246, 0.14), transparent 60%),
-                #1c2230 !important;
+    background: var(--ptz-dial-bg) !important;
     /* concave dish: dark rim top-left, light rim bottom-right */
-    box-shadow: inset 6px 6px 14px rgba(0, 0, 0, 0.66),
-                inset -6px -6px 14px rgba(255, 255, 255, 0.05) !important;
+    box-shadow: var(--ptz-dial-shadow) !important;
 }
 .ptz-btn {
     border: 0 !important;
     border-radius: 11px !important;
-    background: linear-gradient(145deg, #2a3142, #1a1f2b) !important;
+    background: var(--ptz-btn-bg) !important;
     /* convex key */
-    box-shadow: 4px 4px 9px rgba(0, 0, 0, 0.6),
-                -3px -3px 8px rgba(255, 255, 255, 0.055),
-                inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
-    color: #cbd5e1 !important;
+    box-shadow: var(--ptz-btn-shadow) !important;
+    color: var(--ptz-btn-fg) !important;
 }
 .ptz-btn::before { opacity: 0.4; }
 .ptz-btn:hover {
     border: 0 !important;
-    background: linear-gradient(145deg, #2f6df0, #0e9fc9) !important;
-    box-shadow: 4px 4px 11px rgba(0, 0, 0, 0.6),
-                -3px -3px 9px rgba(255, 255, 255, 0.06),
-                0 8px 18px -8px rgba(14, 165, 233, 0.7),
-                inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
-    color: #fff !important;
+    background: var(--ptz-btn-hover-bg) !important;
+    box-shadow: var(--ptz-btn-hover-shadow) !important;
+    color: var(--ptz-btn-hover-fg) !important;
 }
 .ptz-btn:active,
 .ptz-btn.is-pressing {
-    background: #161b26 !important;
+    background: var(--ptz-btn-press-bg) !important;
     /* pressed: deep inset */
-    box-shadow: inset 4px 4px 9px rgba(0, 0, 0, 0.7),
-                inset -3px -3px 8px rgba(255, 255, 255, 0.05) !important;
+    box-shadow: var(--ptz-btn-press-shadow) !important;
     transform: translateY(1px) scale(0.97);
 }
 .ptz-btn.ptz-stop {
-    background: linear-gradient(145deg, #3a1f29, #1a1f2b) !important;
-    color: #fecaca !important;
+    background: var(--ptz-stop-bg) !important;
+    color: var(--ptz-stop-fg) !important;
 }
 .ptz-btn.ptz-stop:hover {
-    background: linear-gradient(145deg, #e0394b, #b1182f) !important;
-    color: #fff !important;
+    background: var(--ptz-stop-hover-bg) !important;
+    color: #ffffff !important;
 }
 .ptz-action-btn,
 .ptz-tool-panel {
@@ -1367,25 +1378,21 @@ textarea:focus,
     border-radius: 10px !important;
 }
 .ptz-action-btn {
-    background: linear-gradient(145deg, #2a3142, #1a1f2b) !important;
-    box-shadow: 4px 4px 9px rgba(0, 0, 0, 0.58),
-                -3px -3px 8px rgba(255, 255, 255, 0.05),
-                inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
-    color: #cbd5e1 !important;
+    background: var(--ptz-action-bg) !important;
+    box-shadow: var(--ptz-action-shadow) !important;
+    color: var(--ptz-btn-fg) !important;
 }
 .ptz-action-btn:hover {
-    background: linear-gradient(145deg, #0e7490, #2563eb) !important;
-    color: #fff !important;
+    background: var(--ptz-action-hover-bg) !important;
+    color: #ffffff !important;
 }
 .ptz-action-btn:active,
 .ptz-action-btn.is-pressing {
-    box-shadow: inset 4px 4px 9px rgba(0, 0, 0, 0.68),
-                inset -3px -3px 8px rgba(255, 255, 255, 0.05) !important;
+    box-shadow: var(--ptz-action-active-shadow) !important;
 }
 .ptz-tool-panel {
-    background: #1c2230 !important;
-    box-shadow: inset 4px 4px 10px rgba(0, 0, 0, 0.55),
-                inset -3px -3px 8px rgba(255, 255, 255, 0.045) !important;
+    background: var(--ptz-tool-bg) !important;
+    box-shadow: var(--ptz-tool-shadow) !important;
 }
 
 /* ---- 13. Login card ------------------------------------------------------ */
