@@ -51,6 +51,12 @@ type recordDateRange struct {
 	explicit bool
 }
 
+type recordDateDir struct {
+	path string
+	date time.Time
+	key  string
+}
+
 type probeResult struct {
 	Codec     string `json:"codec"`
 	IsH265    bool   `json:"is_h265"`
@@ -175,25 +181,8 @@ func handleConfigUsagePage(c *gin.Context) {
 func handleStatus(c *gin.Context) {
 	markCameraCoverStatusRequest(time.Now())
 
-	service.StatusMux.RLock()
-	snapshot := make(map[string]statusResponseEntry, len(service.StatusMap))
-	for id, status := range service.StatusMap {
-		cover := cameraCovers.snapshot(id)
-		snapshot[id] = statusResponseEntry{
-			ID:             status.ID,
-			IsRunning:      status.IsRunning,
-			RecordState:    status.RecordState,
-			StartTime:      status.StartTime,
-			Mode:           status.Mode,
-			RecordTime:     status.RecordTime,
-			StreamState:    status.StreamState,
-			CoverReady:     cover.Ready,
-			CoverLoading:   cover.Loading,
-			CoverVersion:   cover.Version,
-			CoverUpdatedAt: cover.UpdatedAt,
-		}
-	}
-	service.StatusMux.RUnlock()
+	snapshot := snapshotStatusEntries()
+	applyStatusCoverSnapshots(snapshot)
 
 	for id, status := range snapshot {
 		status.RecordOverride = task.GetOverride(id)
@@ -233,6 +222,38 @@ func handleStatus(c *gin.Context) {
 		return
 	}
 	c.Data(http.StatusOK, "application/json; charset=utf-8", body)
+}
+
+func snapshotStatusEntries() map[string]statusResponseEntry {
+	service.StatusMux.RLock()
+	snapshot := make(map[string]statusResponseEntry, len(service.StatusMap))
+	for id, status := range service.StatusMap {
+		if status == nil {
+			continue
+		}
+		snapshot[id] = statusResponseEntry{
+			ID:          status.ID,
+			IsRunning:   status.IsRunning,
+			RecordState: status.RecordState,
+			StartTime:   status.StartTime,
+			Mode:        status.Mode,
+			RecordTime:  status.RecordTime,
+			StreamState: status.StreamState,
+		}
+	}
+	service.StatusMux.RUnlock()
+	return snapshot
+}
+
+func applyStatusCoverSnapshots(snapshot map[string]statusResponseEntry) {
+	for id, status := range snapshot {
+		cover := cameraCovers.snapshot(id)
+		status.CoverReady = cover.Ready
+		status.CoverLoading = cover.Loading
+		status.CoverVersion = cover.Version
+		status.CoverUpdatedAt = cover.UpdatedAt
+		snapshot[id] = status
+	}
 }
 
 func handleUpdateCheck(c *gin.Context) {
@@ -891,40 +912,102 @@ func handleRecords(c *gin.Context) {
 	var entries []recordEntry
 	baseDir := filepath.Join(constant.DefaultRecordBaseDir, camID)
 
-	_ = filepath.WalkDir(baseDir, func(path string, d os.DirEntry, err error) error {
+	daysWithRecords := 0
+	for _, dateDir := range recordDateDirsToScan(baseDir, dateRange) {
+		before := len(entries)
+		appendRecordEntriesFromDateDir(&entries, dateDir)
+		if !dateRange.explicit && len(entries) > before {
+			daysWithRecords++
+			if daysWithRecords >= defaultRecordDayMax {
+				break
+			}
+		}
+	}
+	c.JSON(http.StatusOK, filterRecordEntries(entries, dateRange))
+}
+
+func recordDateDirsToScan(baseDir string, dateRange recordDateRange) []recordDateDir {
+	if dateRange.explicit {
+		return recordDateDirsInRange(baseDir, dateRange.start, dateRange.end)
+	}
+	return availableRecordDateDirs(baseDir)
+}
+
+func recordDateDirsInRange(baseDir string, start, end time.Time) []recordDateDir {
+	dirs := make([]recordDateDir, 0, recordDateSpanDays(start, end))
+	for date := start; !date.After(end); date = date.AddDate(0, 0, 1) {
+		dateKey := date.Format(recordDateLayout)
+		dirs = append(dirs, recordDateDir{
+			path: filepath.Join(baseDir, dateKey),
+			date: date,
+			key:  dateKey,
+		})
+	}
+	return dirs
+}
+
+func availableRecordDateDirs(baseDir string) []recordDateDir {
+	entries, err := os.ReadDir(baseDir)
+	if err != nil {
+		return nil
+	}
+
+	dirs := make([]recordDateDir, 0, len(entries))
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		date, err := parseRecordDate(entry.Name())
+		if err != nil {
+			continue
+		}
+		dirs = append(dirs, recordDateDir{
+			path: filepath.Join(baseDir, entry.Name()),
+			date: date,
+			key:  entry.Name(),
+		})
+	}
+	sort.Slice(dirs, func(i, j int) bool {
+		return dirs[i].date.After(dirs[j].date)
+	})
+	return dirs
+}
+
+func appendRecordEntriesFromDateDir(entries *[]recordEntry, dateDir recordDateDir) {
+	_ = filepath.WalkDir(dateDir.path, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d == nil || d.IsDir() || !isRecordVideoFile(path) {
+			return nil
+		}
+
+		relPath, err := filepath.Rel(constant.DefaultRecordBaseDir, path)
 		if err != nil {
 			return nil
 		}
-		if !d.IsDir() && (strings.HasSuffix(path, ".ts") || strings.HasSuffix(path, ".mp4")) {
-			relPath, _ := filepath.Rel(constant.DefaultRecordBaseDir, path)
-			relPath = filepath.ToSlash(relPath)
-			recordDate, ok := parseRecordDateFromPath(relPath)
-			if !ok {
-				return nil
-			}
+		relPath = filepath.ToSlash(relPath)
 
-			// 2. 读取并格式化文件大小
-			info, err := d.Info()
-			if err != nil {
-				return nil
-			}
-			sizeMB := float64(info.Size()) / (1024 * 1024)
-			sizeStr := fmt.Sprintf("%.1f MB", sizeMB)
-
-			entries = append(entries, recordEntry{
-				date:    recordDate,
-				dateKey: recordDate.Format(recordDateLayout),
-				file: recordFile{
-					Name: filepath.Base(path),
-					Url:  "/play/" + relPath,
-					Size: sizeStr,
-					Path: relPath,
-				},
-			})
+		info, err := d.Info()
+		if err != nil {
+			return nil
 		}
+		sizeMB := float64(info.Size()) / (1024 * 1024)
+		sizeStr := fmt.Sprintf("%.1f MB", sizeMB)
+
+		*entries = append(*entries, recordEntry{
+			date:    dateDir.date,
+			dateKey: dateDir.key,
+			file: recordFile{
+				Name: filepath.Base(path),
+				Url:  "/play/" + relPath,
+				Size: sizeStr,
+				Path: relPath,
+			},
+		})
 		return nil
 	})
-	c.JSON(http.StatusOK, filterRecordEntries(entries, dateRange))
+}
+
+func isRecordVideoFile(path string) bool {
+	return strings.HasSuffix(path, ".ts") || strings.HasSuffix(path, ".mp4")
 }
 
 func handleRecordMarkers(c *gin.Context) {

@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -177,6 +178,33 @@ func TestHandleStatusIncludesCoverMetadata(t *testing.T) {
 	}
 }
 
+func TestSnapshotStatusEntriesDoesNotWaitForCoverStore(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	camID := "status-with-blocked-cover-store"
+	deleteStatusForAppTest(t, camID)
+	service.UpdateStatus(camID, false, "normal", "09:00-18:00")
+
+	store := newDisabledCameraCoverStore()
+	swapCameraCoverStoreForTest(t, store)
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+	done := make(chan map[string]statusResponseEntry, 1)
+	go func() {
+		done <- snapshotStatusEntries()
+	}()
+
+	select {
+	case snapshot := <-done:
+		if _, ok := snapshot[camID]; !ok {
+			t.Fatalf("expected status snapshot for %s", camID)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("status snapshot waited on camera cover store")
+	}
+}
+
 func TestHandleStatusMarksCameraCoverActivity(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -343,6 +371,76 @@ func TestFilterRecordEntriesExplicitRangeDoesNotBackfill(t *testing.T) {
 	want := []string{
 		"cam1/2026-05-12/2026-05-12.ts",
 		"cam1/2026-05-10/2026-05-10.ts",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("expected %v, got %v", want, got)
+	}
+}
+
+func TestHandleRecordsExplicitRangeScansOnlyTopLevelDateDirs(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Chdir(t.TempDir())
+	setCurrentConfigForAppTest(t, constant.Config{Cameras: []constant.Camera{{ID: "cam1"}}})
+	writeRecordFileForTest(t, "records/cam1/2026-05-10/in-range.mp4")
+	writeRecordFileForTest(t, "records/cam1/archive/2026-05-10/archived.mp4")
+	writeRecordFileForTest(t, "records/cam1/2026-05-12/out-of-range.mp4")
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Params = gin.Params{{Key: "id", Value: "cam1"}}
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/records/cam1?start=2026-05-10&end=2026-05-10", nil)
+
+	handleRecords(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var files []recordFile
+	if err := json.Unmarshal(w.Body.Bytes(), &files); err != nil {
+		t.Fatal(err)
+	}
+	got := recordFilePaths(files)
+	want := []string{"cam1/2026-05-10/in-range.mp4"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("expected %v, got %v", want, got)
+	}
+}
+
+func TestHandleRecordsDefaultSkipsEmptyDateDirsWhenChoosingLatestSeven(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Chdir(t.TempDir())
+	setCurrentConfigForAppTest(t, constant.Config{Cameras: []constant.Camera{{ID: "cam1"}}})
+	for day := 1; day <= 8; day++ {
+		dateKey := fmt.Sprintf("2026-05-%02d", day)
+		writeRecordFileForTest(t, filepath.Join("records", "cam1", dateKey, dateKey+".mp4"))
+	}
+	if err := os.MkdirAll("records/cam1/2026-05-09", 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Params = gin.Params{{Key: "id", Value: "cam1"}}
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/records/cam1", nil)
+
+	handleRecords(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var files []recordFile
+	if err := json.Unmarshal(w.Body.Bytes(), &files); err != nil {
+		t.Fatal(err)
+	}
+	got := recordFilePaths(files)
+	want := []string{
+		"cam1/2026-05-08/2026-05-08.mp4",
+		"cam1/2026-05-07/2026-05-07.mp4",
+		"cam1/2026-05-06/2026-05-06.mp4",
+		"cam1/2026-05-05/2026-05-05.mp4",
+		"cam1/2026-05-04/2026-05-04.mp4",
+		"cam1/2026-05-03/2026-05-03.mp4",
+		"cam1/2026-05-02/2026-05-02.mp4",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("expected %v, got %v", want, got)
@@ -1080,6 +1178,17 @@ func recordFilePaths(files []recordFile) []string {
 		paths = append(paths, file.Path)
 	}
 	return paths
+}
+
+func writeRecordFileForTest(t *testing.T, path string) {
+	t.Helper()
+
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("video"), 0644); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func deleteStatusForAppTest(t *testing.T, camID string) {
