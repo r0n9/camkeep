@@ -3983,7 +3983,8 @@ function parseRecordTimeToken(token) {
 function normalizeTimelineEndSeconds(startSeconds, endSeconds) {
     const fallbackEnd = startSeconds + recordTimelineFallbackDurationSeconds;
     const rawEnd = Number.isFinite(endSeconds) ? endSeconds : fallbackEnd;
-    if (rawEnd <= startSeconds) return 86400;
+    if (rawEnd < startSeconds) return 86400;
+    if (rawEnd === startSeconds) return Math.min(86400, startSeconds + 1);
     return Math.min(86400, rawEnd);
 }
 
