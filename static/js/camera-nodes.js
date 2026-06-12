@@ -446,11 +446,62 @@ function renderCameraListFromState() {
     });
 }
 
+async function readStatusApiError(resp, fallback = '状态同步失败') {
+    if (typeof readApiErrorMessage === 'function') {
+        return readApiErrorMessage(resp, fallback);
+    }
+    const payload = await resp.clone().json().catch(() => ({}));
+    return payload.error || payload.message || fallback;
+}
+
+function isStatusAuthFailure(resp) {
+    if (typeof isAuthFailureResponse === 'function') return isAuthFailureResponse(resp);
+    return resp && (resp.status === 401 || resp.status === 403);
+}
+
+function statusAuthFailureMessage(resp) {
+    if (typeof authFailureMessage === 'function') return authFailureMessage(resp);
+    if (resp?.status === 401) return '登录已过期，请重新登录。';
+    if (resp?.status === 403) return '当前账号无权访问实时状态。';
+    return '状态接口未通过权限检查。';
+}
+
+function renderStatusLoadFailure(key, message, detail = '') {
+    latestCameraStatusEntries = [];
+    currentSelectedCam = null;
+    cameraCardRenderKeys.clear();
+    window.cameraCapabilityCache?.clear?.();
+    window.cameraOnvifEventSummaryCache?.clear?.();
+    window.cameraOnvifEventHistoryCache?.clear?.();
+    window.cameraOnvifEventOverlayNoticeCache?.clear?.();
+    setSelectedRecordPath('');
+    updateSelectedRecordCameraBadge('');
+    renderRecordSelectionPrompt(message);
+    updateCameraStats([], true);
+    const list = document.getElementById('camList');
+    if (list) renderCameraListMessage(list, key, message, detail);
+    window.PTZ?.hidePanel?.();
+}
+
 // --- 状态加载 ---
 async function loadStatus() {
     try {
         const resp = await fetch('/api/status');
+        if (!resp.ok) {
+            if (isStatusAuthFailure(resp)) {
+                renderStatusLoadFailure(
+                    `auth-${resp.status}`,
+                    statusAuthFailureMessage(resp),
+                    resp.status === 401 ? '请重新登录后继续使用实时预览和录像控制。' : '请切换到有权限的账号。'
+                );
+                return;
+            }
+            throw new Error(await readStatusApiError(resp, '状态同步失败'));
+        }
         const data = await resp.json();
+        if (!data || typeof data !== 'object' || Array.isArray(data)) {
+            throw new Error('状态响应格式异常');
+        }
         const cameras = Object.entries(data || {});
         latestCameraStatusEntries = cameras.map(([id, cam], index) => ({id, cam, index}));
         updateCameraStats(cameras);
@@ -490,7 +541,7 @@ async function loadStatus() {
         refreshPTZPanel();
     } catch (e) {
         if (typeof refreshOnvifEventOverlay === 'function') refreshOnvifEventOverlay();
-        updateCameraStats([], true);
+        renderStatusLoadFailure('status-error', '状态同步失败', e.message || '请稍后重试。');
         console.error("同步状态失败:", e);
     }
 }

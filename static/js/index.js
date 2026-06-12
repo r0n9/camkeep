@@ -328,6 +328,29 @@ function closeConfirm() {
     pendingAction = null;
 }
 
+async function readApiErrorMessage(resp, fallback = '请求失败') {
+    if (!resp) return fallback;
+    const contentType = resp.headers?.get?.('Content-Type') || '';
+    if (contentType.includes('application/json')) {
+        const payload = await resp.clone().json().catch(() => ({}));
+        return payload.error || payload.message || fallback;
+    }
+
+    const text = await resp.clone().text().catch(() => '');
+    const cleaned = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    return cleaned ? cleaned.slice(0, 200) : fallback;
+}
+
+function isAuthFailureResponse(resp) {
+    return resp && (resp.status === 401 || resp.status === 403);
+}
+
+function authFailureMessage(resp) {
+    if (resp?.status === 401) return '登录已过期，请重新登录。';
+    if (resp?.status === 403) return '当前账号无权访问此功能。';
+    return '请求未通过权限检查。';
+}
+
 async function executeConfirmAction() {
     if (!pendingAction) return;
     if (pendingAction.type === 'discard-config-changes') {
@@ -343,12 +366,21 @@ async function executeConfirmAction() {
     btn.innerText = "执行中...";
     btn.disabled = true;
 
-    await fetch(`/api/camera/${camId}/${action}`, {method: 'POST'});
-
-    btn.innerText = originText;
-    btn.disabled = false;
-    closeConfirm();
-    loadStatus();
+    try {
+        const resp = await fetch(`/api/camera/${camId}/${action}`, {method: 'POST'});
+        if (!resp.ok) {
+            throw new Error(isAuthFailureResponse(resp)
+                ? authFailureMessage(resp)
+                : await readApiErrorMessage(resp, '操作失败'));
+        }
+        closeConfirm();
+        loadStatus();
+    } catch (e) {
+        alert('操作失败: ' + (e.message || '网络请求失败'));
+    } finally {
+        btn.innerText = originText;
+        btn.disabled = false;
+    }
 }
 
 // --- 系统配置相关 ---
@@ -392,15 +424,28 @@ async function openConfig() {
     configFormInitialCameras = [];
     configFormInitialCamerasLoaded = false;
     renderConfigLoadingState();
-    const yamlResp = await fetch('/api/config');
-    const yamlText = await yamlResp.text();
-    document.getElementById('configYaml').value = yamlText;
+    let yamlText = '';
+    try {
+        const yamlResp = await fetch('/api/config');
+        if (!yamlResp.ok) {
+            throw new Error(isAuthFailureResponse(yamlResp)
+                ? authFailureMessage(yamlResp)
+                : await readApiErrorMessage(yamlResp, '无法读取配置'));
+        }
+        yamlText = await yamlResp.text();
+        document.getElementById('configYaml').value = yamlText;
+    } catch (e) {
+        alert('配置读取失败: ' + (e.message || '网络请求失败'));
+        closeConfig({skipDirtyCheck: true});
+        return;
+    }
 
     try {
         const formResp = await fetch('/api/config/form');
         if (!formResp.ok) {
-            const err = await formResp.json().catch(() => ({}));
-            throw new Error(err.error || '无法读取表单配置');
+            throw new Error(isAuthFailureResponse(formResp)
+                ? authFailureMessage(formResp)
+                : await readApiErrorMessage(formResp, '无法读取表单配置'));
         }
         configFormState = normalizeConfigForm(await formResp.json());
         configFormInitialCameras = cloneConfigCameraList(configFormState.cameras);
