@@ -859,6 +859,7 @@ function syncConfigOnvifDiagnosticsOpen(details) {
     if (details.open) {
         configOnvifDiagnosticsOpenKeys.add(key);
         ensureOnvifDiagnosticsLoaded(details.dataset.camId || '');
+        updateOnvifDiagnosticsNodes(details.dataset.camId || '');
     } else {
         configOnvifDiagnosticsOpenKeys.delete(key);
     }
@@ -876,6 +877,7 @@ async function refreshOnvifDiagnostics(camId, options = {}) {
     if (onvifDiagnosticsLoading.has(camId) && !options.force) return;
 
     onvifDiagnosticsLoading.add(camId);
+    updateOnvifDiagnosticsNodes(camId);
     try {
         const resp = await fetch(`/api/camera/${encodeURIComponent(camId)}/onvif`);
         const payload = await resp.json().catch(() => ({}));
@@ -894,7 +896,7 @@ async function refreshOnvifDiagnostics(camId, options = {}) {
         });
     } finally {
         onvifDiagnosticsLoading.delete(camId);
-        if (configPageVisible) rerenderConfigFormPreservingInput();
+        updateOnvifDiagnosticsNodes(camId);
     }
 }
 
@@ -903,14 +905,14 @@ async function startOnvifEventTest(camId) {
     if (!camId) return;
 
     onvifEventTestState.set(camId, {starting: true});
-    rerenderConfigFormPreservingInput();
+    updateOnvifDiagnosticsNodes(camId);
 
     try {
         const resp = await fetch(`/api/camera/${encodeURIComponent(camId)}/onvif/event-test`, {method: 'POST'});
         const payload = await resp.json().catch(() => ({}));
         if (!resp.ok) {
             onvifEventTestState.set(camId, {error: payload.error || 'ONVIF PullPoint 测试监听启动失败'});
-            rerenderConfigFormPreservingInput();
+            updateOnvifDiagnosticsNodes(camId);
             return;
         }
 
@@ -924,7 +926,7 @@ async function startOnvifEventTest(camId) {
         await refreshOnvifDiagnostics(camId, {force: true, silent: true});
     } catch (e) {
         onvifEventTestState.set(camId, {error: 'ONVIF PullPoint 测试监听启动失败: ' + e.message});
-        rerenderConfigFormPreservingInput();
+        updateOnvifDiagnosticsNodes(camId);
     }
 }
 
@@ -940,7 +942,7 @@ function scheduleOnvifEventTestPolling(camId, expiresAtMs) {
         }
         onvifEventTestTimers.delete(camId);
         onvifEventTestState.delete(camId);
-        if (configPageVisible) rerenderConfigFormPreservingInput();
+        updateOnvifDiagnosticsNodes(camId);
     };
 
     onvifEventTestTimers.set(camId, setTimeout(tick, 1200));
@@ -950,10 +952,9 @@ function renderOnvifDiagnosticsSection(cam, uiKey) {
     if (!configCameraSupportsOnvif(cam)) return '';
 
     const camId = String(cam.id || '').trim();
-    if (camId) ensureOnvifDiagnosticsLoaded(camId);
-
     const status = camId ? onvifDiagnosticsCache.get(camId) : null;
     const open = configOnvifDiagnosticsOpenKeys.has(uiKey);
+    if (open && camId) ensureOnvifDiagnosticsLoaded(camId);
     const stateView = onvifEventStateView(status, camId);
     const body = renderOnvifDiagnosticsBody(camId, status, stateView);
 
@@ -975,6 +976,25 @@ function renderOnvifDiagnosticsSection(cam, uiKey) {
             <div class="config-onvif-diagnostics-body">${body}</div>
         </details>
     `;
+}
+
+function updateOnvifDiagnosticsNodes(camId) {
+    camId = String(camId || '').trim();
+    if (!camId || !configPageVisible) return;
+
+    document.querySelectorAll('.config-onvif-diagnostics').forEach(details => {
+        if (details.dataset.camId !== camId) return;
+        const status = onvifDiagnosticsCache.get(camId) || null;
+        const stateView = onvifEventStateView(status, camId);
+        details.classList.remove('is-ready', 'is-warn', 'is-error', 'is-loading', 'is-muted');
+        if (stateView.className) details.classList.add(stateView.className);
+
+        const state = details.querySelector('.config-onvif-diagnostics-state');
+        if (state) state.textContent = stateView.label;
+
+        const body = details.querySelector('.config-onvif-diagnostics-body');
+        if (body) body.innerHTML = renderOnvifDiagnosticsBody(camId, status, stateView);
+    });
 }
 
 function onvifEventStateView(status, camId) {
