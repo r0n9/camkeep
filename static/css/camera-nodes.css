@@ -614,6 +614,10 @@ html.dark .record24h-dock-action.is-active {
     opacity: 1;
 }
 
+.camera-node-action-btn:disabled {
+    cursor: default;
+}
+
 .camera-node-action-btn:focus-visible {
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.24);
 }
@@ -962,62 +966,154 @@ html.dark .camera-node-action-btn--auto {
     }
 
     .camera-node-card-actions {
+        position: relative;
         width: 100%;
         min-width: 0;
         flex: none;
         height: 24px;
+        justify-content: flex-end;
         gap: 0;
+    }
+
+    /* 触屏/窄屏：录制控制收起为单个「当前状态」按钮（强录/停录/计划之一）并靠右，
+       让控制行左侧大片区域回归「点击卡片选中」，避免误触录制控制。
+       点击该状态按钮即展开三个控制按钮（浮层就地覆盖，不超出卡片）。 */
+    .camera-node-action-toggle {
+        --camera-node-toggle-bg: rgba(248, 250, 252, 0.92);
+        --camera-node-toggle-border: rgba(148, 163, 184, 0.18);
+        --camera-node-toggle-shadow: rgba(100, 116, 139, 0.22);
+        display: inline-flex !important;
+        width: auto;
+        min-width: 0;
+        height: 24px;
+        flex: 0 0 auto;
+        gap: 3px;
+        padding: 0 9px;
+        align-items: center;
+        justify-content: center;
+        overflow: visible;
+        border-radius: 5px;
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.24)),
+            var(--camera-node-toggle-bg);
+        color: var(--camera-node-toggle-color, #64748b);
+        opacity: 1;
+        pointer-events: auto;
+        transform: none;
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.66),
+            0 0 0 1px var(--camera-node-toggle-border),
+            0 8px 16px -13px var(--camera-node-toggle-shadow);
+    }
+
+    .camera-node-action-toggle::before {
+        display: block;
+        width: 6px;
+        height: 14px;
+        flex: 0 0 6px;
+        margin-left: -2px;
+        margin-right: 1px;
+        border-radius: 9999px;
+        background:
+            radial-gradient(circle at 3px 3px, currentColor 1.2px, transparent 1.6px),
+            radial-gradient(circle at 3px 7px, currentColor 1.2px, transparent 1.6px),
+            radial-gradient(circle at 3px 11px, currentColor 1.2px, transparent 1.6px);
+        content: "";
+        opacity: 0.72;
+        transform: translateX(0);
+        transition: opacity 0.16s ease, transform 0.16s ease;
+    }
+
+    .camera-node-action-toggle:hover,
+    .camera-node-action-toggle:focus-visible,
+    .camera-node-card-actions.is-expanded .camera-node-action-toggle {
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.3)),
+            var(--camera-node-toggle-bg);
+        color: var(--camera-node-toggle-color, #64748b);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.72),
+            0 0 0 1px var(--camera-node-toggle-border),
+            0 10px 18px -12px var(--camera-node-toggle-shadow);
+    }
+
+    .camera-node-action-toggle:hover::before,
+    .camera-node-action-toggle:focus-visible::before {
+        opacity: 1;
+        transform: translateX(1px);
+    }
+
+    .camera-node-action-toggle:focus-visible {
+        outline: none;
+    }
+
+    .camera-node-action-toggle svg {
+        width: 12px !important;
+        height: 12px !important;
+    }
+
+    .camera-node-action-toggle--start {
+        --camera-node-toggle-color: #059669;
+        --camera-node-toggle-bg: rgba(209, 250, 229, 0.9);
+        --camera-node-toggle-border: rgba(16, 185, 129, 0.36);
+        --camera-node-toggle-shadow: rgba(5, 150, 105, 0.34);
+    }
+
+    .camera-node-action-toggle--stop {
+        --camera-node-toggle-color: #e11d48;
+        --camera-node-toggle-bg: rgba(255, 228, 230, 0.9);
+        --camera-node-toggle-border: rgba(244, 63, 94, 0.36);
+        --camera-node-toggle-shadow: rgba(225, 29, 72, 0.3);
+    }
+
+    .camera-node-action-toggle--auto {
+        --camera-node-toggle-color: #2563eb;
+        --camera-node-toggle-bg: rgba(219, 234, 254, 0.9);
+        --camera-node-toggle-border: rgba(37, 99, 235, 0.32);
+        --camera-node-toggle-shadow: rgba(37, 99, 235, 0.3);
     }
 
     .camera-node-action-list {
+        position: absolute;
+        top: 0;
+        right: 0;
+        z-index: 3;
         display: grid !important;
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        width: 100%;
+        width: min(100%, 126px);
         min-width: 0;
         height: 24px;
         gap: 4px;
-    }
-
-    .camera-node-action-toggle {
-        display: none !important;
-    }
-
-    .camera-node-card:not(:hover):not(:focus-within) .camera-node-action-btn:not(.is-active),
-    .camera-node-card-actions:not(.is-expanded) .camera-node-action-btn:not(.is-active) {
-        width: auto !important;
-        flex-basis: 0;
-        min-width: 0;
-        opacity: 0.9;
-        pointer-events: auto;
-        transform: none;
-    }
-
-    .camera-node-card:hover .camera-node-action-list,
-    .camera-node-card:focus-within .camera-node-action-list {
-        gap: 4px;
-    }
-
-    .camera-node-card-actions.is-expanded {
-        width: auto;
-        gap: 0;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: opacity 0.16s ease, visibility 0.16s ease;
     }
 
     .camera-node-card-actions.is-expanded .camera-node-action-list {
-        width: 100%;
-        gap: 4px;
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
     }
 
-    .camera-node-card-actions.is-expanded .camera-node-action-btn {
+    .camera-node-card-actions.is-expanded .camera-node-action-btn,
+    .camera-node-card:not(:hover):not(:focus-within) .camera-node-card-actions.is-expanded .camera-node-action-btn:not(.is-active) {
         width: auto !important;
+        flex: 1 1 0;
         flex-basis: 0;
         min-width: 0;
-        opacity: 0.9;
+        opacity: 0.92;
         pointer-events: auto;
         transform: none;
+        background: rgba(248, 250, 252, 0.94);
     }
 
-    .camera-node-action-btn.is-active,
-    .camera-node-card-actions.is-expanded .camera-node-action-btn.is-active {
+    .camera-node-card-actions.is-expanded .camera-node-action-toggle {
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .camera-node-action-btn.is-active {
         opacity: 1;
         background: var(--camera-node-action-active-bg, rgba(100, 116, 139, 0.12));
         color: var(--camera-node-action-color, #334155) !important;
@@ -1027,12 +1123,13 @@ html.dark .camera-node-action-btn--auto {
             0 0 0 1px var(--camera-node-action-ring, rgba(100, 116, 139, 0.24));
     }
 
-    .camera-node-action-btn.is-active::after {
-        opacity: 0;
+    .camera-node-action-btn.is-active:disabled {
+        cursor: default;
+        filter: saturate(1.05);
     }
 
-    .camera-node-card-actions.is-expanded .camera-node-action-toggle {
-        display: none !important;
+    .camera-node-action-btn.is-active::after {
+        opacity: 0;
     }
 
     html.dark .camera-node-stream-pill {
@@ -1061,10 +1158,15 @@ html.dark .camera-node-action-btn--auto {
     }
 
     html.dark .camera-node-action-btn {
-        background: rgba(15, 23, 42, 0.34);
+        background: rgba(15, 23, 42, 0.62);
         box-shadow:
             inset 0 1px 0 rgba(255, 255, 255, 0.055),
             0 0 0 1px rgba(71, 85, 105, 0.38);
+    }
+
+    html.dark .camera-node-card-actions.is-expanded .camera-node-action-btn,
+    html.dark .camera-node-card:not(:hover):not(:focus-within) .camera-node-card-actions.is-expanded .camera-node-action-btn:not(.is-active) {
+        background: rgba(15, 23, 42, 0.62);
     }
 
     html.dark .camera-node-action-btn.is-active {
@@ -1073,6 +1175,53 @@ html.dark .camera-node-action-btn--auto {
             inset 0 -2px 0 var(--camera-node-action-color, #94a3b8),
             inset 0 1px 0 rgba(255, 255, 255, 0.08),
             0 0 0 1px var(--camera-node-action-ring, rgba(148, 163, 184, 0.26));
+    }
+
+    html.dark .camera-node-action-toggle {
+        --camera-node-toggle-bg: rgba(15, 23, 42, 0.55);
+        --camera-node-toggle-border: rgba(71, 85, 105, 0.38);
+        --camera-node-toggle-shadow: rgba(0, 0, 0, 0.5);
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.015)),
+            var(--camera-node-toggle-bg);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.055),
+            0 0 0 1px var(--camera-node-toggle-border),
+            0 8px 16px -13px var(--camera-node-toggle-shadow);
+    }
+
+    html.dark .camera-node-action-toggle:hover,
+    html.dark .camera-node-action-toggle:focus-visible,
+    html.dark .camera-node-card-actions.is-expanded .camera-node-action-toggle {
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
+            var(--camera-node-toggle-bg);
+        color: var(--camera-node-toggle-color, #94a3b8);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.07),
+            0 0 0 1px var(--camera-node-toggle-border),
+            0 10px 18px -12px var(--camera-node-toggle-shadow);
+    }
+
+    html.dark .camera-node-action-toggle--start {
+        --camera-node-toggle-color: #34d399;
+        --camera-node-toggle-bg: rgba(6, 78, 59, 0.64);
+        --camera-node-toggle-border: rgba(52, 211, 153, 0.34);
+        --camera-node-toggle-shadow: rgba(52, 211, 153, 0.2);
+    }
+
+    html.dark .camera-node-action-toggle--stop {
+        --camera-node-toggle-color: #fb7185;
+        --camera-node-toggle-bg: rgba(136, 19, 55, 0.56);
+        --camera-node-toggle-border: rgba(251, 113, 133, 0.34);
+        --camera-node-toggle-shadow: rgba(251, 113, 133, 0.18);
+    }
+
+    html.dark .camera-node-action-toggle--auto {
+        --camera-node-toggle-color: #93c5fd;
+        --camera-node-toggle-bg: rgba(30, 58, 138, 0.56);
+        --camera-node-toggle-border: rgba(147, 197, 253, 0.32);
+        --camera-node-toggle-shadow: rgba(147, 197, 253, 0.18);
     }
 }
 
@@ -1098,6 +1247,7 @@ html.dark .camera-node-action-btn--auto {
     }
 
     .camera-node-action-list {
+        width: min(100%, 120px);
         gap: 3px;
     }
 

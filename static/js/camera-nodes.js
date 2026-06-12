@@ -6,6 +6,26 @@ const cameraCardRenderKeys = new Map();
 let latestCameraStatusEntries = [];
 let activeCameraStatusFilter = 'all';
 
+// 窄屏/触屏折叠态下，录制控制收起为单个「当前状态」按钮，点击后展开三个控制按钮。
+// 这里按当前覆盖状态映射折叠按钮要显示的图标与文案（与三个控制按钮的图标保持一致）。
+const cameraOverrideToggleMeta = {
+    start: {
+        stateClass: 'camera-node-action-toggle--start',
+        label: '强录',
+        icon: '<svg class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"></circle></svg>'
+    },
+    stop: {
+        stateClass: 'camera-node-action-toggle--stop',
+        label: '停录',
+        icon: '<svg class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1.5"></rect></svg>'
+    },
+    auto: {
+        stateClass: 'camera-node-action-toggle--auto',
+        label: '计划',
+        icon: '<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.3"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h10v10H7z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M9 3v4M15 3v4M7 11h10"></path></svg>'
+    }
+};
+
 function buildCameraCoverURL(camId) {
     return cameraCoverObjectURLs.get(camId) || '';
 }
@@ -113,14 +133,22 @@ function buildCameraCardView(id, cam) {
     const startActionClass = overrideState === 'start' ? 'is-active' : '';
     const stopActionClass = overrideState === 'stop' ? 'is-active' : '';
     const autoActionClass = overrideState === 'auto' ? 'is-active' : '';
+    const startDisabledAttr = overrideState === 'start' ? 'disabled' : '';
+    const stopDisabledAttr = overrideState === 'stop' ? 'disabled' : '';
+    const autoDisabledAttr = overrideState === 'auto' ? 'disabled' : '';
+    const startActionTitle = overrideState === 'start' ? '当前已是强制录制' : '强制录制';
+    const stopActionTitle = overrideState === 'stop' ? '当前已是强制停止' : '强制停止';
+    const autoActionTitle = overrideState === 'auto' ? '当前已是按计划录制' : '恢复计划';
+    const toggleMeta = cameraOverrideToggleMeta[overrideState] || cameraOverrideToggleMeta.auto;
     const adminActions = canAdmin() ? `
             <div class="camera-node-card-actions flex shrink-0 items-center" aria-label="录制控制">
                 <div class="camera-node-action-list flex items-center">
                     <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'start')"
                             class="camera-node-action-btn camera-node-action-btn--start ${startActionClass} flex items-center justify-center transition-all active:scale-95"
-                            title="强制录制"
-                            aria-label="强制录制"
-                            aria-pressed="${overrideState === 'start'}">
+                            title="${startActionTitle}"
+                            aria-label="${startActionTitle}"
+                            aria-pressed="${overrideState === 'start'}"
+                            ${startDisabledAttr}>
                         <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
                             <circle cx="12" cy="12" r="5"></circle>
                         </svg>
@@ -128,9 +156,10 @@ function buildCameraCardView(id, cam) {
                     </button>
                     <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'stop')"
                             class="camera-node-action-btn camera-node-action-btn--stop ${stopActionClass} flex items-center justify-center transition-all active:scale-95"
-                            title="强制停止"
-                            aria-label="强制停止"
-                            aria-pressed="${overrideState === 'stop'}">
+                            title="${stopActionTitle}"
+                            aria-label="${stopActionTitle}"
+                            aria-pressed="${overrideState === 'stop'}"
+                            ${stopDisabledAttr}>
                         <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
                             <rect x="7" y="7" width="10" height="10" rx="1.5"></rect>
                         </svg>
@@ -138,9 +167,10 @@ function buildCameraCardView(id, cam) {
                     </button>
                     <button onclick="event.stopPropagation(); confirmCamAction('${id}', 'auto')"
                             class="camera-node-action-btn camera-node-action-btn--auto ${autoActionClass} flex items-center justify-center transition-all active:scale-95"
-                            title="恢复计划"
-                            aria-label="恢复计划"
-                            aria-pressed="${overrideState === 'auto'}">
+                            title="${autoActionTitle}"
+                            aria-label="${autoActionTitle}"
+                            aria-pressed="${overrideState === 'auto'}"
+                            ${autoDisabledAttr}>
                         <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.3">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h10v10H7z"></path>
                             <path stroke-linecap="round" stroke-linejoin="round" d="M9 3v4M15 3v4M7 11h10"></path>
@@ -150,15 +180,12 @@ function buildCameraCardView(id, cam) {
                 </div>
                 <button type="button"
                         onclick="event.stopPropagation(); toggleCameraNodeActions(this)"
-                        class="camera-node-action-toggle hidden items-center justify-center transition-all active:scale-95"
-                        title="展开录制控制"
-                        aria-label="展开录制控制"
+                        class="camera-node-action-toggle ${toggleMeta.stateClass} hidden items-center justify-center transition-all active:scale-95"
+                        title="当前录制控制：${toggleMeta.label}，点击展开"
+                        aria-label="当前录制控制：${toggleMeta.label}，点击展开录制控制"
                         aria-expanded="false">
-                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 8h12M6 16h12"></path>
-                        <circle cx="9" cy="8" r="1.4" fill="currentColor" stroke="none"></circle>
-                        <circle cx="15" cy="16" r="1.4" fill="currentColor" stroke="none"></circle>
-                    </svg>
+                    ${toggleMeta.icon}
+                    <span class="camera-node-action-label">${toggleMeta.label}</span>
                 </button>
             </div>
     ` : '';

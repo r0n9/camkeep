@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/r0n9/camkeep/constant"
@@ -51,6 +52,8 @@ var (
 	streamRecoveries   = make(map[string]streamRecoveryState)
 	streamIdleProbeMux sync.Mutex
 	streamIdleProbes   = make(map[string]streamIdleProbeState)
+	// go2rtcReinjectInFlight 自愈重注入流程的去重标志，保证同一时刻只有一个 InitGo2rtcStreams 在跑。
+	go2rtcReinjectInFlight atomic.Bool
 )
 
 // StartGo2rtcDaemon 负责启动并守护底层流媒体引擎。
@@ -326,25 +329,32 @@ func PollGo2rtcStatus(cfg *constant.Config) {
 			streams = result
 		}
 
-		// === 自愈逻辑开始 ===
+		// 统一在读锁下做配置快照（Camera 全为值类型字段，拷贝 slice 即深拷贝），
+		// 后续逻辑不再直接触碰 cfg 指向的共享配置，避免与热重载的整体替换产生数据竞争。
 		constant.ConfigMux.RLock()
-		cams := cfg.Cameras
+		cfgSnapshot := *cfg
+		cfgSnapshot.Cameras = append([]constant.Camera(nil), cfg.Cameras...)
 		constant.ConfigMux.RUnlock()
 
+		// === 自愈逻辑开始 ===
 		// 如果我们配置了摄像头，但 go2rtc 里一条流都没有，说明 go2rtc 重启失忆了
-		if len(cams) > 0 && len(streams) == 0 {
-			log.Println("检测到 go2rtc 丢失所有流配置(可能已重启)，正在重新注入...")
-			// 异步重新注入，避免阻塞轮询
-			go InitGo2rtcStreams(*cfg)
+		if len(cfgSnapshot.Cameras) > 0 && len(streams) == 0 {
+			// CompareAndSwap 确保同一时刻只有一个重注入流程在跑：
+			// InitGo2rtcStreams 内部最长可执行 10 秒，而本轮询每 3 秒一次，
+			// 不去重会堆积多个并发注入互相覆盖 DELETE/PUT。
+			if go2rtcReinjectInFlight.CompareAndSwap(false, true) {
+				log.Println("检测到 go2rtc 丢失所有流配置(可能已重启)，正在重新注入...")
+				// 异步重新注入，避免阻塞轮询
+				go func(cfgCopy constant.Config) {
+					defer go2rtcReinjectInFlight.Store(false)
+					InitGo2rtcStreams(cfgCopy)
+				}(cfgSnapshot)
+			}
 			continue // 跳过本次状态更新，等下一轮
 		}
 		// === 自愈逻辑结束 ===
 
-		constant.ConfigMux.RLock()
-		camSnapshot := append([]constant.Camera(nil), cfg.Cameras...)
-		constant.ConfigMux.RUnlock()
-
-		for _, cam := range camSnapshot {
+		for _, cam := range cfgSnapshot.Cameras {
 			service.StatusMux.RLock()
 			prevState := "offline"
 			if status, exists := service.StatusMap[cam.ID]; exists {

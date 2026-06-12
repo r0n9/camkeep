@@ -22,6 +22,11 @@ const (
 	repairedSuffix         = "_repaired"
 	minMergedDurationRatio = 0.75
 	mergeContinuityGap     = 2 * time.Second
+	// repairUnknownGuardGrace 修复 unknown 单文件前的额外宽限期。
+	// 修复会转码并删除源文件，必须确保段已写完：若 daily_merge.time 配置在 00:00 后不久，
+	// 昨天跨午夜、仍在被录制进程写入的段可能出现在扫描结果里，没有守卫会把它当损坏文件
+	// 修复掉并 unlink 源文件，导致后续写入全部丢失。
+	repairUnknownGuardGrace = 1 * time.Minute
 )
 
 var mergeFragmentTimePattern = regexp.MustCompile(`\d{8}_\d{6}|\d{4}-\d{2}-\d{2}_(?:\d{2}-\d{2}-\d{2}|\d{6})`)
@@ -129,7 +134,12 @@ func mergeCameraDate(ctx context.Context, cam constant.Camera, date string, merg
 	log.Printf("[%s] 每日合并扫描完成: date=%s, %s", cam.ID, date, scanResult.summary())
 
 	var failedRepairs []string
-	for _, fragment := range scanResult.singleFileRepairs {
+	repairs, skippedActive := splitRepairableUnknownFragments(scanResult.singleFileRepairs, cam, time.Now())
+	if len(skippedActive) > 0 {
+		log.Printf("[%s] 跳过 %d 个可能仍在写入的 unknown 片段，等待下次合并再处理: date=%s, files=%s",
+			cam.ID, len(skippedActive), date, strings.Join(baseNames(skippedActive), ", "))
+	}
+	for _, fragment := range repairs {
 		if err := repairUnknownFragment(ctx, cam, date, fragment); err != nil {
 			log.Printf("[%s] 普通录像 unknown 单文件修复失败: date=%s, file=%s, err=%v", cam.ID, date, filepath.Base(fragment), err)
 			failedRepairs = append(failedRepairs, fmt.Sprintf("%s: %v", filepath.Base(fragment), err))
@@ -138,9 +148,9 @@ func mergeCameraDate(ctx context.Context, cam constant.Camera, date string, merg
 			}
 		}
 	}
-	if len(scanResult.singleFileRepairs) > 0 {
+	if len(repairs) > 0 {
 		log.Printf("[%s] 普通录像 unknown 单文件修复完成: date=%s, total=%d, failed=%d",
-			cam.ID, date, len(scanResult.singleFileRepairs), len(failedRepairs))
+			cam.ID, date, len(repairs), len(failedRepairs))
 	}
 
 	fragments := scanResult.fragments
@@ -180,6 +190,34 @@ func mergeCameraDate(ctx context.Context, cam constant.Camera, date string, merg
 		return fmt.Errorf("每日合并部分任务失败: %s", strings.Join(parts, "; "))
 	}
 	return nil
+}
+
+// splitRepairableUnknownFragments 套用与 renameSegmentsInDir 一致的"段已完成"判定
+// （start + segment_duration + 宽限期），把可能仍在被录制进程写入的 unknown 片段排除在修复之外。
+// 正在写入的 MP4 缺 moov，probe 必然失败，repairUnknownFragment 内的时长校验会被静默跳过，
+// 因此必须在进入修复流程前拦截。
+func splitRepairableUnknownFragments(fragments []string, cam constant.Camera, now time.Time) (repairable, skipped []string) {
+	segDur := time.Duration(cam.SegmentDuration) * time.Second
+	if segDur <= 0 {
+		segDur = 10 * time.Minute // 与 applyCameraDefaults 的 segment_duration 默认值保持一致
+	}
+	for _, fragment := range fragments {
+		start, ok := mergeFragmentStartTime(fragment)
+		if !ok || now.Before(start.Add(segDur).Add(repairUnknownGuardGrace)) {
+			skipped = append(skipped, fragment)
+			continue
+		}
+		repairable = append(repairable, fragment)
+	}
+	return repairable, skipped
+}
+
+func baseNames(paths []string) []string {
+	names := make([]string, 0, len(paths))
+	for _, path := range paths {
+		names = append(names, filepath.Base(path))
+	}
+	return names
 }
 
 func repairUnknownFragment(ctx context.Context, cam constant.Camera, date, sourcePath string) error {

@@ -186,8 +186,10 @@ func runScheduledCameraTask(ctx context.Context, cam constant.Camera, camDir str
 				nextStartAfter = time.Time{}
 			}
 
-			isRunning := ffmpegCmd != nil && ffmpegCmd.ProcessState == nil
-			if ffmpegCmd != nil && !isRunning && ffmpegDone != nil {
+			// 进程是否退出完全由 ffmpegDone 驱动，不读 ffmpegCmd.ProcessState：
+			// Wait() goroutine 会并发写入 ProcessState，主循环直接读取是数据竞争。
+			isRunning := ffmpegCmd != nil
+			if ffmpegCmd != nil && ffmpegDone != nil {
 				select {
 				case err := <-ffmpegDone:
 					if err != nil && ctx.Err() == nil && shouldRun {
@@ -195,12 +197,14 @@ func runScheduledCameraTask(ctx context.Context, cam constant.Camera, camDir str
 						nextStartAfter = now.Add(scheduledRecordRetryDelay)
 						log.Printf("[%s] 录制进程异常退出，%s 后重试: %v", cam.ID, scheduledRecordRetryDelay, err)
 					}
+					if ffmpegCancel != nil {
+						ffmpegCancel() // 进程已自然退出，仍需 cancel 释放子 context，避免挂在父 context 上泄漏
+					}
 					ffmpegCmd = nil
 					ffmpegDone = nil
 					ffmpegCancel = nil
 					isRunning = false
 				default:
-					isRunning = true
 				}
 			}
 
@@ -333,6 +337,16 @@ func runMotionCameraTask(ctx context.Context, cam constant.Camera, camDir string
 					<-harvestDone
 				}
 			}
+			if eventSession != nil {
+				// 任务取消（停机/保存配置热重启）时导出进行中的动检事件：
+				// 下次启动 startMotionTimeShiftFFmpeg 会 RemoveAll 缓存目录，不导出就整体丢失。
+				// ctx 已取消，内部 ffmpeg/ffprobe 必须使用独立的超时 context 才能执行。
+				log.Printf("[%s] 任务退出，导出进行中的动检事件录像...", cam.ID)
+				exportCtx, cancelExport := context.WithTimeout(context.Background(), motionExitExportTimeout)
+				finishEventRecordSession(exportCtx, cam, camDir, eventSession, time.Now())
+				cancelExport()
+				eventSession = nil
+			}
 			service.UpdateStatus(cam.ID, false, statusModeForCamera(cam), cam.RecordTime)
 			return
 		case <-ticker.C:
@@ -353,6 +367,9 @@ func runMotionCameraTask(ctx context.Context, cam constant.Camera, camDir string
 				select {
 				case harvestErr := <-harvestDone:
 					releaseOnvifMotionEventDemand("动检 Time-Shift 缓存引擎退出")
+					if harvestCancel != nil {
+						harvestCancel() // 进程已自然退出，仍需 cancel 释放子 context，避免挂在父 context 上泄漏
+					}
 					harvestCmd = nil
 					harvestDone = nil
 					harvestCancel = nil
@@ -472,16 +489,8 @@ func renameSegmentsInDir(ctx context.Context, camID, dateDir string, segDur time
 			continue
 		}
 		name := e.Name()
-		ext := filepath.Ext(name)
-		base := strings.TrimSuffix(name, ext)
-		parts := strings.Split(base, "_")
-
-		// 格式: CamID_YYYYMMDD_HHMMSS_unknown 有4段，第4段必须是 "unknown" 才处理
-		if len(parts) != 4 || parts[3] != "unknown" {
-			continue
-		}
-		startTime, err := time.ParseInLocation(segmentStartLayout, parts[1]+"_"+parts[2], time.Local)
-		if err != nil {
+		startTime, ok := parseUnknownSegmentStart(camID, name)
+		if !ok {
 			continue
 		}
 		if now.Before(startTime.Add(segDur).Add(10 * time.Second)) {
@@ -493,9 +502,27 @@ func renameSegmentsInDir(ctx context.Context, camID, dateDir string, segDur time
 			continue
 		}
 		endTime := startTime.Add(dur)
-		newName := fmt.Sprintf("%s_%s_%s%s", camID, startTime.Format(segmentStartLayout), endTime.Format("150405"), ext)
+		newName := fmt.Sprintf("%s_%s_%s%s", camID, startTime.Format(segmentStartLayout), endTime.Format("150405"), filepath.Ext(name))
 		os.Rename(path, filepath.Join(dateDir, newName))
 	}
+}
+
+// parseUnknownSegmentStart 从 CamID_YYYYMMDD_HHMMSS_unknown.ext 文件名中解析段开始时间。
+// CamID 自身可能含下划线，因此从尾部定位时间与 unknown 标记，并校验前缀与 camID 一致。
+func parseUnknownSegmentStart(camID, name string) (time.Time, bool) {
+	base := strings.TrimSuffix(name, filepath.Ext(name))
+	parts := strings.Split(base, "_")
+	if len(parts) < 4 || parts[len(parts)-1] != "unknown" {
+		return time.Time{}, false
+	}
+	if strings.Join(parts[:len(parts)-3], "_") != camID {
+		return time.Time{}, false
+	}
+	startTime, err := time.ParseInLocation(segmentStartLayout, parts[len(parts)-3]+"_"+parts[len(parts)-2], time.Local)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return startTime, true
 }
 
 func ensureCameraDateDirs(camDir string, now time.Time) {

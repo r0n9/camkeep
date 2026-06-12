@@ -31,6 +31,9 @@ const (
 	motionTimeShiftTimeLayout      = "20060102_150405"
 	motionTimeShiftSegmentExt      = ".ts" // 从 .mp4 改为 .ts
 	motionTimeShiftNoSpaceExitCode = 228   // FFmpeg maps ENOSPC (-28) to process exit code 228.
+	// motionExitExportTimeout 任务取消时导出进行中动检事件的最大耗时。
+	// 导出全程是流拷贝（裁剪+concat），正常远小于该值；超时则放弃，避免热重启被长期阻塞。
+	motionExitExportTimeout = 60 * time.Second
 )
 
 var (

@@ -358,6 +358,49 @@ func TestIsCorruptFragmentFFmpegOutput(t *testing.T) {
 	}
 }
 
+func TestSplitRepairableUnknownFragmentsGuardsActiveSegments(t *testing.T) {
+	cam := constant.Camera{ID: "front_door", SegmentDuration: 600}
+	now := time.Date(2026, 5, 12, 10, 0, 5, 0, time.Local)
+
+	fragments := []string{
+		"/records/front_door/2026-05-12/front_door_20260512_084500_unknown.mp4", // 早已完成
+		"/records/front_door/2026-05-12/front_door_20260512_095500_unknown.mp4", // 09:55 开始，可能仍在写入
+		"/records/front_door/2026-05-12/front_door_badname_unknown.mp4",         // 无法解析开始时间
+	}
+
+	repairable, skipped := splitRepairableUnknownFragments(fragments, cam, now)
+
+	if got := mergeTestBaseNames(repairable); !reflect.DeepEqual(got, []string{"front_door_20260512_084500_unknown.mp4"}) {
+		t.Fatalf("unexpected repairable fragments: %v", got)
+	}
+	wantSkipped := []string{
+		"front_door_20260512_095500_unknown.mp4",
+		"front_door_badname_unknown.mp4",
+	}
+	if got := mergeTestBaseNames(skipped); !reflect.DeepEqual(got, wantSkipped) {
+		t.Fatalf("unexpected skipped fragments: %v", got)
+	}
+}
+
+func TestSplitRepairableUnknownFragmentsDefaultsSegmentDuration(t *testing.T) {
+	cam := constant.Camera{ID: "cam1"} // SegmentDuration=0，应回退默认 10 分钟
+	now := time.Date(2026, 5, 12, 10, 0, 0, 0, time.Local)
+
+	fragments := []string{
+		"/records/cam1/2026-05-12/cam1_20260512_094000_unknown.mp4", // 09:40 + 10m + 1m 宽限 = 09:51 < now，可修复
+		"/records/cam1/2026-05-12/cam1_20260512_095500_unknown.mp4", // 09:55 起，未过守卫
+	}
+
+	repairable, skipped := splitRepairableUnknownFragments(fragments, cam, now)
+
+	if got := mergeTestBaseNames(repairable); !reflect.DeepEqual(got, []string{"cam1_20260512_094000_unknown.mp4"}) {
+		t.Fatalf("unexpected repairable fragments: %v", got)
+	}
+	if got := mergeTestBaseNames(skipped); !reflect.DeepEqual(got, []string{"cam1_20260512_095500_unknown.mp4"}) {
+		t.Fatalf("unexpected skipped fragments: %v", got)
+	}
+}
+
 func createMergeTestFile(t *testing.T, dir, name string) {
 	t.Helper()
 	if err := os.WriteFile(filepath.Join(dir, name), []byte("fragment"), 0644); err != nil {
