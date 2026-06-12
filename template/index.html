@@ -485,9 +485,9 @@
     </div>
 
     <main id="dashboardPage">
-    <div class="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] gap-4 lg:gap-5 mb-5 md:mb-6">
+    <div class="dashboard-main-grid grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] gap-4 lg:gap-5 mb-5 md:mb-6">
 
-        <div class="nm-card nm-card--blue bg-white p-3 rounded-xl shadow-sm border-t-4 border-blue-500 flex flex-col h-[560px] lg:h-[560px]">
+        <div class="live-node-panel nm-card nm-card--blue bg-white p-3 rounded-xl shadow-sm border-t-4 border-blue-500 flex flex-col h-[340px] min-h-[300px] max-h-[360px] lg:h-[560px] lg:min-h-0 lg:max-h-none">
             <div class="nm-card-head mb-2.5 flex items-center justify-between">
                 <h2 class="font-bold text-base text-gray-700 flex items-center"><span class="nm-card-dot" aria-hidden="true"></span>实时节点</h2>
                 <span id="camStatsSummary" data-state="empty" class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-500 border border-slate-200">0 节点</span>
@@ -536,9 +536,9 @@
         </div>
 
         <div id="playback-column" class="min-w-0 flex flex-col gap-2">
-        <div id="video-wrapper" class="nm-screen bg-gray-900 rounded-xl shadow-xl overflow-hidden relative h-[58vh] min-h-[320px] max-h-[620px] lg:h-[560px] lg:max-h-none flex flex-col border border-gray-800 transition-all duration-300">
+        <div id="video-wrapper" class="nm-screen bg-gray-900 rounded-xl shadow-xl overflow-hidden relative h-auto min-h-0 max-h-none lg:h-[560px] lg:max-h-none flex flex-col border border-gray-800 transition-all duration-300">
 
-            <div id="video-stage" class="flex min-h-0 flex-1 bg-black">
+            <div id="video-stage" class="flex min-h-0 flex-none aspect-video bg-black lg:flex-1 lg:aspect-auto">
                 <div id="video-grid" class="min-w-0 flex-1 h-full p-1 bg-black grid gap-1 transition-all duration-300"></div>
                 <aside id="ptz-panel" class="hidden shrink-0 border-l border-gray-800 bg-slate-950 text-slate-100 transition-all duration-300"></aside>
             </div>
@@ -582,7 +582,7 @@
         </div>
     </div>
 
-    <div class="nm-card nm-card--emerald bg-white p-3 sm:p-4 rounded-xl shadow-sm border-t-4 border-emerald-500">
+    <div class="history-record-panel nm-card nm-card--emerald bg-white p-3 sm:p-4 rounded-xl shadow-sm border-t-4 border-emerald-500">
         <div class="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div class="flex flex-wrap items-center gap-2">
                 <h2 class="font-bold text-base text-gray-700 flex items-center"><span class="nm-card-dot" aria-hidden="true"></span>历史录像</h2>

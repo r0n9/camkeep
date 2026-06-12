@@ -5860,3 +5860,79 @@ html.dark .config-form-section-note {
     border-color: rgba(51, 65, 85, 0.92);
     background: rgba(2, 6, 23, 0.34);
 }
+
+/* ===== Dashboard mobile vertical rhythm ===== */
+@media (max-width: 640px) {
+    body.bg-gray-100 {
+        padding: 10px !important;
+    }
+
+    #dashboardPage .dashboard-main-grid {
+        gap: 10px !important;
+        margin-bottom: 10px !important;
+    }
+
+    #dashboardPage .live-node-panel {
+        height: 340px !important;
+        height: clamp(300px, 42svh, 360px) !important;
+        min-height: 300px !important;
+        padding: 10px !important;
+    }
+
+    #dashboardPage .live-node-panel .nm-card-head {
+        margin-bottom: 8px !important;
+        padding-bottom: 8px !important;
+    }
+
+    #dashboardPage #camList {
+        min-height: 0;
+    }
+
+    #dashboardPage #playback-column {
+        gap: 8px !important;
+    }
+
+    #dashboardPage #video-wrapper {
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        border-radius: 14px !important;
+    }
+
+    #dashboardPage #video-stage {
+        flex: 0 0 auto !important;
+        min-height: 0 !important;
+        aspect-ratio: 16 / 9;
+    }
+
+    #dashboardPage #video-toolbar {
+        min-width: 0;
+        padding: 6px 7px !important;
+    }
+
+    #dashboardPage #focusIndicator {
+        min-width: 0;
+        padding-left: 7px !important;
+        padding-right: 7px !important;
+    }
+
+    #dashboardPage .history-record-panel {
+        padding: 10px !important;
+        border-radius: 14px !important;
+    }
+
+    #dashboardPage .history-record-panel > .mb-3 {
+        gap: 8px !important;
+        margin-bottom: 10px !important;
+    }
+
+    #dashboardPage .history-record-panel .nm-daterange {
+        display: grid !important;
+        width: 100%;
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    }
+
+    #dashboardPage .history-record-panel .nm-daterange input {
+        width: 100%;
+    }
+}
