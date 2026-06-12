@@ -13,6 +13,7 @@
     const PINCH_ZOOM_STEP_RATIO = 1.3;
     const MIN_LABEL_GAP_PX = 72;
     const MAX_ELASTIC_PAN_PX = 34;
+    const GRID_RENDER_BUFFER_VIEWPORTS = 1;
     const fallbackDurationSeconds = 5 * 60;
     const states = new Map();
     const zoomLevels = [
@@ -93,7 +94,7 @@
             stage.style.height = `${stageHeight}px`;
             applyZoomMotion(stage, state);
 
-            drawGrid(stage, scale, axisTop, stageHeight);
+            const updateGrid = drawGrid(stage, scale, axisTop, stageHeight, viewportWidth);
             drawSegments(stage, layout.segments, scale, selectedRecordPath);
             drawMarkers(stage, markerSegments, scale);
 
@@ -137,6 +138,7 @@
                 zoom: scale,
                 state,
                 render,
+                updateGrid,
                 updatePointer,
                 commitPointer
             });
@@ -156,6 +158,7 @@
                 const anchorX = secondsToX(anchorSeconds, scale);
                 const maxScrollLeft = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
                 viewport.scrollLeft = clamp(anchorX - viewport.clientWidth * anchorRatio, 0, maxScrollLeft);
+                updateGrid(viewport);
                 updatePointer(viewportCenterSeconds(viewport, scale));
                 state.scrollAnchorSeconds = state.pointerSeconds;
                 state.scrollAnchorRatio = 0.5;
@@ -346,7 +349,7 @@
         return items;
     }
 
-    function drawGrid(stage, zoom, axisTop, stageHeight) {
+    function drawGrid(stage, zoom, axisTop, stageHeight, fallbackViewportWidth = 0) {
         const lanes = document.createElement('div');
         lanes.className = 'record24h-lanes';
         lanes.style.top = `${LANE_TOP}px`;
@@ -360,33 +363,64 @@
         axis.style.width = `${zoom.trackWidth}px`;
         stage.appendChild(axis);
 
+        const gridLayer = document.createElement('div');
+        gridLayer.className = 'record24h-grid-layer';
+        stage.appendChild(gridLayer);
+
         const labelStep = chooseLabelStep(zoom);
-        for (let seconds = 0; seconds <= DAY_SECONDS; seconds += zoom.tickSeconds) {
-            const x = secondsToX(seconds, zoom);
-            const strong = isStrongTick(seconds, zoom);
+        let lastGridKey = '';
 
-            const gridLine = document.createElement('div');
-            gridLine.className = `record24h-grid-line ${strong ? 'is-strong' : ''}`;
-            gridLine.style.left = `${x}px`;
-            gridLine.style.top = '36px';
-            gridLine.style.height = `${stageHeight - 84}px`;
-            stage.appendChild(gridLine);
+        const renderTicks = (viewport) => {
+            const viewportWidth = Math.max(0, viewport?.clientWidth || fallbackViewportWidth || 0);
+            const scrollLeft = Math.max(0, viewport?.scrollLeft || 0);
+            const bufferWidth = viewportWidth * GRID_RENDER_BUFFER_VIEWPORTS;
+            const visibleLeft = Math.max(0, scrollLeft - bufferWidth);
+            const visibleRight = Math.min(
+                axisPadding(zoom) * 2 + zoom.trackWidth,
+                scrollLeft + viewportWidth + bufferWidth
+            );
+            const firstSecond = Math.max(0, Math.floor(xToSeconds(visibleLeft, zoom) / zoom.tickSeconds) * zoom.tickSeconds);
+            const lastSecond = Math.min(DAY_SECONDS, Math.ceil(xToSeconds(visibleRight, zoom) / zoom.tickSeconds) * zoom.tickSeconds);
+            const nextGridKey = `${firstSecond}:${lastSecond}:${labelStep}`;
+            if (nextGridKey === lastGridKey) return;
+            lastGridKey = nextGridKey;
 
-            const tick = document.createElement('div');
-            tick.className = `record24h-tick ${strong ? '' : 'is-minor'}`;
-            tick.style.left = `${x}px`;
-            tick.style.top = `${axisTop - (strong ? 13 : 8)}px`;
-            tick.style.height = `${strong ? 22 : 14}px`;
-            stage.appendChild(tick);
+            const fragment = document.createDocumentFragment();
+            for (let seconds = firstSecond; seconds <= lastSecond; seconds += zoom.tickSeconds) {
+                appendGridTick(fragment, seconds, zoom, axisTop, stageHeight, labelStep);
+            }
+            gridLayer.replaceChildren(fragment);
+        };
 
-            if (seconds % labelStep !== 0) continue;
-            const label = document.createElement('div');
-            label.className = 'record24h-label';
-            label.style.left = `${x}px`;
-            label.style.top = `${axisTop + 18}px`;
-            label.textContent = formatClock(seconds, false);
-            stage.appendChild(label);
-        }
+        renderTicks({scrollLeft: 0, clientWidth: fallbackViewportWidth});
+        return renderTicks;
+    }
+
+    function appendGridTick(parent, seconds, zoom, axisTop, stageHeight, labelStep) {
+        const x = secondsToX(seconds, zoom);
+        const strong = isStrongTick(seconds, zoom);
+
+        const gridLine = document.createElement('div');
+        gridLine.className = `record24h-grid-line ${strong ? 'is-strong' : ''}`;
+        gridLine.style.left = `${x}px`;
+        gridLine.style.top = '36px';
+        gridLine.style.height = `${stageHeight - 84}px`;
+        parent.appendChild(gridLine);
+
+        const tick = document.createElement('div');
+        tick.className = `record24h-tick ${strong ? '' : 'is-minor'}`;
+        tick.style.left = `${x}px`;
+        tick.style.top = `${axisTop - (strong ? 13 : 8)}px`;
+        tick.style.height = `${strong ? 22 : 14}px`;
+        parent.appendChild(tick);
+
+        if (seconds % labelStep !== 0) return;
+        const label = document.createElement('div');
+        label.className = 'record24h-label';
+        label.style.left = `${x}px`;
+        label.style.top = `${axisTop + 18}px`;
+        label.textContent = formatClock(seconds, false);
+        parent.appendChild(label);
     }
 
     function chooseLabelStep(zoom) {
@@ -474,6 +508,7 @@
             zoom,
             state,
             render,
+            updateGrid,
             updatePointer,
             commitPointer
         } = options;
@@ -484,6 +519,7 @@
         let wheelZoomTimer = null;
         let elasticPanOffset = 0;
         let scrollSyncFrame = 0;
+        let gridSyncFrame = 0;
 
         const setElasticPanOffset = (offset) => {
             const nextOffset = Math.abs(offset) < 0.5 ? 0 : offset;
@@ -509,6 +545,14 @@
             scrollSyncFrame = requestAnimationFrame(() => {
                 scrollSyncFrame = 0;
                 if (viewport.isConnected) syncPointerToViewportCenter();
+            });
+        };
+
+        const scheduleGridSync = () => {
+            if (!updateGrid || gridSyncFrame) return;
+            gridSyncFrame = requestAnimationFrame(() => {
+                gridSyncFrame = 0;
+                if (viewport.isConnected) updateGrid(viewport);
             });
         };
 
@@ -607,6 +651,7 @@
         }, {passive: false});
 
         viewport.addEventListener('scroll', schedulePointerCenterSync, {passive: true});
+        viewport.addEventListener('scroll', scheduleGridSync, {passive: true});
 
         stage.addEventListener('pointerdown', event => {
             if (event.button !== 0 && event.pointerType === 'mouse') return;
@@ -886,6 +931,11 @@
 
     function secondsToX(seconds, zoom) {
         return axisPadding(zoom) + (clampSeconds(seconds) / DAY_SECONDS) * zoom.trackWidth;
+    }
+
+    function xToSeconds(x, zoom) {
+        const ratio = (Number(x) - axisPadding(zoom)) / zoom.trackWidth;
+        return clampSeconds(Math.round(clamp(ratio, 0, 1) * DAY_SECONDS));
     }
 
     function axisPadding(zoom) {

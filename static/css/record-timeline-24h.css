@@ -224,6 +224,12 @@
     pointer-events: none;
 }
 
+.record24h-grid-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
 .record24h-grid-line.is-strong {
     background: var(--record24h-grid);
 }
