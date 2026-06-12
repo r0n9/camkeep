@@ -1,6 +1,6 @@
 (function () {
-    const PANEL_BASE_CLASS = 'player-ptz-panel ptz-panel-root shrink-0 border-l border-gray-800 bg-slate-950 text-slate-100 transition-all duration-300';
-    const PANEL_HIDDEN_CLASS = 'player-ptz-panel hidden shrink-0 border-l border-gray-800 bg-slate-950 text-slate-100 transition-all duration-300';
+    const PANEL_BASE_CLASS = 'player-ptz-panel ptz-panel-root transition-all duration-200';
+    const PANEL_HIDDEN_CLASS = 'player-ptz-panel ptz-panel-root hidden';
     const MOVE_DURATION_MS = 700;
     const MOVE_RENEW_MS = 480;
 
@@ -64,6 +64,9 @@
     function hidePanel() {
         const panel = getPanel();
         if (!panel) return;
+        if (state.activeMove) void stopMove(null, true);
+        state.speedDragging = false;
+        clearStopTimer();
         panel.className = PANEL_HIDDEN_CLASS;
         panel.innerHTML = '';
         state.lastRenderKey = '';
@@ -242,14 +245,16 @@
         const imagingAvailable = status && status.imaging_state === 'available';
 
         const text = panelStateText(status);
-        const collapsedClass = state.panelCollapsed ? 'w-[34px]' : 'w-[236px]';
+        const collapsedClass = state.panelCollapsed ? 'is-collapsed' : 'is-expanded';
         panel.className = `${PANEL_BASE_CLASS} ${collapsedClass}`;
 
         if (state.panelCollapsed) {
             panel.innerHTML = `
-            <button onclick="window.PTZ.togglePanel(event)" class="ptz-collapse-tab flex h-full w-full flex-col items-center justify-center gap-1.5 text-slate-400 transition-colors hover:text-white" title="展开云台" aria-label="展开云台">
-                <svg class="h-3.5 w-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9 5l7 7-7 7"></path></svg>
-                <span class="vertical-rl text-[11px] font-black tracking-normal">云台</span>
+            <button onclick="window.PTZ.togglePanel(event)" class="ptz-collapse-tab flex h-full w-full items-center justify-center text-slate-400 transition-colors hover:text-white" title="展开云台" aria-label="展开云台">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-width="2.2" d="M12 5v14M5 12h14"></path>
+                    <path stroke-width="1.9" d="M8.5 8.5 5 12l3.5 3.5M15.5 8.5 19 12l-3.5 3.5M8.5 8.5 12 5l3.5 3.5M8.5 15.5 12 19l3.5-3.5"></path>
+                </svg>
             </button>
         `;
             return;
@@ -320,12 +325,12 @@
     async function refreshPanel(options = {}) {
         const camId = getActiveCamId();
         if (!camId) {
-            hidePanelWhenSafe();
+            hidePanel();
             return;
         }
         if (!canProbePTZ(camId)) {
             state.onvifStatusCache.delete(camId);
-            hidePanelWhenSafe();
+            hidePanel();
             return;
         }
 

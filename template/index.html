@@ -538,9 +538,9 @@
         <div id="playback-column" class="min-w-0 flex flex-col gap-2">
         <div id="video-wrapper" class="player-shell nm-screen bg-gray-900 rounded-xl shadow-xl overflow-hidden relative h-auto min-h-0 max-h-none lg:h-[560px] lg:max-h-none flex flex-col border border-gray-800 transition-all duration-300">
 
-            <div id="video-stage" class="player-stage flex min-h-0 flex-none aspect-video bg-black lg:flex-1 lg:aspect-auto">
+            <div id="video-stage" class="player-stage relative flex min-h-0 flex-none aspect-video bg-black lg:flex-1 lg:aspect-auto">
                 <div id="video-grid" class="player-grid min-w-0 flex-1 h-full p-0.5 bg-black grid gap-0.5 transition-all duration-300"></div>
-                <aside id="ptz-panel" class="player-ptz-panel hidden shrink-0 border-l border-gray-800 bg-slate-950 text-slate-100 transition-all duration-300"></aside>
+                <aside id="ptz-panel" class="player-ptz-panel ptz-panel-root hidden"></aside>
             </div>
 
             <div id="video-toolbar" class="player-toolbar flex items-center gap-1.5 px-2.5 py-1.5 bg-[#0f172a] border-t border-gray-800 shrink-0 z-20">
