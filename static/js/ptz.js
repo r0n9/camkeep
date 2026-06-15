@@ -1,8 +1,9 @@
 (function () {
-    const PANEL_BASE_CLASS = 'player-ptz-panel ptz-panel-root transition-all duration-200';
+    const PANEL_BASE_CLASS = 'player-ptz-panel ptz-panel-root';
     const PANEL_HIDDEN_CLASS = 'player-ptz-panel ptz-panel-root hidden';
     const MOVE_DURATION_MS = 700;
     const MOVE_RENEW_MS = 480;
+    const PANEL_ENTER_MS = 320;
 
     const state = {
         onvifStatusCache: new Map(),
@@ -13,7 +14,8 @@
         speedValue: 0.55,
         speedDragging: false,
         lastRenderKey: '',
-        pendingRender: null
+        pendingRender: null,
+        panelAnimationTimer: null
     };
 
     function getPanel() {
@@ -67,6 +69,7 @@
         if (state.activeMove) void stopMove(null, true);
         state.speedDragging = false;
         clearStopTimer();
+        clearPanelAnimation();
         panel.className = PANEL_HIDDEN_CLASS;
         panel.innerHTML = '';
         state.lastRenderKey = '';
@@ -86,6 +89,21 @@
             clearTimeout(state.stopTimer);
             state.stopTimer = null;
         }
+    }
+
+    function clearPanelAnimation() {
+        if (state.panelAnimationTimer) {
+            clearTimeout(state.panelAnimationTimer);
+            state.panelAnimationTimer = null;
+        }
+    }
+
+    function schedulePanelEnterCleanup(panel) {
+        clearPanelAnimation();
+        state.panelAnimationTimer = setTimeout(() => {
+            panel.classList.remove('is-entering');
+            state.panelAnimationTimer = null;
+        }, PANEL_ENTER_MS);
     }
 
     function clearMoveRenewTimer(move) {
@@ -246,9 +264,11 @@
 
         const text = panelStateText(status);
         const collapsedClass = state.panelCollapsed ? 'is-collapsed' : 'is-expanded';
-        panel.className = `${PANEL_BASE_CLASS} ${collapsedClass}`;
+        const enteringClass = !state.panelCollapsed && panel.classList.contains('is-collapsed') ? 'is-entering' : '';
+        panel.className = `${PANEL_BASE_CLASS} ${collapsedClass} ${enteringClass}`.trim();
 
         if (state.panelCollapsed) {
+            clearPanelAnimation();
             panel.innerHTML = `
             <button onclick="window.PTZ.togglePanel(event)" class="ptz-collapse-tab flex h-full w-full items-center justify-center text-slate-400 transition-colors hover:text-white" title="展开云台" aria-label="展开云台">
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
@@ -319,6 +339,7 @@
             </div>
         </div>
     `;
+        if (enteringClass) schedulePanelEnterCleanup(panel);
         updateSpeedLabel();
     }
 

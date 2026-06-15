@@ -20,13 +20,24 @@
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
     transform-origin: bottom right;
-    transition: opacity 160ms ease, transform 160ms ease, background 160ms ease, border-color 160ms ease;
+    transform: translate3d(0, 0, 0) scale(1);
+    transition:
+        width 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+        max-height 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+        bottom 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+        border-radius 180ms ease,
+        opacity 180ms ease,
+        transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+        background 160ms ease,
+        border-color 160ms ease;
+    will-change: width, max-height, transform, opacity;
 }
 
 .player-ptz-panel.is-collapsed {
     bottom: var(--player-ptz-button-bottom-offset);
     width: 38px;
     height: 38px;
+    max-height: 38px;
     border-radius: 9999px;
     opacity: 0.9;
 }
@@ -54,9 +65,59 @@
     opacity: 0.96;
 }
 
+.player-ptz-panel.is-expanded.is-entering {
+    animation: ptz-panel-expand 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.player-ptz-panel.is-entering > .custom-scrollbar > * {
+    animation: ptz-panel-item-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.player-ptz-panel.is-entering > .custom-scrollbar > :nth-child(1) {
+    animation-delay: 35ms;
+}
+
+.player-ptz-panel.is-entering > .custom-scrollbar > :nth-child(2) {
+    animation-delay: 65ms;
+}
+
+.player-ptz-panel.is-entering > .custom-scrollbar > :nth-child(3) {
+    animation-delay: 90ms;
+}
+
+.player-ptz-panel.is-entering > .custom-scrollbar > :nth-child(n + 4) {
+    animation-delay: 115ms;
+}
+
 .player-ptz-panel.is-expanded > .custom-scrollbar {
     max-height: inherit;
     overflow-y: auto;
+}
+
+@keyframes ptz-panel-expand {
+    0% {
+        opacity: 0.62;
+        transform: translate3d(8px, 10px, 0) scale(0.92);
+    }
+    58% {
+        opacity: 0.98;
+        transform: translate3d(-1px, -1px, 0) scale(1.015);
+    }
+    100% {
+        opacity: 0.96;
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+}
+
+@keyframes ptz-panel-item-in {
+    from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.985);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 .ptz-btn {
@@ -320,5 +381,17 @@
 
     .player-ptz-panel.is-expanded > .custom-scrollbar {
         padding: 10px !important;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .player-ptz-panel {
+        transition: opacity 120ms ease, background 120ms ease, border-color 120ms ease;
+        will-change: auto;
+    }
+
+    .player-ptz-panel.is-expanded.is-entering,
+    .player-ptz-panel.is-entering > .custom-scrollbar > * {
+        animation: none;
     }
 }
