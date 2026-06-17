@@ -296,8 +296,9 @@ html.dark {
     }
 
     html[data-layout-mode="mobile"] #mobilePtzDock > #ptz-panel .ptz-dial {
-        width: min(100%, 260px);
-        margin-inline: auto;
+        width: 100%;
+        max-width: none;
+        margin-inline: 0;
         padding: 4px;
     }
 
@@ -314,25 +315,46 @@ html.dark {
     }
 
     html[data-layout-mode="mobile"] #mobilePtzDock > #ptz-panel .ptz-tool-panel {
-        width: min(100%, 260px);
-        margin-inline: auto;
+        width: 100%;
+        max-width: none;
+        margin-inline: 0;
         padding: 4px !important;
     }
 
     html[data-layout-mode="mobile"] #mobilePtzDock > #ptz-panel .ptz-action-btn {
-        height: 30px;
-        min-height: 30px;
-        font-size: 10px;
+        min-height: 34px;
+        padding: 0 10px !important;
+        justify-content: center;
+        gap: 7px;
+        border-radius: 11px;
+        font-size: 12px;
+        font-weight: 900;
+        text-align: center;
     }
 
     html[data-layout-mode="mobile"] #mobilePtzDock > #ptz-panel .ptz-action-icon {
-        width: 18px;
-        height: 18px;
+        width: 28px;
+        height: 28px;
+        transform: none;
+        transform-origin: center;
+    }
+
+    html[data-layout-mode="mobile"] #mobilePtzDock > #ptz-panel .ptz-action-btn svg {
+        width: 14px;
+        height: 14px;
+        flex: 0 0 auto;
+    }
+
+    html[data-layout-mode="mobile"] #mobilePtzDock > #ptz-panel .ptz-action-btn > span.truncate {
+        min-width: 0;
+        flex: 0 0 auto;
+        text-align: center;
     }
 
     html[data-layout-mode="mobile"] #mobilePtzDock > #ptz-panel .ptz-speed-panel {
-        width: min(100%, 260px);
-        margin-inline: auto;
+        width: 100%;
+        max-width: none;
+        margin-inline: 0;
         padding-top: 5px !important;
         padding-bottom: 5px !important;
     }

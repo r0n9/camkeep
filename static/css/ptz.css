@@ -251,19 +251,19 @@
 
 .ptz-action-icon {
     flex: 0 0 auto;
-    width: 30px;
-    height: 30px;
+    width: 28px;
+    height: 28px;
     background-image: url("/static/image/ptz-icons.png");
     background-repeat: no-repeat;
     filter: var(--ptz-control-icon-filter);
 }
 
 .ptz-icon-zoom-in {
-    background-position: -90px 0;
+    background-position: -126px 0;
 }
 
 .ptz-icon-zoom-out {
-    background-position: -126px 0;
+    background-position: -90px 0;
 }
 
 .ptz-icon-focus-near {
@@ -385,18 +385,30 @@
     }
 
     .ptz-control-grid {
-        gap: 4px;
+        gap: 6px;
     }
 
     .ptz-action-btn {
-        min-height: 28px;
-        font-size: 10px;
-        border-radius: 7px;
+        min-height: 34px;
+        padding: 0 11px;
+        justify-content: flex-start;
+        gap: 8px;
+        border-radius: 11px;
+        font-size: 12px;
+        letter-spacing: 0;
+        line-height: 1;
+    }
+
+    .ptz-action-btn svg {
+        width: 14px;
+        height: 14px;
     }
 
     .ptz-action-icon {
         width: 20px;
         height: 20px;
+        transform: none;
+        transform-origin: center;
     }
 
     .ptz-speed-panel {
