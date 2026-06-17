@@ -71,6 +71,7 @@
             );
 
             wrapper.appendChild(createHeader(date, segments, markerSegments, unknownCount, state, zoomBy));
+            wrapper.appendChild(createMobileZoomBar(state, zoomBy));
             if (segments.length === 0) {
                 wrapper.appendChild(createEmptyState(unknownCount));
                 return;
@@ -123,6 +124,7 @@
                     return;
                 }
                 const offsetSeconds = Math.max(0, Math.min(nextSeconds - hit.startSeconds, hit.durationSeconds));
+                window.CamKeepMobile?.setTab?.('monitor', {instant: true});
                 onPlayAtTime({
                     entry: hit.entry,
                     segment: hit,
@@ -246,16 +248,28 @@
         timeBadge.dataset.record24hTimeBadge = 'true';
         timeBadge.textContent = Number.isFinite(state.pointerSeconds) ? formatClock(state.pointerSeconds, true) : '--:--:--';
 
+        actions.appendChild(timeBadge);
+        actions.appendChild(createZoomControl(state, zoomBy, 'record24h-zoom'));
+        header.appendChild(title);
+        header.appendChild(actions);
+        return header;
+    }
+
+    function createMobileZoomBar(state, zoomBy) {
+        const bar = createZoomControl(state, zoomBy, 'record24h-mobile-zoom');
+        bar.setAttribute('aria-label', '移动端时间轴缩放');
+        return bar;
+    }
+
+    function createZoomControl(state, zoomBy, className) {
         const zoom = document.createElement('div');
-        zoom.className = 'record24h-zoom';
+        zoom.className = className;
         const zoomOut = document.createElement('button');
         zoomOut.type = 'button';
         zoomOut.title = '缩小时间轴';
         zoomOut.textContent = '-';
         zoomOut.disabled = state.zoomIndex <= 0;
-        zoomOut.onclick = () => {
-            zoomBy(-1);
-        };
+        zoomOut.onclick = () => zoomBy(-1);
 
         const zoomLabel = document.createElement('span');
         zoomLabel.className = 'record24h-zoom-level';
@@ -266,18 +280,12 @@
         zoomIn.title = '放大时间轴';
         zoomIn.textContent = '+';
         zoomIn.disabled = state.zoomIndex >= zoomLevels.length - 1;
-        zoomIn.onclick = () => {
-            zoomBy(1);
-        };
+        zoomIn.onclick = () => zoomBy(1);
 
         zoom.appendChild(zoomOut);
         zoom.appendChild(zoomLabel);
         zoom.appendChild(zoomIn);
-        actions.appendChild(timeBadge);
-        actions.appendChild(zoom);
-        header.appendChild(title);
-        header.appendChild(actions);
-        return header;
+        return zoom;
     }
 
     function createStatus() {
@@ -517,6 +525,11 @@
         let pinch = null;
         let wheelZoomDelta = 0;
         let wheelZoomTimer = null;
+        let tapCommitTimer = null;
+        let tapCommitSeconds = NaN;
+        let lastTapAt = 0;
+        let lastTapX = 0;
+        let lastTapY = 0;
         let elasticPanOffset = 0;
         let scrollSyncFrame = 0;
         let gridSyncFrame = 0;
@@ -531,6 +544,14 @@
         const settleElasticPanOffset = () => {
             if (elasticPanOffset === 0) return;
             setElasticPanOffset(0);
+        };
+
+        const clearTapCommitTimer = () => {
+            if (tapCommitTimer) {
+                clearTimeout(tapCommitTimer);
+                tapCommitTimer = null;
+            }
+            tapCommitSeconds = NaN;
         };
 
         const syncPointerToViewportCenter = () => {
@@ -616,6 +637,17 @@
             );
         };
 
+        const zoomInAtSeconds = (seconds, clientX) => {
+            clearTapCommitTimer();
+            return requestZoom(
+                state,
+                state.zoomIndex + 1,
+                clampSeconds(seconds),
+                viewportClientXToRatio(clientX, viewport),
+                render
+            );
+        };
+
         viewport.addEventListener('wheel', event => {
             const horizontalWheel = Math.abs(event.deltaX) > Math.abs(event.deltaY) || event.shiftKey;
             if (horizontalWheel) {
@@ -657,6 +689,7 @@
             if (event.button !== 0 && event.pointerType === 'mouse') return;
             activePointers.set(event.pointerId, {clientX: event.clientX, clientY: event.clientY});
             stage.setPointerCapture(event.pointerId);
+            if (activePointers.size > 1) clearTapCommitTimer();
 
             if (activePointers.size === 2) {
                 const [first, second] = [...activePointers.values()];
@@ -713,6 +746,7 @@
                 if (Math.hypot(deltaX, deltaY) < DRAG_START_THRESHOLD) return;
                 drag.active = true;
                 stage.classList.add('is-dragging');
+                clearTapCommitTimer();
             }
             applyPanDrag(deltaX);
             event.preventDefault();
@@ -745,6 +779,7 @@
                 if (!zoomed) clearGesturePreview();
                 pinch = null;
                 stage.classList.remove('is-pinching');
+                clearTapCommitTimer();
                 event.preventDefault();
                 return;
             }
@@ -758,8 +793,33 @@
                 centerViewportOnSeconds(viewport, seconds, zoom);
                 syncPointerToViewportCenter();
                 rememberViewportCenter();
+                if (event.pointerType !== 'mouse') {
+                    const now = performance.now();
+                    const isSecondTap = now - lastTapAt <= 320 && Math.abs(event.clientX - lastTapX) <= 24 && Math.abs(event.clientY - lastTapY) <= 24;
+                    if (isSecondTap) {
+                        clearTapCommitTimer();
+                        lastTapAt = 0;
+                        lastTapX = 0;
+                        lastTapY = 0;
+                        zoomInAtSeconds(seconds, event.clientX);
+                        event.preventDefault();
+                        return;
+                    }
+                    clearTapCommitTimer();
+                    lastTapAt = now;
+                    lastTapX = event.clientX;
+                    lastTapY = event.clientY;
+                    tapCommitSeconds = seconds;
+                    tapCommitTimer = setTimeout(() => {
+                        tapCommitTimer = null;
+                        commitPointer(tapCommitSeconds);
+                    }, 260);
+                    event.preventDefault();
+                    return;
+                }
                 commitPointer(state.pointerSeconds);
             } else if (!cancelled && wasDrag.active) {
+                clearTapCommitTimer();
                 syncPointerToViewportCenter();
                 rememberViewportCenter();
                 commitPointer(state.pointerSeconds);
@@ -769,6 +829,12 @@
 
         stage.addEventListener('pointerup', finishPointer);
         stage.addEventListener('pointercancel', finishPointer);
+        stage.addEventListener('dblclick', event => {
+            if (event.button !== 0) return;
+            const seconds = eventSeconds(event, stage, zoom);
+            zoomInAtSeconds(seconds, event.clientX);
+            event.preventDefault();
+        });
         stage.addEventListener('lostpointercapture', event => {
             activePointers.delete(event.pointerId);
             if (drag && drag.pointerId === event.pointerId) {
@@ -780,6 +846,9 @@
                 pinch = null;
                 stage.classList.remove('is-pinching');
                 clearGesturePreview();
+            }
+            if (activePointers.size === 0) {
+                clearTapCommitTimer();
             }
         });
     }

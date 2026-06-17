@@ -344,6 +344,9 @@
     }
 
     async function refreshPanel(options = {}) {
+        if (options.expanded === true) {
+            state.panelCollapsed = false;
+        }
         const camId = getActiveCamId();
         if (!camId) {
             hidePanel();

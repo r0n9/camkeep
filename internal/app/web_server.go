@@ -16,6 +16,8 @@ func startWebServer() {
 	ensureWebAuthInitialized()
 
 	r.Static("/static", "./static")
+	r.StaticFile("/manifest.json", "./static/manifest.json")
+	r.StaticFile("/sw.js", "./static/sw.js")
 
 	// 1. 渲染前端页面
 	r.LoadHTMLGlob("template/*")

@@ -508,6 +508,10 @@ function showConfigPage() {
         userNavBtn.classList.remove('bg-blue-50', 'text-blue-700');
         userNavBtn.removeAttribute('aria-current');
     }
+    document.documentElement.dataset.mobilePage = 'config';
+    document.documentElement.dataset.mobileSubpage = 'config';
+    window.CamKeepMobile?.syncPageState?.();
+    window.dispatchEvent(new CustomEvent('camkeep:pagechange', {detail: {page: 'config'}}));
     window.scrollTo({top: 0, behavior: 'smooth'});
 }
 
@@ -526,6 +530,11 @@ function showDashboardPage() {
         userNavBtn.classList.remove('bg-blue-50', 'text-blue-700');
         userNavBtn.removeAttribute('aria-current');
     }
+    document.documentElement.dataset.mobilePage = 'dashboard';
+    document.documentElement.dataset.mobileSubpage = '';
+    document.documentElement.dataset.mobileUserView = 'list';
+    window.CamKeepMobile?.syncPageState?.();
+    window.dispatchEvent(new CustomEvent('camkeep:pagechange', {detail: {page: 'dashboard'}}));
     window.scrollTo({top: 0, behavior: 'smooth'});
 }
 
@@ -2917,6 +2926,27 @@ async function playRecord(file, title, options = {}) {
     updateFocusUI();
 }
 
+function openRecordOnMonitor(recordPath, options = {}) {
+    const playPath = String(recordPath || '').trim();
+    if (!playPath) return false;
+    const layoutMode = window.CamKeepMobile?.getLayoutMode?.() || document.documentElement.dataset.layoutMode || 'desktop';
+    if (options.activateMonitorTab !== false && layoutMode !== 'desktop') {
+        window.CamKeepMobile?.setTab?.('monitor', {instant: true});
+    }
+    const item = document.querySelector(`[data-record-path="${CSS.escape(playPath)}"]`);
+    if (!item) return false;
+    const shouldPreserveSelection = options.preserveSelection === true;
+    const itemPlay = item.__camkeepPlayRecord;
+    if (typeof itemPlay === 'function') {
+        itemPlay({...options, skipTabActivation: true});
+        if (!shouldPreserveSelection) setSelectedRecordPath(playPath);
+        return true;
+    }
+    item.click();
+    if (!shouldPreserveSelection) setSelectedRecordPath(playPath);
+    return true;
+}
+
 function playMergedRecordNative(targetCell, file, title, recordPath, seekSeconds) {
     playRecordNative(targetCell, file.url, title, recordPath, seekSeconds);
 }
@@ -3518,6 +3548,7 @@ function createRecordTimeline24hAction(camId, date, entries) {
             alert('24H 时间轴组件加载失败');
             return;
         }
+        window.CamKeepMobile?.setTab?.('monitor', {instant: true});
         if (activeRecordTimeline24hDockKey === getRecordArchiveGroupKey(camId, date)) {
             snapRecordTimeline24hDockBelowPlayer();
             return;
@@ -3590,7 +3621,8 @@ async function renderRecordTimeline24hDock(camId, date, entries, selectedRecordP
         initialViewportWidth: dock.getBoundingClientRect().width || dock.clientWidth || 0,
         onPlayAtTime: ({entry, offsetSeconds, timeLabel}) => {
             if (!entry || !entry.file) return;
-            playRecordAtTime(entry.file, `回放: ${camId} (${timeLabel || entry.meta.timeDisplay})`, offsetSeconds);
+            const path = getRecordPath(entry.file);
+            openRecordOnMonitor(path, {seekSeconds: offsetSeconds, activateMonitorTab: true});
         },
         onClearPlayback: () => {
             clearCurrentRecordPlayback();
@@ -4077,12 +4109,21 @@ function createRecordItem(camId, file, meta, options = {}) {
         : `group flex ${cursorClass} items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5 shadow-sm transition-all hover:border-blue-300 hover:shadow active:scale-[0.99]`;
     item.dataset.recordPath = recordPath;
     item.dataset.recordKind = meta.kindKey || '';
+    const playTitle = `回放: ${camId} (${meta.timeDisplay})`;
+    const playRecordOnMonitor = (playOptions = {}) => {
+        const layoutMode = window.CamKeepMobile?.getLayoutMode?.() || document.documentElement.dataset.layoutMode || 'desktop';
+        if (playOptions.skipTabActivation !== true && layoutMode !== 'desktop') {
+            window.CamKeepMobile?.setTab?.('monitor', {instant: true});
+        }
+        return playRecord(file, playTitle, playOptions);
+    };
+    item.__camkeepPlayRecord = playRecordOnMonitor;
     item.onclick = () => {
         if (!clickPlaysRecord) {
             setSelectedRecordPath(recordPath);
             return;
         }
-        playRecord(file, `回放: ${camId} (${meta.timeDisplay})`);
+        playRecordOnMonitor();
     };
 
     const fileIcon = `
@@ -4113,6 +4154,13 @@ function createRecordItem(camId, file, meta, options = {}) {
             </svg>
         </button>
     ` : '';
+    const moreAction = `
+        <button data-record-action="more" class="${timeline ? 'record-timeline-card-action' : 'mobile-record-more rounded-md p-1.5 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-700'}" title="更多操作" aria-label="更多操作">
+            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M6 12h.01M12 12h.01M18 12h.01"></path>
+            </svg>
+        </button>
+    `;
 
     item.innerHTML = timeline ? `
         <div class="record-timeline-card-head">
@@ -4124,6 +4172,7 @@ function createRecordItem(camId, file, meta, options = {}) {
                 ${playAction}
                 ${downloadAction}
                 ${deleteAction}
+                ${moreAction}
             </div>
         </div>
         <div class="record-timeline-card-meta">
@@ -4153,20 +4202,29 @@ function createRecordItem(camId, file, meta, options = {}) {
             ${playAction}
             ${downloadAction}
             ${deleteAction}
+            ${moreAction}
         </div>
     `;
 
     const playBtn = item.querySelector('[data-record-action="play"]');
     const downloadBtn = item.querySelector('[data-record-action="download"]');
     const deleteBtn = item.querySelector('[data-record-action="delete"]');
+    const moreBtn = item.querySelector('[data-record-action="more"]');
     if (playBtn) {
         playBtn.onclick = (event) => {
             event.stopPropagation();
-            playRecord(file, `回放: ${camId} (${meta.timeDisplay})`);
+            playRecordOnMonitor();
         };
     }
     downloadBtn.onclick = (event) => downloadRecord(event, file.path);
     if (deleteBtn) deleteBtn.onclick = (event) => deleteRecord(event, camId, file.path);
+    if (moreBtn) {
+        moreBtn.onclick = (event) => {
+            event.stopPropagation();
+            if (window.CamKeepMobile?.openRecordActionSheet(file.path, camId)) return;
+            setSelectedRecordPath(recordPath);
+        };
+    }
     setRecordItemSelected(item, selectedRecordPath !== '' && selectedRecordPath === recordPath);
     return item;
 }
@@ -4251,6 +4309,16 @@ async function deleteRecord(e, camId, filePath) {
         alert('网络请求失败，请检查连接状态');
     }
 }
+
+window.canAdmin = canAdmin;
+window.downloadRecord = downloadRecord;
+window.deleteRecord = deleteRecord;
+window.getActiveLiveCamId = getActiveLiveCamId;
+window.playRecordByPath = function (recordPath) {
+    recordPath = String(recordPath || '').trim();
+    if (!recordPath) return false;
+    return openRecordOnMonitor(recordPath, {preserveSelection: true});
+};
 
 // 1. 矩阵整体全屏
 function toggleMatrixFullscreen() {

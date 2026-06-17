@@ -56,7 +56,7 @@ function buildCameraCoverMarkup(camId, cam, streamState) {
     return `
         <button type="button"
                 data-preview-cam-id="${escapeHtml(camId)}"
-                onclick="event.stopPropagation(); previewLive(this.dataset.previewCamId)"
+                onclick="event.stopPropagation(); openCameraLiveFromNode(this.dataset.previewCamId)"
                 class="camera-node-cover group/cover relative aspect-video w-[88px] shrink-0 overflow-hidden rounded-md border border-slate-200 bg-slate-100 text-white ring-1 ring-white/70 transition-all hover:border-blue-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:w-[96px] lg:w-[78px]"
                 title="点击预览直播"
                 aria-label="预览 ${escapeHtml(camId)} 直播">
@@ -189,6 +189,22 @@ function buildCameraCardView(id, cam) {
                 </button>
             </div>
     ` : '';
+    const mobileIntents = `
+        <div class="mobile-camera-intents" aria-label="${escapeHtml(id)} 快捷操作">
+            <button type="button" class="mobile-camera-intent mobile-camera-intent--live" data-mobile-camera-live="${escapeHtml(id)}" aria-label="播放 ${escapeHtml(id)} 直播">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1" d="M15 10l4.5-2.25A1 1 0 0121 8.64v6.72a1 1 0 01-1.5.87L15 14M5 6h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2z"></path>
+                </svg>
+                <span>直播</span>
+            </button>
+            <button type="button" class="mobile-camera-intent mobile-camera-intent--records" data-mobile-camera-records="${escapeHtml(id)}" aria-label="查看 ${escapeHtml(id)} 录像">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1" d="M7 4h10a2 2 0 012 2v14l-7-3-7 3V6a2 2 0 012-2z"></path>
+                </svg>
+                <span>录像</span>
+            </button>
+        </div>
+    `;
     let streamLight, streamText, streamTitle;
 
     if (streamState === 'online') {
@@ -253,6 +269,7 @@ function buildCameraCardView(id, cam) {
                 <span class="camera-node-schedule-badge shrink-0 text-[7px] font-bold leading-none ${recordSchedule.badgeClass}">${recordSchedule.badge}</span>
                 <span class="camera-node-schedule-text min-w-0 flex-1 truncate font-mono text-[8px] font-semibold leading-none ${recordSchedule.textClass}">${escapeHtml(recordSchedule.text)}</span>
         </div>
+        ${isMobileCameraInteraction() ? mobileIntents : ''}
     `;
 
     return {className, html, style};
@@ -423,7 +440,7 @@ function renderCameraListFromState() {
         if (!item) {
             item = document.createElement('div');
             item.dataset.camId = id;
-            item.onclick = () => selectCamera(id);
+            item.onclick = (event) => handleCameraCardClick(event, id);
         }
         item.className = view.className;
         if (view.style) {
@@ -433,6 +450,7 @@ function renderCameraListFromState() {
         }
         if (created || cameraCardRenderKeys.get(id) !== view.html) {
             item.innerHTML = view.html;
+            bindCameraCardIntentHandlers(item, id);
             cameraCardRenderKeys.set(id, view.html);
         }
         if (list.children[index] !== item) {
@@ -443,6 +461,32 @@ function renderCameraListFromState() {
     Array.from(list.children).forEach(item => {
         if (!item.dataset.camId) return;
         if (!visibleCamIds.has(item.dataset.camId)) item.remove();
+    });
+}
+
+function isMobileCameraInteraction() {
+    return window.CamKeepMobile?.isMobileMode?.() === true;
+}
+
+function handleCameraCardClick(event, camId) {
+    if (event.target?.closest?.('button, a, input, select, textarea, [data-mobile-camera-live], [data-mobile-camera-records]')) {
+        return;
+    }
+    if (isMobileCameraInteraction()) {
+        openCameraRecordsFromNode(camId);
+        return;
+    }
+    selectCamera(camId);
+}
+
+function bindCameraCardIntentHandlers(item, camId) {
+    item.querySelector('[data-mobile-camera-live]')?.addEventListener('click', event => {
+        event.stopPropagation();
+        openCameraLiveFromNode(camId);
+    });
+    item.querySelector('[data-mobile-camera-records]')?.addEventListener('click', event => {
+        event.stopPropagation();
+        openCameraRecordsFromNode(camId);
     });
 }
 
@@ -814,6 +858,33 @@ function previewLive(camId) {
     loadRecords(camId);
 }
 
+function openCameraLiveFromNode(camId) {
+    previewLive(camId);
+    if (isMobileCameraInteraction()) {
+        window.CamKeepMobile?.setTab?.('monitor', {instant: true});
+    }
+}
+
+function openCameraRecordsFromNode(camId) {
+    selectCamera(camId);
+    if (isMobileCameraInteraction()) {
+        window.CamKeepMobile?.setTab?.('records', {instant: true});
+    }
+}
+
+window.getMobileCameraEntries = function () {
+    return Array.isArray(latestCameraStatusEntries) ? latestCameraStatusEntries.slice() : [];
+};
+
+window.getCurrentSelectedCam = function () {
+    return currentSelectedCam || '';
+};
+
+window.selectCamera = selectCamera;
+window.previewLive = previewLive;
+window.openCameraLiveFromNode = openCameraLiveFromNode;
+window.openCameraRecordsFromNode = openCameraRecordsFromNode;
+
 function applySelectedCameraCardStyles() {
     const list = document.getElementById('camList');
     if (!list) return;
@@ -822,6 +893,11 @@ function applySelectedCameraCardStyles() {
         item.classList.toggle('is-selected', item.dataset.camId === currentSelectedCam);
     });
 }
+
+window.addEventListener('camkeep:layoutchange', () => {
+    cameraCardRenderKeys.clear();
+    renderCameraListFromState();
+});
 
 document.addEventListener('click', event => {
     if (!event.target.closest('.camera-node-card-actions')) {

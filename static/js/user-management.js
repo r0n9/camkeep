@@ -20,6 +20,11 @@ async function openUsers() {
 }
 
 function closeUsers() {
+    if (window.CamKeepMobile?.isMobileMode?.() && document.documentElement.dataset.mobileUserView === 'detail') {
+        document.documentElement.dataset.mobileUserView = 'list';
+        window.CamKeepMobile?.syncPageState?.();
+        return;
+    }
     showDashboardPage();
 }
 
@@ -39,6 +44,11 @@ function showUserPage() {
         userNavBtn.classList.add('bg-blue-50', 'text-blue-700');
         userNavBtn.setAttribute('aria-current', 'page');
     }
+    document.documentElement.dataset.mobilePage = 'users';
+    document.documentElement.dataset.mobileSubpage = 'users';
+    document.documentElement.dataset.mobileUserView = 'list';
+    window.CamKeepMobile?.syncPageState?.();
+    window.dispatchEvent(new CustomEvent('camkeep:pagechange', {detail: {page: 'users'}}));
     renderUserLoadingState();
     window.scrollTo({top: 0, behavior: 'smooth'});
 }
@@ -134,6 +144,11 @@ function selectUser(id) {
     clearUserEditorFeedbackTimer();
     renderUserList();
     renderUserEditor();
+    if (window.CamKeepMobile?.isMobileMode?.()) {
+        document.documentElement.dataset.mobileUserView = 'detail';
+        window.CamKeepMobile?.syncPageState?.();
+        window.scrollTo({top: 0, behavior: 'smooth'});
+    }
 }
 
 function showCreateUserForm() {
@@ -143,6 +158,11 @@ function showCreateUserForm() {
     clearUserEditorFeedbackTimer();
     renderUserList();
     renderCreateUserForm();
+    if (window.CamKeepMobile?.isMobileMode?.()) {
+        document.documentElement.dataset.mobileUserView = 'detail';
+        window.CamKeepMobile?.syncPageState?.();
+        window.scrollTo({top: 0, behavior: 'smooth'});
+    }
 }
 
 function selectedUser() {
