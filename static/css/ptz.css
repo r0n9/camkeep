@@ -360,7 +360,7 @@
     text-orientation: mixed;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 900px) {
     .player-ptz-panel {
         right: 8px;
         bottom: var(--player-ptz-mobile-bottom-offset);

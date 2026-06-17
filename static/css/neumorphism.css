@@ -506,7 +506,7 @@ html.dark .version-status-badge.is-unknown #versionStatusText {
     border-top-right-radius: var(--player-cell-outer-radius);
 }
 
-@media (max-width: 640px) {
+@media (max-width: 900px) {
     #dashboardPage #video-wrapper.nm-screen {
         --player-stage-radius: 14px;
     }

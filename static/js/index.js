@@ -5,7 +5,7 @@ let dpInstances = new Array(6).fill(null);
 let cellData = new Array(6).fill(null);
 let currentSelectedCam = null;
 let pendingAction = null;
-let compactGrid = window.innerWidth < 640;
+let compactGrid = window.innerWidth <= 900;
 let selectedRecordRange = {start: '', end: ''};
 let selectedRecordPath = '';
 const maxRecordRangeDays = 7;
@@ -69,7 +69,7 @@ window.onload = function () {
     window.addEventListener('beforeunload', () => stopOnvifEventSummaryPolling({beacon: true}));
     window.addEventListener('beforeunload', warnBeforeUnloadConfigChanges);
     window.addEventListener('resize', () => {
-        const nextCompactGrid = window.innerWidth < 640;
+        const nextCompactGrid = window.innerWidth <= 900;
         if (nextCompactGrid !== compactGrid) {
             compactGrid = nextCompactGrid;
             renderGrid();
@@ -4102,7 +4102,7 @@ function createRecordItem(camId, file, meta, options = {}) {
     const cursorClass = clickPlaysRecord ? 'cursor-pointer' : 'cursor-default';
     const actionVisibilityClass = explicitActions
         ? 'opacity-100'
-        : 'opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100';
+        : 'record-list-actions opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100';
     const durationBadge = meta.durationDisplay
         ? `<span class="${timeline ? 'record-timeline-card-detail' : 'font-mono text-[9px] font-bold leading-none text-emerald-600'}" title="录像时长">${timeline ? '' : '时长 '}${escapeHtml(meta.durationDisplay)}</span>`
         : '';
@@ -4136,28 +4136,28 @@ function createRecordItem(camId, file, meta, options = {}) {
         </svg>
     `;
     const playAction = explicitActions && !timeline ? `
-        <button data-record-action="play" class="rounded-md p-1.5 text-slate-300 transition-colors hover:bg-emerald-50 hover:text-emerald-600" title="播放该录像" aria-label="播放该录像">
+        <button data-record-action="play" class="record-list-action-btn record-list-action-btn--play rounded-md p-1.5 text-slate-300 transition-colors hover:bg-emerald-50 hover:text-emerald-600" title="播放该录像" aria-label="播放该录像">
             <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5v14l11-7-11-7z"></path>
             </svg>
         </button>
     ` : '';
     const downloadAction = `
-        <button data-record-action="download" class="${timeline ? 'record-timeline-card-action record-timeline-card-action-download' : 'rounded-md p-1.5 text-slate-300 transition-colors hover:bg-blue-50 hover:text-blue-600'}" title="下载该录像" aria-label="下载该录像">
+        <button data-record-action="download" class="${timeline ? 'record-timeline-card-action record-timeline-card-action-download record-list-action-btn record-list-action-btn--download' : 'record-list-action-btn record-list-action-btn--download rounded-md p-1.5 text-slate-300 transition-colors hover:bg-blue-50 hover:text-blue-600'}" title="下载该录像" aria-label="下载该录像">
             <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M8 12l4 4m0 0l4-4m-4 4V4"></path>
             </svg>
         </button>
     `;
     const deleteAction = canAdmin() ? `
-        <button data-record-action="delete" class="${timeline ? 'record-timeline-card-action record-timeline-card-action-delete' : 'rounded-md p-1.5 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500'}" title="永久删除该录像" aria-label="永久删除该录像">
+        <button data-record-action="delete" class="${timeline ? 'record-timeline-card-action record-timeline-card-action-delete record-list-action-btn record-list-action-btn--delete' : 'record-list-action-btn record-list-action-btn--delete rounded-md p-1.5 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500'}" title="永久删除该录像" aria-label="永久删除该录像">
             <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
             </svg>
         </button>
     ` : '';
     const moreAction = `
-        <button data-record-action="more" class="${timeline ? 'record-timeline-card-action' : 'mobile-record-more rounded-md p-1.5 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-700'}" title="更多操作" aria-label="更多操作">
+        <button data-record-action="more" class="${timeline ? 'record-timeline-card-action record-list-action-btn record-list-action-btn--more' : 'mobile-record-more record-list-action-btn record-list-action-btn--more rounded-md p-1.5 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-700'}" title="更多操作" aria-label="更多操作">
             <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M6 12h.01M12 12h.01M18 12h.01"></path>
             </svg>

@@ -463,7 +463,7 @@
     height: 22px;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 900px) {
     .user-management-layout,
     .user-form-grid {
         grid-template-columns: minmax(0, 1fr);

@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const STATIC_CACHE = `camkeep-static-${CACHE_VERSION}`;
 
 const CORE_STATIC_ASSETS = [
@@ -6,6 +6,7 @@ const CORE_STATIC_ASSETS = [
     '/static/css/camera-nodes.css',
     '/static/css/index.css',
     '/static/css/mobile-shell.css',
+    '/static/css/mobile-responsive.css',
     '/static/css/neumorphism.css',
     '/static/css/ptz.css',
     '/static/css/record-timeline-24h.css',
@@ -18,6 +19,7 @@ const CORE_STATIC_ASSETS = [
     '/static/js/DPlayer.min.js',
     '/static/js/camera-nodes.js',
     '/static/js/index.js',
+    '/static/js/mobile-actions.js',
     '/static/js/mobile-shell.js',
     '/static/js/mpegts.min.js',
     '/static/js/ptz.js',

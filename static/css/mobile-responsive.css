@@ -1,0 +1,484 @@
+html[data-layout-mode="mobile"] body.bg-gray-100 {
+    padding: 0 8px calc(var(--mobile-tabbar-height) + var(--mobile-safe-bottom) + 10px) !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage {
+    height: calc(100svh - 64px - var(--mobile-tabbar-height) - var(--mobile-safe-bottom) - 8px);
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .dashboard-main-grid {
+    gap: 8px !important;
+    margin-bottom: 0 !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #playback-column {
+    gap: 8px !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .live-node-panel,
+html[data-layout-mode="mobile"] #dashboardPage .history-record-panel {
+    width: 100%;
+    min-height: 0 !important;
+    max-height: none !important;
+    height: 100% !important;
+    border-radius: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .live-node-panel .nm-card-head,
+html[data-layout-mode="mobile"] #dashboardPage .history-record-panel > .mb-3 {
+    flex: 0 0 auto;
+    margin: 0 !important;
+    padding: 0 2px 8px !important;
+    background: transparent !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #camStatsPanel.live-stats-panel,
+html[data-layout-mode="mobile"] #dashboardPage #camList,
+html[data-layout-mode="mobile"] #dashboardPage #recordList {
+    border: 1px solid var(--mobile-border) !important;
+    border-radius: 14px !important;
+    background: var(--mobile-surface-strong) !important;
+    box-shadow: none !important;
+}
+
+html.dark[data-layout-mode="mobile"] #dashboardPage #camList,
+html.dark[data-layout-mode="mobile"] #dashboardPage #recordList {
+    background: rgba(15, 23, 42, 0.72) !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #camStatsPanel.live-stats-panel {
+    margin: 0 !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #camStatsPanel.live-stats-panel {
+    display: grid !important;
+    grid-template-columns: minmax(72px, 0.62fr) minmax(0, 1.38fr) !important;
+    gap: 8px !important;
+    padding: 8px !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #camStatsPanel .live-stats-total {
+    min-height: 66px;
+    border-radius: 13px !important;
+    padding: 9px;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #camStatsPanel .live-stats-total-row strong {
+    font-size: 28px;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #camStatsPanel .live-stats-main {
+    gap: 5px;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #camStatsPanel .live-stats-distribution {
+    height: 5px;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #camStatsPanel .live-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #camStatsPanel .live-stat-item {
+    min-height: 46px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    justify-items: center;
+    gap: 3px;
+    border-radius: 12px !important;
+    padding: 6px 4px;
+    text-align: center;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #camStatsPanel .live-stat-dot {
+    display: none;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #camStatsPanel .live-stat-name {
+    max-width: 100%;
+    font-size: 10px;
+    line-height: 12px;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #camStatsPanel .live-stat-item strong {
+    font-size: 15px;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #camList {
+    padding: 9px 8px calc(9px + var(--mobile-safe-bottom)) !important;
+    min-height: 0;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .camera-node-card {
+    border-radius: 14px !important;
+    background: var(--mobile-surface-strong) !important;
+    box-shadow: none !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .camera-node-card-body {
+    padding: 10px !important;
+    gap: 8px !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .camera-node-cover {
+    width: 104px !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #video-wrapper {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    border: 1px solid var(--mobile-border) !important;
+    border-radius: 14px !important;
+    background: var(--mobile-surface-strong) !important;
+    box-shadow: none !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #video-stage {
+    flex: 0 0 auto !important;
+    min-height: 0 !important;
+    aspect-ratio: 16 / 9;
+    border-radius: 14px 14px 0 0 !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #video-toolbar {
+    background: rgba(15, 23, 42, 0.94) !important;
+    min-width: 0;
+    padding: 6px 7px !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #focusIndicator {
+    min-width: 0;
+    padding-left: 7px !important;
+    padding-right: 7px !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel {
+    border: 1px solid var(--mobile-border) !important;
+    border-radius: 14px !important;
+    background: var(--mobile-surface-strong) !important;
+    box-shadow: none !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .mobile-monitor-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    margin-bottom: 0;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .mobile-monitor-action {
+    display: inline-flex;
+    width: 100%;
+    min-width: 0;
+    height: 42px;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    border: 1px solid var(--mobile-border);
+    border-radius: 13px;
+    background: var(--mobile-surface);
+    color: var(--mobile-text);
+    font-size: 12px;
+    font-weight: 900;
+    box-shadow: var(--mobile-shadow);
+    transition: transform 160ms ease, background-color 160ms ease, color 160ms ease;
+    touch-action: manipulation;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .mobile-monitor-action--primary {
+    border-color: rgba(37, 99, 235, 0.28);
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.92), rgba(14, 165, 233, 0.86));
+    color: #ffffff;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .mobile-monitor-action svg {
+    width: 17px;
+    height: 17px;
+    flex: 0 0 auto;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .mobile-monitor-action:active {
+    transform: scale(0.98);
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #recordList {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding-bottom: calc(10px + var(--mobile-safe-bottom));
+    -webkit-overflow-scrolling: touch;
+}
+
+html[data-layout-mode="mobile"] .mobile-record-range-quick {
+    display: grid;
+    gap: 6px;
+    grid-template-columns: minmax(0, 1.15fr) repeat(4, minmax(0, 1fr));
+}
+
+html[data-layout-mode="mobile"] .mobile-record-range-quick button,
+html[data-layout-mode="mobile"] .mobile-record-device-picker {
+    min-width: 0;
+    height: 36px;
+    border: 1px solid var(--mobile-border);
+    border-radius: 10px;
+    background: var(--mobile-surface-strong);
+    color: var(--mobile-muted);
+    font-size: 11px;
+    font-weight: 900;
+    transition: transform 160ms ease, background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+    touch-action: manipulation;
+}
+
+html[data-layout-mode="mobile"] .mobile-record-device-picker {
+    border-color: rgba(37, 99, 235, 0.28);
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.92), rgba(14, 165, 233, 0.86));
+    color: #ffffff;
+}
+
+html[data-layout-mode="mobile"] .mobile-record-range-quick button.is-active {
+    border-color: rgba(16, 185, 129, 0.34);
+    background: rgba(16, 185, 129, 0.12);
+    color: #059669;
+}
+
+html[data-layout-mode="mobile"] .mobile-record-range-quick button:active,
+html[data-layout-mode="mobile"] .mobile-record-device-picker:active {
+    transform: scale(0.97);
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .camera-node-card {
+    border-radius: 14px !important;
+    background: var(--mobile-surface-strong) !important;
+    box-shadow: none !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .camera-node-card-body {
+    padding: 10px !important;
+    gap: 8px !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .camera-node-cover {
+    width: 104px !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .mobile-camera-intents {
+    display: grid;
+    grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
+    gap: 8px;
+    padding: 9px 10px 10px;
+    border-top: 1px solid var(--mobile-border);
+    background: rgba(248, 250, 252, 0.72);
+}
+
+html.dark[data-layout-mode="mobile"] #dashboardPage .mobile-camera-intents {
+    background: rgba(15, 23, 42, 0.38);
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .mobile-camera-intent {
+    display: inline-flex;
+    min-width: 0;
+    height: 38px;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: 1px solid var(--mobile-border);
+    border-radius: 12px;
+    background: var(--mobile-surface);
+    color: var(--mobile-text);
+    font-size: 12px;
+    font-weight: 900;
+    transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease, color 160ms ease;
+    touch-action: manipulation;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .mobile-camera-intent svg {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .mobile-camera-intent--live {
+    border-color: rgba(37, 99, 235, 0.3);
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.94), rgba(14, 165, 233, 0.86));
+    color: #ffffff;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .mobile-camera-intent--records {
+    border-color: rgba(16, 185, 129, 0.3);
+    background: rgba(16, 185, 129, 0.11);
+    color: #047857;
+}
+
+html.dark[data-layout-mode="mobile"] #dashboardPage .mobile-camera-intent--records {
+    color: #6ee7b7;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .mobile-camera-intent:active {
+    transform: scale(0.97);
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .mobile-record-more {
+    display: inline-flex;
+    width: 28px;
+    height: 28px;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid var(--mobile-border);
+    border-radius: 10px;
+    background: var(--mobile-surface);
+    color: var(--mobile-muted);
+    touch-action: manipulation;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .mobile-record-more svg {
+    width: 16px;
+    height: 16px;
+}
+
+html[data-layout-mode="mobile"] #recordList .record-list-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    opacity: 1 !important;
+    transition: none !important;
+}
+
+html[data-layout-mode="mobile"] #recordList .record-list-action-btn {
+    display: inline-flex !important;
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+    flex: 0 0 28px !important;
+    padding: 0 !important;
+    border: 1px solid var(--mobile-border);
+    border-radius: 10px;
+    background: var(--mobile-surface);
+    color: var(--mobile-muted);
+    box-shadow: none;
+    touch-action: manipulation;
+}
+
+html[data-layout-mode="mobile"] #recordList .mobile-record-more {
+    display: inline-flex !important;
+}
+
+html[data-layout-mode="mobile"] #recordList .record-timeline-card .record-list-action-btn {
+    width: 22px !important;
+    height: 22px !important;
+    min-width: 22px !important;
+    flex-basis: 22px !important;
+    border-radius: 8px;
+}
+
+html[data-layout-mode="mobile"] #recordList .record-list-action-btn svg {
+    width: 15px !important;
+    height: 15px !important;
+}
+
+html[data-layout-mode="mobile"] #recordList .record-timeline-card .record-list-action-btn svg {
+    width: 12px !important;
+    height: 12px !important;
+}
+
+html[data-layout-mode="mobile"] #recordList .record-list-action-btn--play {
+    border-color: rgba(16, 185, 129, 0.3);
+    color: #059669;
+}
+
+html[data-layout-mode="mobile"] #recordList .record-list-action-btn--download {
+    border-color: rgba(37, 99, 235, 0.28);
+    color: #2563eb;
+}
+
+html[data-layout-mode="mobile"] #recordList .record-list-action-btn--delete {
+    border-color: rgba(244, 63, 94, 0.28);
+    color: #e11d48;
+}
+
+html[data-layout-mode="mobile"] #recordList .record-list-action-btn--more {
+    color: var(--mobile-muted);
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .history-record-panel {
+    gap: 8px;
+    padding: 10px !important;
+    border-radius: 14px !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .history-record-panel > .mb-3 {
+    gap: 8px !important;
+    margin-bottom: 10px !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .history-record-panel .nm-daterange {
+    display: grid !important;
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .history-record-panel .nm-daterange input {
+    width: 100%;
+}
+
+html[data-layout-mode="mobile"] .mobile-settings-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
+
+html[data-layout-mode="mobile"] .mobile-settings-theme,
+html[data-layout-mode="mobile"] .mobile-settings-row {
+    border: 1px solid var(--mobile-border);
+    border-radius: 14px;
+    background: var(--mobile-surface-strong);
+    box-shadow: none;
+}
+
+html[data-layout-mode="mobile"] .mobile-settings-row {
+    min-height: 56px;
+}
+
+html[data-layout-mode="mobile"] .mobile-settings-panel {
+    width: 100%;
+    height: 100%;
+    color: var(--mobile-text);
+    overflow-y: auto;
+    padding-bottom: calc(10px + var(--mobile-safe-bottom));
+    -webkit-overflow-scrolling: touch;
+}
+
+html[data-layout-mode="mobile"] .config-page-card,
+html[data-layout-mode="mobile"] #userPage .config-page-card {
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+html[data-layout-mode="mobile"] .config-page-body,
+html[data-layout-mode="mobile"] #userPage .config-page-body {
+    padding: 10px !important;
+}
+
+html[data-layout-mode="mobile"] .user-list-panel,
+html[data-layout-mode="mobile"] .user-editor-panel {
+    border-radius: 14px !important;
+    box-shadow: none !important;
+}

@@ -817,7 +817,7 @@ html.dark .camera-node-action-btn--auto {
     }
 }
 
-@media (max-width: 520px), (hover: none) {
+@media (max-width: 900px), (hover: none) {
     .camera-node-card-body {
         gap: 6px !important;
         min-height: 52px;
@@ -1106,6 +1106,16 @@ html.dark .camera-node-action-btn--auto {
         pointer-events: auto;
         transform: none;
         background: rgba(248, 250, 252, 0.94);
+    }
+
+    .camera-node-card:not(:hover):not(:focus-within) .camera-node-action-btn:not(.is-active) {
+        width: auto !important;
+        flex: 1 1 0;
+        flex-basis: 0;
+        min-width: 0;
+        opacity: 0.9;
+        pointer-events: auto;
+        transform: none;
     }
 
     .camera-node-card-actions.is-expanded .camera-node-action-toggle {

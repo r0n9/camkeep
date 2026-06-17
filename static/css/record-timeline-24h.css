@@ -505,7 +505,7 @@
     }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 900px) {
     .record24h-header {
         align-items: stretch;
         flex-direction: column;

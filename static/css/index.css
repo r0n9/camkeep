@@ -1722,6 +1722,18 @@ html.dark .theme-seg-btn.is-active {
     background: #fef2f2;
 }
 
+.record-list-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.record-list-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
 .record-timeline-card-meta {
     display: flex;
     min-width: 0;
@@ -4613,7 +4625,7 @@ html.dark .record-timeline-card-action-delete:hover {
     }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 900px) {
     .config-page-card {
         border-radius: 18px;
     }
@@ -6107,7 +6119,7 @@ html.dark .config-doc-content pre code {
     }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 900px) {
     #configCameraList {
         padding: 10px;
     }
@@ -6173,7 +6185,7 @@ html.dark .config-form-section-note {
 }
 
 /* ===== Dashboard mobile vertical rhythm ===== */
-@media (max-width: 640px) {
+@media (max-width: 900px) {
     body.bg-gray-100 {
         padding: 10px !important;
     }
