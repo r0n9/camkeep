@@ -253,8 +253,10 @@ html.dark {
     }
 
     html[data-layout-mode="mobile"] #playback-column {
-        gap: 8px !important;
+        gap: 10px !important;
+        flex: 1 1 auto;
         min-height: 0;
+        justify-content: flex-start;
     }
 
     html[data-layout-mode="mobile"] .mobile-monitor-actions {
@@ -307,6 +309,90 @@ html.dark {
 
     html[data-layout-mode="mobile"] #video-toolbar {
         min-height: 42px;
+    }
+
+    html[data-layout-mode="mobile"] #mobilePtzDock {
+        display: block;
+        margin-top: 2px;
+    }
+
+    html[data-layout-mode="mobile"] #mobilePtzDock:empty {
+        display: none;
+    }
+
+    html[data-layout-mode="mobile"] #mobilePtzDock > #ptz-panel {
+        position: static;
+        right: auto;
+        bottom: auto;
+        z-index: 1;
+        width: 100%;
+        max-width: none;
+        min-height: 0;
+        max-height: calc(100dvh - 64px - 42px - 42px - 110px);
+        margin: 0;
+        border-radius: 16px;
+        box-shadow: var(--mobile-shadow);
+        transform-origin: top center;
+    }
+
+    html[data-layout-mode="mobile"] #mobilePtzDock > #ptz-panel.is-collapsed {
+        min-height: 40px;
+        max-height: 40px;
+    }
+
+    html[data-layout-mode="mobile"] #mobilePtzDock > #ptz-panel.is-expanded {
+        width: 100%;
+        max-height: none;
+    }
+
+    html[data-layout-mode="mobile"] #mobilePtzDock > #ptz-panel.is-expanded > .custom-scrollbar {
+        height: 100%;
+        justify-content: space-between;
+        gap: 5px;
+        padding: 9px !important;
+        overflow: hidden;
+    }
+
+    html[data-layout-mode="mobile"] #mobilePtzDock > #ptz-panel .ptz-dial {
+        width: min(100%, 260px);
+        margin-inline: auto;
+        padding: 4px;
+    }
+
+    html[data-layout-mode="mobile"] #mobilePtzDock > #ptz-panel .ptz-btn {
+        aspect-ratio: auto;
+        width: 100%;
+        height: 30px;
+        min-height: 30px;
+    }
+
+    html[data-layout-mode="mobile"] #mobilePtzDock > #ptz-panel .ptz-btn svg {
+        width: 13px;
+        height: 13px;
+    }
+
+    html[data-layout-mode="mobile"] #mobilePtzDock > #ptz-panel .ptz-tool-panel {
+        width: min(100%, 260px);
+        margin-inline: auto;
+        padding: 4px !important;
+    }
+
+    html[data-layout-mode="mobile"] #mobilePtzDock > #ptz-panel .ptz-action-btn {
+        height: 30px;
+        min-height: 30px;
+        font-size: 10px;
+    }
+
+    html[data-layout-mode="mobile"] #mobilePtzDock > #ptz-panel .ptz-action-icon {
+        width: 18px;
+        height: 18px;
+    }
+
+    html[data-layout-mode="mobile"] #mobilePtzDock > #ptz-panel .ptz-speed-panel {
+        width: min(100%, 260px);
+        margin-inline: auto;
+        padding-top: 5px !important;
+        padding-bottom: 5px !important;
     }
 
     html[data-layout-mode="mobile"] .live-node-panel,
@@ -1277,23 +1363,6 @@ html.dark {
         text-align: center;
         font-size: 13px;
         font-weight: 800;
-    }
-
-    html[data-layout-mode="mobile"] #video-stage.mobile-ptz-sheet-host {
-        overflow: visible;
-    }
-
-    html[data-layout-mode="mobile"] #video-stage.mobile-ptz-sheet-host .player-ptz-panel {
-        position: fixed;
-        right: 10px;
-        bottom: calc(var(--mobile-tabbar-height) + var(--mobile-safe-bottom) + 10px);
-        left: 10px;
-        z-index: 92;
-        width: auto;
-        max-width: none;
-        max-height: min(64dvh, 520px);
-        transform-origin: bottom center;
-        border-radius: 18px;
     }
 
     html[data-layout-mode="mobile"][data-mobile-page="config"] .mobile-tabbar,

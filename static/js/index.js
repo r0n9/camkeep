@@ -2072,6 +2072,7 @@ function escapeHtml(value) {
 // --- 宫格矩阵与播放逻辑 ---
 function setLayout(layoutCount) {
     currentLayout = layoutCount;
+    window.currentLayout = currentLayout;
     if (activeCell >= layoutCount) activeCell = 0;
     syncSelectedRecordFromActiveCell();
 
@@ -2088,6 +2089,7 @@ function setLayout(layoutCount) {
         }
     });
     renderGrid();
+    refreshPTZPanel(true);
 }
 
 function matrixGridMetrics() {

@@ -603,18 +603,12 @@
                 </svg>
                 <span>选择设备</span>
             </button>
-            <button type="button" onclick="window.CamKeepMobile?.openPTZSheet()" class="mobile-monitor-action">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1" d="M12 5v14M5 12h14"></path>
-                </svg>
-                <span>云台</span>
-            </button>
         </div>
         <div id="video-wrapper" class="player-shell nm-screen bg-gray-900 rounded-xl shadow-xl overflow-hidden relative h-auto min-h-0 max-h-none lg:h-[560px] lg:max-h-none flex flex-col border border-gray-800 transition-all duration-300">
 
             <div id="video-stage" class="player-stage relative flex min-h-0 flex-none aspect-video bg-black lg:flex-1 lg:aspect-auto">
                 <div id="video-grid" class="player-grid min-w-0 flex-1 h-full p-0.5 bg-black grid gap-0.5 transition-all duration-300"></div>
-                <aside id="ptz-panel" class="player-ptz-panel ptz-panel-root hidden"></aside>
+                <aside id="ptz-panel" class="player-ptz-panel ptz-panel-root hidden" aria-hidden="true"></aside>
             </div>
 
             <div id="video-toolbar" class="player-toolbar flex items-center gap-1.5 px-2.5 py-1.5 bg-[#0f172a] border-t border-gray-800 shrink-0 z-20">
@@ -652,7 +646,8 @@
                 </div>
             </div>
         </div>
-            <div id="recordTimeline24hDock" class="record24h-dock hidden"></div>
+        <div id="mobilePtzDock" class="mobile-ptz-dock" hidden aria-hidden="true"></div>
+        <div id="recordTimeline24hDock" class="record24h-dock hidden"></div>
         </section>
     </div>
 

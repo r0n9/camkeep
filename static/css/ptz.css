@@ -379,6 +379,31 @@
         transform-origin: bottom center;
     }
 
+    .player-ptz-panel .custom-scrollbar {
+        min-height: 0;
+        gap: 6px;
+    }
+
+    .ptz-control-grid {
+        gap: 4px;
+    }
+
+    .ptz-action-btn {
+        min-height: 28px;
+        font-size: 10px;
+        border-radius: 7px;
+    }
+
+    .ptz-action-icon {
+        width: 20px;
+        height: 20px;
+    }
+
+    .ptz-speed-panel {
+        padding-top: 6px !important;
+        padding-bottom: 6px !important;
+    }
+
     .player-ptz-panel.is-expanded > .custom-scrollbar {
         padding: 10px !important;
     }

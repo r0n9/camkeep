@@ -13,6 +13,7 @@
     let lastFocusedElement = null;
     let closingFromHistory = false;
     let cameraPickerFilter = 'all';
+    let lastLayoutMode = '';
 
     function viewportWidth() {
         return window.visualViewport?.width || window.innerWidth || document.documentElement.clientWidth || 1024;
@@ -42,15 +43,49 @@
         return 'dashboard';
     }
 
+    function getPtzPanel() {
+        return document.getElementById('ptz-panel');
+    }
+
+    function getPtzMobileHost() {
+        return document.getElementById('mobilePtzDock') || document.getElementById('playback-column');
+    }
+
+    function syncMobilePtzPlacement() {
+        const panel = getPtzPanel();
+        const host = getPtzMobileHost();
+        const stage = document.getElementById('video-stage');
+        if (!panel || !host || !stage) return;
+        if (isMobileMode()) {
+            host.hidden = false;
+            host.setAttribute('aria-hidden', 'false');
+            if (panel.parentElement !== host) host.appendChild(panel);
+        } else {
+            if (host.id === 'mobilePtzDock') {
+                host.hidden = true;
+                host.setAttribute('aria-hidden', 'true');
+            }
+            if (panel.parentElement !== stage) {
+                stage.appendChild(panel);
+            }
+        }
+    }
+
     function syncLayoutMode() {
         const root = document.documentElement;
         const mode = getLayoutMode();
+        const modeChanged = mode !== lastLayoutMode;
         root.dataset.layoutMode = mode;
         root.classList.toggle('is-touch', hasCoarsePointer());
         root.classList.toggle('is-standalone-pwa', isStandalonePWA());
         root.dataset.mobilePage = currentPage();
+        syncMobilePtzPlacement();
         syncTabUI();
         syncThemeControls();
+        if (modeChanged && typeof window.refreshPTZPanel === 'function') {
+            window.refreshPTZPanel(true);
+        }
+        lastLayoutMode = mode;
         window.dispatchEvent(new CustomEvent('camkeep:layoutchange', {
             detail: {mode, touch: hasCoarsePointer(), standalone: isStandalonePWA()}
         }));
@@ -332,38 +367,9 @@
         });
     }
 
-    function openPTZSheet() {
-        if (!isMobileMode()) return false;
-        const camId = window.getActiveLiveCamId?.() || '';
-        if (!camId) {
-            openSheet('云台控制', '请先播放一个单画面直播', '<div class="mobile-sheet-empty">当前没有可控制的单画面直播。</div>');
-            return false;
-        }
-        closeSheet({skipFocus: true});
-        setTab('monitor', {preserveScroll: true});
-        document.getElementById('video-stage')?.classList.add('mobile-ptz-sheet-host');
-        window.PTZ?.refreshPanel?.({force: true, expanded: true});
-        if (!history.state?.camkeepMobileOverlay) {
-            history.pushState({...(history.state || {}), camkeepMobileOverlay: 'ptz'}, '', location.href);
-        }
-        return true;
-    }
 
     function closeTopMostOverlay(options = {}) {
         if (closeSheet({fromHistory: options.fromHistory || options.skipHistory})) return true;
-        const stage = document.getElementById('video-stage');
-        if (stage?.classList.contains('mobile-ptz-sheet-host')) {
-            stage.classList.remove('mobile-ptz-sheet-host');
-            window.PTZ?.hidePanel?.();
-            if (!options.fromHistory && !options.skipHistory && history.state?.camkeepMobileOverlay === 'ptz') {
-                closingFromHistory = true;
-                history.back();
-                window.setTimeout(() => {
-                    closingFromHistory = false;
-                }, 0);
-            }
-            return true;
-        }
         return false;
     }
 
@@ -445,7 +451,6 @@
         getLayoutMode,
         isMobileMode,
         openCameraPicker,
-        openPTZSheet,
         openRecordActionSheet,
         openSheet,
         syncLayoutMode,

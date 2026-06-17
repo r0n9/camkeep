@@ -7,6 +7,7 @@
 
     const state = {
         onvifStatusCache: new Map(),
+        panelCollapsedByMode: {desktop: true, mobile: false},
         panelCollapsed: true,
         stopTimer: null,
         activeMove: null,
@@ -52,6 +53,40 @@
         };
     }
 
+    function isMobileViewport() {
+        return document.documentElement?.dataset?.layoutMode === 'mobile';
+    }
+
+    function currentPanelMode() {
+        return isMobileViewport() ? 'mobile' : 'desktop';
+    }
+
+    function syncMobileDockVisibility(panel = getPanel()) {
+        const dock = document.getElementById('mobilePtzDock');
+        if (!dock) return;
+        const visible = Boolean(panel && !panel.classList.contains('hidden') && isMobileViewport());
+        dock.hidden = !visible;
+        dock.setAttribute('aria-hidden', visible ? 'false' : 'true');
+    }
+
+    function getPanelCollapsed(mode = currentPanelMode()) {
+        if (!state.panelCollapsedByMode || typeof state.panelCollapsedByMode !== 'object') {
+            state.panelCollapsedByMode = {desktop: true, mobile: false};
+        }
+        if (Object.prototype.hasOwnProperty.call(state.panelCollapsedByMode, mode)) {
+            return Boolean(state.panelCollapsedByMode[mode]);
+        }
+        return mode === 'mobile' ? false : true;
+    }
+
+    function setPanelCollapsed(collapsed, mode = currentPanelMode()) {
+        if (!state.panelCollapsedByMode || typeof state.panelCollapsedByMode !== 'object') {
+            state.panelCollapsedByMode = {desktop: true, mobile: false};
+        }
+        state.panelCollapsedByMode[mode] = Boolean(collapsed);
+        state.panelCollapsed = Boolean(collapsed);
+    }
+
     function escapeHtmlValue(value) {
         if (typeof window.escapeHtml === 'function') return window.escapeHtml(value);
         return String(value).replace(/[&<>"']/g, char => ({
@@ -71,9 +106,11 @@
         clearStopTimer();
         clearPanelAnimation();
         panel.className = PANEL_HIDDEN_CLASS;
+        panel.setAttribute('aria-hidden', 'true');
         panel.innerHTML = '';
         state.lastRenderKey = '';
         state.pendingRender = null;
+        syncMobileDockVisibility(panel);
     }
 
     function hidePanelWhenSafe() {
@@ -177,6 +214,7 @@
     function panelRenderKey(camId, status) {
         return JSON.stringify({
             camId,
+            mode: currentPanelMode(),
             collapsed: state.panelCollapsed,
             capability_state: status?.capability_state || '',
             ptz_state: status?.ptz_state || '',
@@ -259,13 +297,19 @@
     function renderPanel(camId, status) {
         const panel = getPanel();
         if (!panel || getActiveCamId() !== camId) return;
-        const ptzAvailable = status && status.ptz_state === 'available';
-        const imagingAvailable = status && status.imaging_state === 'available';
+        const mode = currentPanelMode();
+        const ptzAvailable = Boolean(status && status.ptz_state === 'available');
+        const imagingAvailable = Boolean(status && status.imaging_state === 'available');
+
+        state.panelCollapsed = getPanelCollapsed(mode);
 
         const text = panelStateText(status);
         const collapsedClass = state.panelCollapsed ? 'is-collapsed' : 'is-expanded';
         const enteringClass = !state.panelCollapsed && panel.classList.contains('is-collapsed') ? 'is-entering' : '';
         panel.className = `${PANEL_BASE_CLASS} ${collapsedClass} ${enteringClass}`.trim();
+
+        panel.setAttribute('aria-hidden', 'false');
+        syncMobileDockVisibility(panel);
 
         if (state.panelCollapsed) {
             clearPanelAnimation();
@@ -287,14 +331,14 @@
         const speedDisabled = ptzAvailable || imagingAvailable ? '' : 'disabled';
         const speedDisabledClass = ptzAvailable || imagingAvailable ? '' : ' opacity-45 pointer-events-none';
         panel.innerHTML = `
-        <div class="custom-scrollbar flex h-full flex-col overflow-y-auto p-3">
+        <div class="custom-scrollbar flex h-full flex-col overflow-y-auto p-3 sm:p-3.5">
             <div class="mb-3 flex items-center justify-between gap-2">
                 <div class="min-w-0">
-                    <div class="ptz-panel-title text-sm font-extrabold tracking-normal text-slate-100">云台</div>
+                    <div class="ptz-panel-title text-[15px] font-extrabold tracking-normal text-slate-100">云台</div>
                     <div id="ptz-feedback" class="ptz-panel-feedback mt-0.5 truncate text-[10px] font-bold text-slate-500">${escapeHtmlValue(text)}</div>
                 </div>
-                <button onclick="window.PTZ.togglePanel(event)" class="ptz-panel-collapse-btn flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-800 bg-slate-900 text-slate-400 shadow-[0_6px_16px_-12px_rgba(2,6,23,0.9)] transition-colors hover:border-slate-700 hover:text-white" title="折叠云台" aria-label="折叠云台">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9 5l7 7-7 7"></path></svg>
+                <button onclick="window.PTZ.togglePanel(event)" class="ptz-panel-collapse-btn flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-800 bg-slate-900 text-slate-400 shadow-[0_6px_16px_-12px_rgba(2,6,23,0.9)] transition-colors hover:border-slate-700 hover:text-white" title="折叠云台" aria-label="折叠云台">
+                    <svg class="h-[17px] w-[17px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9 5l7 7-7 7"></path></svg>
                 </button>
             </div>
 
@@ -312,28 +356,28 @@
                 ${moveButton('右下', 1, -1, 0, '<path d="M17 7v10H7m10 0L7 7" />', disabled)}
             </div>
 
-            <div class="ptz-tool-panel mt-2 p-1.5${disabledClass}">
+            <div class="ptz-tool-panel mt-2 p-1.5 sm:p-1.5${disabledClass}">
                 <div class="ptz-control-grid">
                     ${controlButton('拉近', 'ptz-zoom', '', disabled, 'window.PTZ.startMove(event, 0, 0, 1)', 'window.PTZ.stopMove(event)', null, 'ptz-icon-zoom-in')}
                     ${controlButton('拉远', 'ptz-zoom', '', disabled, 'window.PTZ.startMove(event, 0, 0, -1)', 'window.PTZ.stopMove(event)', null, 'ptz-icon-zoom-out')}
                 </div>
             </div>
 
-            <div class="ptz-tool-panel mt-1.5 p-1.5${imagingDisabledClass}">
+            <div class="ptz-tool-panel mt-1.5 p-1.5 sm:p-1.5${imagingDisabledClass}">
                 <div class="ptz-control-grid">
                     ${controlButton('近焦', 'ptz-focus', '', imagingDisabled, null, null, 'window.PTZ.adjustFocus(event, -1)', 'ptz-icon-focus-near')}
                     ${controlButton('远焦', 'ptz-focus', '', imagingDisabled, null, null, 'window.PTZ.adjustFocus(event, 1)', 'ptz-icon-focus-far')}
                 </div>
             </div>
 
-            <div class="ptz-tool-panel mt-1.5 p-1.5${imagingDisabledClass}">
+            <div class="ptz-tool-panel mt-1.5 p-1.5 sm:p-1.5${imagingDisabledClass}">
                 <div class="ptz-control-grid">
                     ${controlButton('开大', 'ptz-iris', '', imagingDisabled, null, null, 'window.PTZ.adjustIris(event, 1)', 'ptz-icon-iris-open')}
                     ${controlButton('收小', 'ptz-iris', '', imagingDisabled, null, null, 'window.PTZ.adjustIris(event, -1)', 'ptz-icon-iris-close')}
                 </div>
             </div>
 
-            <div class="ptz-speed-panel mt-2 flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1.5${speedDisabledClass}">
+            <div class="ptz-speed-panel mt-2 flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-2${speedDisabledClass}">
                 <input id="ptz-speed" type="range" min="0.15" max="1" step="0.05" value="${state.speedValue}" oninput="window.PTZ.updateSpeedLabel()" onpointerdown="window.PTZ.beginSpeedInteraction(event)" onpointerup="window.PTZ.endSpeedInteraction(event)" onpointercancel="window.PTZ.endSpeedInteraction(event)" onlostpointercapture="window.PTZ.endSpeedInteraction(event)" onfocus="window.PTZ.beginSpeedInteraction()" onblur="window.PTZ.endSpeedInteraction()" aria-label="控制速度" class="block min-w-0 flex-1 accent-blue-500" ${speedDisabled}>
                 <span id="ptz-speed-label" class="ptz-speed-label w-8 shrink-0 text-right font-mono text-[10px] font-black text-slate-300">55%</span>
             </div>
@@ -388,7 +432,8 @@
 
     function togglePanel(event) {
         if (event) event.stopPropagation();
-        state.panelCollapsed = !state.panelCollapsed;
+        const mode = currentPanelMode();
+        setPanelCollapsed(!getPanelCollapsed(mode), mode);
         const camId = getActiveCamId();
         if (!camId || !canSendPTZCommand(camId)) return;
         renderPanelIfNeeded(camId, state.onvifStatusCache.get(camId));
