@@ -473,7 +473,9 @@ function handleCameraCardClick(event, camId) {
         return;
     }
     if (isMobileCameraInteraction()) {
-        openCameraRecordsFromNode(camId);
+        if (currentSelectedCam !== camId) {
+            selectCamera(camId);
+        }
         return;
     }
     selectCamera(camId);

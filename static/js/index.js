@@ -78,13 +78,13 @@ window.onload = function () {
 };
 
 function initAccountMenu() {
-    const menu = document.getElementById('accountMenu');
-    if (!menu) return;
+    const menus = Array.from(document.querySelectorAll('.account-menu'));
+    if (!menus.length) return;
 
     document.addEventListener('click', event => {
-        if (!menu.contains(event.target)) {
-            setAccountMenuOpen(false);
-        }
+        menus.forEach(menu => {
+            if (!menu.contains(event.target)) setAccountMenuOpen(false, menu);
+        });
     });
     document.addEventListener('keydown', event => {
         if (event.key === 'Escape') {
@@ -95,19 +95,24 @@ function initAccountMenu() {
 
 function toggleAccountMenu(event) {
     event?.stopPropagation();
-    const panel = document.getElementById('accountMenuPanel');
+    const menu = event?.currentTarget?.closest?.('.account-menu') || document.getElementById('accountMenu');
+    const panel = menu?.querySelector?.('.account-menu-panel');
     const open = panel ? panel.classList.contains('hidden') : false;
-    setAccountMenuOpen(open);
+    if (open) setAccountMenuOpen(false);
+    setAccountMenuOpen(open, menu);
 }
 
-function setAccountMenuOpen(open) {
-    const button = document.getElementById('accountMenuButton');
-    const panel = document.getElementById('accountMenuPanel');
-    if (!button || !panel) return;
+function setAccountMenuOpen(open, targetMenu = null) {
+    const menus = targetMenu ? [targetMenu] : Array.from(document.querySelectorAll('.account-menu'));
+    menus.forEach(menu => {
+        const button = menu?.querySelector?.('.account-menu-button');
+        const panel = menu?.querySelector?.('.account-menu-panel');
+        if (!button || !panel) return;
 
-    panel.classList.toggle('hidden', !open);
-    button.classList.toggle('is-open', open);
-    button.setAttribute('aria-expanded', open ? 'true' : 'false');
+        panel.classList.toggle('hidden', !open);
+        button.classList.toggle('is-open', open);
+        button.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
 }
 
 // 主题有两条独立的轴：
@@ -459,12 +464,15 @@ async function openConfig() {
         alert('表单配置读取失败，已切换到 YAML 高级模式: ' + e.message);
     }
 
-    void scanUnmanagedStreams();
+    void scanUnmanagedStreams({openModal: false});
 }
 
 function closeConfig(options = {}) {
     if (!options.skipDirtyCheck && confirmLeaveConfigIfDirty(() => closeConfig({skipDirtyCheck: true}))) return;
     showDashboardPage();
+    if (window.CamKeepMobile?.isMobileMode?.()) {
+        window.CamKeepMobile?.setTab?.('settings', {instant: true, preserveScroll: true});
+    }
 }
 
 function confirmLeaveConfigIfDirty(onConfirm) {
@@ -618,6 +626,11 @@ async function switchConfigMode(mode, options = {}) {
     }
 
     configEditMode = mode;
+    const configPage = document.getElementById('configPage');
+    if (configPage) {
+        configPage.classList.toggle('is-config-mode-form', mode === 'form');
+        configPage.classList.toggle('is-config-mode-yaml', mode === 'yaml');
+    }
     document.getElementById('configFormPanel').classList.toggle('hidden', mode !== 'form');
     document.getElementById('configYamlPanel').classList.toggle('hidden', mode !== 'yaml');
     document.getElementById('configFormTab').className = mode === 'form'
@@ -674,8 +687,38 @@ function warnBeforeUnloadConfigChanges(event) {
     return '';
 }
 
-async function scanUnmanagedStreams() {
+function openGo2rtcImportModal(options = {}) {
+    const modal = document.getElementById('go2rtcImportModal');
+    if (!modal) return false;
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden', 'false');
+    document.documentElement.classList.add('config-import-modal-lock');
+    document.body.classList.add('config-import-modal-lock');
+    if (options.scan) {
+        void scanUnmanagedStreams();
+    }
+    return true;
+}
+
+function closeGo2rtcImportModal() {
+    const modal = document.getElementById('go2rtcImportModal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden', 'true');
+    document.documentElement.classList.remove('config-import-modal-lock');
+    document.body.classList.remove('config-import-modal-lock');
+}
+
+document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') closeGo2rtcImportModal();
+});
+
+async function scanUnmanagedStreams(options = {}) {
+    if (options.openModal !== false) {
+        openGo2rtcImportModal();
+    }
     const listDiv = document.getElementById('unmanagedList');
+    if (!listDiv) return;
     updateGo2rtcImportBadge(0);
     listDiv.innerHTML = '<span class="config-import-result-message">正在扫描 go2rtc 中可导入的摄像头流...</span>';
     listDiv.classList.remove('hidden');
@@ -2089,17 +2132,30 @@ function getMobileStageCameraStateLabel(state) {
     return '待连接';
 }
 
+function getMobileStageCameraModeLabel(mode) {
+    const normalizedMode = String(mode || '').trim().toLowerCase();
+    if (normalizedMode === 'motion') return '移动侦测';
+    if (normalizedMode === 'normal') return '普通';
+    return normalizedMode || '';
+}
+
+function getMobileStageRecordStateLabel(recordState) {
+    const normalizedState = String(recordState || '').trim().toLowerCase();
+    if (normalizedState === 'recording') return '录制中';
+    if (normalizedState === 'motion_recording') return '动检录制';
+    if (normalizedState === 'motion_detecting') return '动检中';
+    if (normalizedState === 'record_error') return '录制异常';
+    if (normalizedState === 'idle') return '未录像';
+    return '';
+}
+
 function getMobileStageCameraMeta(cam, state) {
     if (!cam) return '设备已选择';
     const parts = [getMobileStageCameraStateLabel(state)];
-    const recordState = String(cam.record_state || '').toLowerCase();
-    if (recordState === 'recording') {
-        parts.push('录制中');
-    } else if (recordState === 'motion_recording') {
-        parts.push('动检录制');
-    } else if (cam.mode) {
-        parts.push(cam.mode);
-    }
+    const modeLabel = getMobileStageCameraModeLabel(cam.mode);
+    const recordLabel = getMobileStageRecordStateLabel(cam.record_state || (cam.is_running ? 'recording' : ''));
+    if (modeLabel) parts.push(modeLabel);
+    if (recordLabel) parts.push(recordLabel);
     return parts.join(' · ');
 }
 
@@ -3444,7 +3500,10 @@ function renderRecordSelectionPrompt(message = '请先选择一个实时节点')
     const list = document.getElementById('recordList');
     const countBadge = document.getElementById('recordCount');
     updateSelectedRecordCameraBadge('');
-    if (countBadge) countBadge.innerText = '未选择设备';
+    if (countBadge) {
+        countBadge.innerText = '未选择设备';
+        countBadge.classList.add('record-count-unselected');
+    }
     if (!list) return;
 
     list.className = 'space-y-2';
@@ -3583,8 +3642,8 @@ function createRecordViewSwitch(camId, date, onChange) {
     switcher.dataset.recordViewSwitch = 'true';
 
     [
-        {mode: 'cards', label: '卡片列表', title: '卡片列表'},
-        {mode: 'timeline', label: '时间轴列表', title: '时间轴列表'}
+        {mode: 'cards', label: '列表', title: '列表'},
+        {mode: 'timeline', label: '时间轴', title: '时间轴'}
     ].forEach(option => {
         const btn = document.createElement('button');
         btn.type = 'button';
@@ -3817,6 +3876,7 @@ async function loadRecords(camId) {
     const countBadge = document.getElementById('recordCount');
     const releaseRecordListHeight = lockRecordListHeightDuringRender(list);
     updateSelectedRecordCameraBadge(camId);
+    if (countBadge) countBadge.classList.remove('record-count-unselected');
     clearRecordTimeline24hDock();
     updateRecordRangeStatus();
     list.className = 'space-y-2';

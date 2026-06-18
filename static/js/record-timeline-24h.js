@@ -71,7 +71,6 @@
             );
 
             wrapper.appendChild(createHeader(date, segments, markerSegments, unknownCount, state, zoomBy));
-            wrapper.appendChild(createMobileZoomBar(state, zoomBy));
             if (segments.length === 0) {
                 wrapper.appendChild(createEmptyState(unknownCount));
                 return;
@@ -253,12 +252,6 @@
         header.appendChild(title);
         header.appendChild(actions);
         return header;
-    }
-
-    function createMobileZoomBar(state, zoomBy) {
-        const bar = createZoomControl(state, zoomBy, 'record24h-mobile-zoom');
-        bar.setAttribute('aria-label', '移动端时间轴缩放');
-        return bar;
     }
 
     function createZoomControl(state, zoomBy, className) {

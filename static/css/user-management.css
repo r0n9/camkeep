@@ -91,6 +91,13 @@
     min-width: 0;
 }
 
+.user-list-title-row {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 8px;
+}
+
 .user-list-copy strong,
 .user-list-copy em {
     display: block;
@@ -100,6 +107,7 @@
 }
 
 .user-list-copy strong {
+    min-width: 0;
     color: #0f172a;
     font-size: 12px;
     font-weight: 950;
@@ -186,6 +194,10 @@
     color: #64748b;
     font-size: 11px;
     font-weight: 800;
+}
+
+.user-list-caret {
+    display: none;
 }
 
 .user-source-badge {

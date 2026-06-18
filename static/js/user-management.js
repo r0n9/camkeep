@@ -26,6 +26,9 @@ function closeUsers() {
         return;
     }
     showDashboardPage();
+    if (window.CamKeepMobile?.isMobileMode?.()) {
+        window.CamKeepMobile?.setTab?.('settings', {instant: true, preserveScroll: true});
+    }
 }
 
 function showUserPage() {
@@ -75,7 +78,13 @@ async function loadUsers(options = {}) {
         userCameraOptions = payload.camera_options || [];
         renderUserList();
         const preferred = options.selectId || selectedUserId;
-        if (preferred && userListState.some(user => user.id === preferred)) {
+        if (window.CamKeepMobile?.isMobileMode?.() && !options.selectId && userEditorMode !== 'create') {
+            selectedUserId = '';
+            userEditorMode = 'empty';
+            document.documentElement.dataset.mobileUserView = 'list';
+            renderUserEditor();
+            window.CamKeepMobile?.syncPageState?.();
+        } else if (preferred && userListState.some(user => user.id === preferred)) {
             selectUser(preferred);
         } else if (userEditorMode === 'create') {
             renderCreateUserForm();
@@ -123,17 +132,22 @@ function renderUserListItem(user) {
         <button class="user-list-item ${active ? 'is-active' : ''}" onclick="selectUser('${escapeHtml(user.id)}')" type="button">
             <span class="user-list-avatar">${escapeHtml(userInitials(user))}</span>
             <span class="user-list-copy">
-                <strong>${escapeHtml(user.display_name || user.username)}</strong>
+                <span class="user-list-title-row">
+                    <strong>${escapeHtml(user.display_name || user.username)}</strong>
+                    <span class="user-session-badge ${user.online ? 'is-online' : 'is-offline'}">${user.online ? '在线' : '离线'}</span>
+                </span>
                 <em>${escapeHtml(user.username)}</em>
             </span>
             <span class="user-list-badges">
                 <span class="user-role-badge user-role-badge--${escapeHtml(user.role)}">${userRoleLabel(user.role)}</span>
                 <span class="user-camera-scope-badge">${escapeHtml(userCameraScopeLabel(user))}</span>
                 <span class="user-status-badge ${user.enabled ? 'is-enabled' : 'is-disabled'}">${user.enabled ? '启用' : '停用'}</span>
-                <span class="user-session-badge ${user.online ? 'is-online' : 'is-offline'}">${user.online ? '在线' : '离线'}</span>
                 ${user.is_current ? '<span class="user-current-badge">当前登录</span>' : ''}
             </span>
             ${loginText ? `<span class="user-list-login-meta">${escapeHtml(loginText)}</span>` : ''}
+            <svg class="user-list-caret" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.3" d="M9 5l7 7-7 7"></path>
+            </svg>
         </button>
     `;
 }
@@ -165,6 +179,19 @@ function showCreateUserForm() {
     }
 }
 
+function cancelCreateUser() {
+    selectedUserId = '';
+    userEditorMode = 'empty';
+    clearUserEditorFeedbackTimer();
+    renderUserList();
+    renderUserEditor();
+    if (window.CamKeepMobile?.isMobileMode?.()) {
+        document.documentElement.dataset.mobileUserView = 'list';
+        window.CamKeepMobile?.syncPageState?.();
+        window.scrollTo({top: 0, behavior: 'smooth'});
+    }
+}
+
 function selectedUser() {
     return userListState.find(user => user.id === selectedUserId) || null;
 }
@@ -182,11 +209,9 @@ function renderUserEditor() {
     editor.innerHTML = `
         <div class="user-editor-head">
             <div>
-                <div class="user-editor-kicker">LOCAL USER</div>
                 <h3>${escapeHtml(user.display_name || user.username)}</h3>
                 <p>${renderUserDetailMeta(user)}</p>
             </div>
-            <span class="user-source-badge">本地用户</span>
         </div>
         <div class="user-form-grid">
             ${userTextField('显示名', 'display_name', user.display_name || '', !editable, '用于界面展示')}
@@ -243,7 +268,7 @@ function renderCreateUserForm() {
         ${bootstrap ? '' : userCameraScopePanel('viewer', true, [], false)}
         <div class="user-editor-actions">
             <button onclick="createUser()" class="config-page-primary-btn config-page-primary-btn--compact" type="button">${bootstrap ? '创建管理员' : '创建用户'}</button>
-            <button onclick="renderUserEditor()" class="config-page-secondary-btn config-page-secondary-btn--compact" type="button">取消</button>
+            <button onclick="cancelCreateUser()" class="config-page-secondary-btn config-page-secondary-btn--compact" type="button">取消</button>
         </div>
     `;
 }

@@ -153,10 +153,6 @@
     position: relative;
 }
 
-.record24h-mobile-zoom {
-    display: none;
-}
-
 .record24h-viewport {
     position: relative;
     overflow-x: auto;
@@ -507,40 +503,41 @@
 
 @media (max-width: 900px) {
     .record24h-header {
-        align-items: stretch;
-        flex-direction: column;
+        align-items: flex-start;
+        flex-direction: row;
+        flex-wrap: wrap;
     }
 
     .record24h-actions {
-        width: 100%;
-        flex-direction: column;
-        align-items: stretch;
-        gap: 8px;
+        width: auto;
+        flex-direction: row;
+        align-items: center;
+        gap: 6px;
+        margin-left: auto;
     }
 
     .record24h-time-badge {
-        width: 100%;
         box-sizing: border-box;
-        flex: 1 1 auto;
+        min-width: 68px;
+        flex: 0 0 auto;
     }
 
     .record24h-zoom {
-        width: 100%;
         box-sizing: border-box;
         display: grid;
-        grid-template-columns: 46px minmax(0, 1fr) 46px;
+        grid-template-columns: 34px minmax(38px, 1fr) 34px;
     }
 
     .record24h-zoom button {
-        width: 46px;
-        height: 42px;
-        font-size: 19px;
+        width: 34px;
+        height: 34px;
+        font-size: 18px;
         touch-action: manipulation;
     }
 
     .record24h-zoom-level {
         min-width: 0;
-        line-height: 42px;
+        line-height: 34px;
     }
 
     .record24h-status {
@@ -555,25 +552,6 @@
 
     .record24h-viewport {
         min-height: 244px;
-    }
-
-    .record24h-mobile-zoom {
-        display: grid;
-        position: absolute;
-        z-index: 3;
-        top: 10px;
-        right: 10px;
-        width: min(168px, calc(100% - 20px));
-        grid-template-columns: 46px minmax(0, 1fr) 46px;
-        overflow: hidden;
-        border: 1px solid var(--record24h-border);
-        border-radius: 9999px;
-        background: rgba(255, 255, 255, 0.96);
-        box-shadow: 0 12px 28px -20px rgba(15, 23, 42, 0.72);
-    }
-
-    .record24h-mobile-zoom .record24h-zoom-level {
-        line-height: 42px;
     }
 
     .record24h-pointer-handle {
@@ -633,10 +611,6 @@ html.dark .record24h-time-badge {
 
 html.dark .record24h-zoom {
     background: #0f172a;
-}
-
-html.dark .record24h-mobile-zoom {
-    background: rgba(15, 23, 42, 0.96);
 }
 
 html.dark .record24h-zoom button {

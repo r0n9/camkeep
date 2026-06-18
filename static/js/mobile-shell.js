@@ -101,6 +101,12 @@
         const skin = document.documentElement.dataset.skin === 'classic' ? 'classic' : 'neu';
         const savedMode = localStorage.getItem('camkeep-theme');
         const mode = savedMode === 'dark' || savedMode === 'light' ? savedMode : 'system';
+        const themeSummary = document.getElementById('mobileThemeSummary');
+        if (themeSummary) {
+            const skinLabel = skin === 'classic' ? '原始' : '拟态';
+            const modeLabel = mode === 'dark' ? '深色' : mode === 'light' ? '浅色' : '跟随系统';
+            themeSummary.textContent = `${skinLabel} · ${modeLabel}`;
+        }
         document.querySelectorAll('[data-mobile-skin]').forEach(button => {
             button.classList.toggle('is-active', button.dataset.mobileSkin === skin);
         });
@@ -129,15 +135,35 @@
         const userAction = document.querySelector('.mobile-subpage-appbar--users .mobile-subpage-action');
         const userBack = document.querySelector('.mobile-subpage-appbar--users .mobile-subpage-back');
         if (page === 'users') {
-            if (userTitle) userTitle.textContent = userView === 'detail' ? '用户详情' : '用户管理';
-            if (userSub) userSub.textContent = userView === 'detail' ? '编辑账号、权限与密码' : '账号列表';
+            if (userTitle) userTitle.textContent = userView === 'detail' ? '用户详情' : '用户列表';
+            if (userSub) userSub.textContent = userView === 'detail' ? '编辑账号、权限与密码' : '选择用户查看详情';
             if (userAction) userAction.textContent = '新增';
-            if (userBack) userBack.setAttribute('aria-label', userView === 'detail' ? '返回账号列表' : '返回监控');
+            if (userBack) userBack.setAttribute('aria-label', userView === 'detail' ? '返回用户列表' : '返回设置');
         }
     }
 
     function setTab(tab, options = {}) {
         const next = normalizeTab(tab);
+        const page = currentPage();
+        if (page === 'config' && typeof window.confirmLeaveConfigIfDirty === 'function') {
+            const blocked = window.confirmLeaveConfigIfDirty(() => {
+                window.showDashboardPage?.();
+                setTab(next, {...options, skipSubpageExit: true});
+            });
+            if (blocked) return;
+        }
+        if (!options.skipSubpageExit && page !== 'dashboard') {
+            if (typeof window.showDashboardPage === 'function') {
+                window.showDashboardPage();
+            } else {
+                document.getElementById('configPage')?.classList.add('hidden');
+                document.getElementById('userPage')?.classList.add('hidden');
+                document.getElementById('dashboardPage')?.classList.remove('hidden');
+                document.documentElement.dataset.mobilePage = 'dashboard';
+                document.documentElement.dataset.mobileSubpage = '';
+                document.documentElement.dataset.mobileUserView = 'list';
+            }
+        }
         if (next !== 'monitor') {
             closeTopMostOverlay({skipHistory: true});
         }
@@ -246,6 +272,42 @@
         syncThemeControls();
     }
 
+    function openThemeSettings() {
+        if (!isMobileMode()) return false;
+        const skin = document.documentElement.dataset.skin === 'classic' ? 'classic' : 'neu';
+        const savedMode = localStorage.getItem('camkeep-theme');
+        const mode = savedMode === 'dark' || savedMode === 'light' ? savedMode : 'system';
+        const body = document.createElement('div');
+        body.className = 'mobile-theme-sheet';
+        body.innerHTML = `
+            <div class="mobile-theme-sheet-group">
+                <div class="mobile-theme-sheet-head">
+                    <strong>界面风格</strong>
+                    <span>影响整体视觉层次</span>
+                </div>
+                <div class="mobile-settings-seg mobile-theme-sheet-seg" role="group" aria-label="界面风格">
+                    <button type="button" data-mobile-skin="neu" class="${skin === 'neu' ? 'is-active' : ''}" onclick="setSkin('neu'); window.CamKeepMobile?.syncThemeControls?.()">拟态</button>
+                    <button type="button" data-mobile-skin="classic" class="${skin === 'classic' ? 'is-active' : ''}" onclick="setSkin('classic'); window.CamKeepMobile?.syncThemeControls?.()">原始</button>
+                </div>
+            </div>
+            <div class="mobile-theme-sheet-group">
+                <div class="mobile-theme-sheet-head">
+                    <strong>明暗模式</strong>
+                    <span>支持跟随系统</span>
+                </div>
+                <div class="mobile-settings-seg mobile-theme-sheet-seg" role="group" aria-label="明暗模式">
+                    <button type="button" data-mobile-mode="system" class="${mode === 'system' ? 'is-active' : ''}" onclick="setMode('system'); window.CamKeepMobile?.syncThemeControls?.()">系统</button>
+                    <button type="button" data-mobile-mode="light" class="${mode === 'light' ? 'is-active' : ''}" onclick="setMode('light'); window.CamKeepMobile?.syncThemeControls?.()">浅色</button>
+                    <button type="button" data-mobile-mode="dark" class="${mode === 'dark' ? 'is-active' : ''}" onclick="setMode('dark'); window.CamKeepMobile?.syncThemeControls?.()">深色</button>
+                </div>
+            </div>
+            <div class="mobile-theme-sheet-footer">
+                <button type="button" class="mobile-theme-sheet-close" onclick="window.CamKeepMobile?.closeSheet?.()">完成</button>
+            </div>
+        `;
+        return openSheet('主题设置', '选择风格与明暗模式', body);
+    }
+
     window.CamKeepMobile = {
         applyRecordQuickRange: window.applyRecordQuickRange,
         closeSheet,
@@ -254,6 +316,7 @@
         isMobileMode,
         openCameraPicker: window.openCameraPicker,
         openRecordActionSheet: window.openRecordActionSheet,
+        openThemeSettings,
         openSheet,
         syncLayoutMode,
         syncPageState,

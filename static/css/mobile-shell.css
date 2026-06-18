@@ -27,6 +27,7 @@ html.dark {
 .mobile-appbar,
 .mobile-tabbar,
 .mobile-stage-device-trigger,
+.mobile-record-device-row,
 .mobile-record-range-quick,
 .mobile-sheet-root,
 .mobile-record-more,
@@ -72,7 +73,8 @@ html.dark {
         display: flex;
         min-height: 44px;
         align-items: center;
-        justify-content: flex-start;
+        justify-content: space-between;
+        gap: 10px;
         margin: 0 -2px 8px;
         padding: 6px 2px 8px;
         color: var(--mobile-text);
@@ -174,7 +176,73 @@ html.dark {
         white-space: nowrap;
     }
 
+    html[data-layout-mode="mobile"] .mobile-account-menu {
+        margin-left: auto;
+    }
+
+    html[data-layout-mode="mobile"] .mobile-account-menu-button {
+        max-width: min(48vw, 176px);
+        height: 34px;
+        border: 1px solid transparent;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.42);
+        padding: 0 8px;
+        color: color-mix(in srgb, var(--mobile-text) 88%, transparent);
+        box-shadow: none;
+        backdrop-filter: blur(10px);
+    }
+
+    html[data-layout-mode="mobile"] .mobile-account-menu-button:hover,
+    html[data-layout-mode="mobile"] .mobile-account-menu-button.is-open {
+        border-color: color-mix(in srgb, var(--mobile-border) 68%, transparent);
+        background: rgba(255, 255, 255, 0.66);
+        color: var(--mobile-text);
+        box-shadow: 0 10px 24px -24px rgba(15, 23, 42, 0.38);
+    }
+
+    html.dark[data-layout-mode="mobile"] .mobile-account-menu-button {
+        background: rgba(15, 23, 42, 0.34);
+        color: color-mix(in srgb, var(--mobile-text) 86%, transparent);
+    }
+
+    html.dark[data-layout-mode="mobile"] .mobile-account-menu-button:hover,
+    html.dark[data-layout-mode="mobile"] .mobile-account-menu-button.is-open {
+        border-color: color-mix(in srgb, var(--mobile-border) 70%, transparent);
+        background: rgba(15, 23, 42, 0.58);
+        color: var(--mobile-text);
+        box-shadow: none;
+    }
+
+    html[data-layout-mode="mobile"] .mobile-account-menu-button .account-menu-user-icon {
+        width: 16px;
+        height: 16px;
+        color: color-mix(in srgb, var(--mobile-accent) 78%, var(--mobile-muted));
+    }
+
+    html[data-layout-mode="mobile"] .mobile-account-menu-button .account-menu-username {
+        max-width: 96px;
+        font-size: 12px;
+        font-weight: 850;
+    }
+
+    html[data-layout-mode="mobile"] .mobile-account-menu-button .account-menu-chevron {
+        width: 12px;
+        height: 12px;
+        opacity: 0.7;
+    }
+
+    html[data-layout-mode="mobile"] .mobile-account-menu-panel {
+        top: calc(100% + 8px);
+        right: 0;
+        width: min(220px, calc(100vw - 24px));
+        border-color: var(--mobile-border);
+        border-radius: 14px;
+        background: var(--mobile-surface-strong);
+        box-shadow: var(--mobile-shadow);
+    }
+
     html[data-layout-mode="mobile"] .mobile-record-range-quick,
+    html[data-layout-mode="mobile"] .mobile-record-device-row,
     html[data-layout-mode="mobile"] .mobile-sheet-root,
     html[data-layout-mode="mobile"] .mobile-record-more,
     html[data-layout-mode="mobile"] .mobile-settings-panel,
@@ -527,53 +595,6 @@ html.dark {
         transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease;
     }
 
-    html[data-layout-mode="mobile"] .mobile-settings-theme {
-        display: flex;
-        flex-direction: column;
-        gap: 9px;
-        border: 1px solid var(--mobile-border);
-        border-radius: 14px;
-        background: var(--mobile-surface-strong);
-        padding: 10px 11px;
-    }
-
-    html[data-layout-mode="mobile"] .mobile-settings-theme-title {
-        display: flex;
-        min-width: 0;
-        align-items: center;
-        gap: 11px;
-    }
-
-    html[data-layout-mode="mobile"] .mobile-settings-theme-title > span:last-child {
-        min-width: 0;
-        flex: 1 1 auto;
-    }
-
-    html[data-layout-mode="mobile"] .mobile-settings-theme-title strong,
-    html[data-layout-mode="mobile"] .mobile-settings-theme-title em {
-        display: block;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    html[data-layout-mode="mobile"] .mobile-settings-theme-title strong {
-        color: var(--mobile-text);
-        font-size: 14px;
-        font-style: normal;
-        font-weight: 900;
-        line-height: 18px;
-    }
-
-    html[data-layout-mode="mobile"] .mobile-settings-theme-title em {
-        margin-top: 2px;
-        color: var(--mobile-muted);
-        font-size: 11px;
-        font-style: normal;
-        font-weight: 700;
-        line-height: 15px;
-    }
-
     html[data-layout-mode="mobile"] .mobile-settings-seg {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -645,7 +666,7 @@ html.dark {
         color: #e11d48;
     }
 
-    html[data-layout-mode="mobile"] .mobile-settings-row span:last-child {
+    html[data-layout-mode="mobile"] .mobile-settings-row-copy {
         min-width: 0;
         flex: 1 1 auto;
     }
@@ -677,6 +698,102 @@ html.dark {
 
     html[data-layout-mode="mobile"] .mobile-settings-row--danger strong {
         color: #e11d48;
+    }
+
+    html[data-layout-mode="mobile"] .mobile-settings-row-caret {
+        width: 17px;
+        height: 17px;
+        flex: 0 0 auto;
+        color: var(--mobile-muted);
+        opacity: 0.72;
+    }
+
+    html[data-layout-mode="mobile"] .mobile-theme-sheet {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    html[data-layout-mode="mobile"] .mobile-theme-sheet-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        border-top: 1px solid var(--mobile-border);
+        padding-top: 12px;
+    }
+
+    html[data-layout-mode="mobile"] .mobile-theme-sheet-group:first-child {
+        border-top: 0;
+        padding-top: 0;
+    }
+
+    html[data-layout-mode="mobile"] .mobile-theme-sheet-head {
+        display: flex;
+        min-width: 0;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 10px;
+        padding-inline: 2px;
+    }
+
+    html[data-layout-mode="mobile"] .mobile-theme-sheet-head strong {
+        color: var(--mobile-text);
+        font-size: 13px;
+        font-weight: 900;
+        line-height: 17px;
+    }
+
+    html[data-layout-mode="mobile"] .mobile-theme-sheet-head span {
+        overflow: hidden;
+        color: var(--mobile-muted);
+        font-size: 11px;
+        font-weight: 800;
+        line-height: 15px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    html[data-layout-mode="mobile"] .mobile-theme-sheet-seg {
+        border: 1px solid var(--mobile-border);
+        border-radius: 12px;
+        background: rgba(148, 163, 184, 0.1);
+        padding: 4px;
+    }
+
+    html.dark[data-layout-mode="mobile"] .mobile-theme-sheet-seg {
+        background: rgba(2, 6, 23, 0.22);
+    }
+
+    html[data-layout-mode="mobile"] .mobile-theme-sheet-seg button {
+        border-color: transparent;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    html[data-layout-mode="mobile"] .mobile-theme-sheet-seg button.is-active {
+        background: var(--mobile-surface-strong);
+        box-shadow: 0 8px 18px -16px rgba(15, 23, 42, 0.46);
+    }
+
+    html.dark[data-layout-mode="mobile"] .mobile-theme-sheet-seg button.is-active {
+        background: rgba(96, 165, 250, 0.14);
+        box-shadow: none;
+    }
+
+    html[data-layout-mode="mobile"] .mobile-theme-sheet-footer {
+        padding-top: 2px;
+    }
+
+    html[data-layout-mode="mobile"] .mobile-theme-sheet-close {
+        width: 100%;
+        height: 42px;
+        border: 0;
+        border-radius: 12px;
+        background: var(--mobile-accent);
+        color: #ffffff;
+        font-size: 13px;
+        font-weight: 900;
+        touch-action: manipulation;
     }
 
     html[data-layout-mode="mobile"] .mobile-tabbar {
@@ -1000,14 +1117,9 @@ html.dark {
         font-weight: 800;
     }
 
-    html[data-layout-mode="mobile"][data-mobile-page="config"] .mobile-tabbar,
-    html[data-layout-mode="mobile"][data-mobile-page="users"] .mobile-tabbar {
-        display: none;
-    }
-
     html[data-layout-mode="mobile"][data-mobile-page="config"] body,
     html[data-layout-mode="mobile"][data-mobile-page="users"] body {
-        padding-bottom: calc(var(--mobile-safe-bottom) + 10px) !important;
+        padding-bottom: calc(var(--mobile-tabbar-height) + var(--mobile-safe-bottom) + 10px) !important;
     }
 }
 
