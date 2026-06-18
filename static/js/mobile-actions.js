@@ -160,8 +160,8 @@
         }
         startInput.value = formatDateKey(start);
         endInput.value = formatDateKey(today);
-        document.querySelectorAll('.mobile-record-range-quick button').forEach(button => {
-            button.classList.toggle('is-active', button.getAttribute('onclick')?.includes(`'${kind}'`) === true);
+        document.querySelectorAll('[data-mobile-record-range]').forEach(button => {
+            button.classList.toggle('is-active', button.dataset.mobileRecordRange === kind);
         });
         window.applyRecordRange?.();
     }
@@ -203,7 +203,7 @@
     }
 
     function syncMobileActionState() {
-        document.querySelectorAll('.mobile-record-range-quick button').forEach(button => {
+        document.querySelectorAll('[data-mobile-record-range]').forEach(button => {
             button.classList.remove('is-active');
         });
     }

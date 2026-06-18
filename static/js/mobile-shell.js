@@ -1,11 +1,6 @@
 (function () {
     const MOBILE_MAX_WIDTH = 900;
-    const TAB_TITLES = {
-        monitor: {title: '监控', mode: 'LIVE'},
-        devices: {title: '设备', mode: 'ENTRY'},
-        records: {title: '录像', mode: 'RECORDS'},
-        settings: {title: '设置', mode: 'SYSTEM'}
-    };
+    const MOBILE_TABS = new Set(['monitor', 'devices', 'records', 'settings']);
 
     let resizeFrame = 0;
     let sheetOpen = false;
@@ -32,7 +27,7 @@
     }
 
     function normalizeTab(tab) {
-        return Object.prototype.hasOwnProperty.call(TAB_TITLES, tab) ? tab : 'monitor';
+        return MOBILE_TABS.has(tab) ? tab : 'monitor';
     }
 
     function currentPage() {
@@ -58,10 +53,15 @@
             host.hidden = false;
             host.setAttribute('aria-hidden', 'false');
             if (panel.parentElement !== host) host.appendChild(panel);
+            if (host.id === 'mobilePtzDock') {
+                host.classList.toggle('is-expanded', panel.classList.contains('is-expanded'));
+                host.classList.toggle('is-collapsed', panel.classList.contains('is-collapsed'));
+            }
         } else {
             if (host.id === 'mobilePtzDock') {
                 host.hidden = true;
                 host.setAttribute('aria-hidden', 'true');
+                host.classList.remove('is-expanded', 'is-collapsed');
             }
             if (panel.parentElement !== stage) {
                 stage.appendChild(panel);
@@ -113,11 +113,6 @@
         const root = document.documentElement;
         const tab = normalizeTab(root.dataset.mobileTab);
         root.dataset.mobileTab = tab;
-        const meta = TAB_TITLES[tab];
-        const title = document.getElementById('mobileAppbarTabTitle');
-        const mode = document.getElementById('mobileAppbarMode');
-        if (title) title.textContent = meta.title;
-        if (mode) mode.textContent = meta.mode;
         document.querySelectorAll('[data-mobile-tab-target]').forEach(button => {
             const active = button.dataset.mobileTabTarget === tab;
             button.classList.toggle('is-active', active);

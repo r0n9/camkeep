@@ -151,9 +151,28 @@ html[data-layout-mode="mobile"] #dashboardPage #video-stage {
 }
 
 html[data-layout-mode="mobile"] #dashboardPage #video-toolbar {
-    background: rgba(15, 23, 42, 0.94) !important;
+    background: var(--player-toolbar-bg) !important;
+    border-top: 1px solid var(--player-toolbar-border) !important;
+    box-shadow: var(--player-toolbar-shadow);
     min-width: 0;
     padding: 6px 7px !important;
+}
+
+html[data-layout-mode="mobile"]:not(.dark) #dashboardPage #video-toolbar {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(241, 245, 249, 0.94)) !important;
+    border-top-color: rgba(203, 213, 225, 0.9) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92), 0 -12px 28px -28px rgba(15, 23, 42, 0.36);
+}
+
+html[data-layout-mode="mobile"]:not(.dark) #dashboardPage #focusIndicator,
+html[data-layout-mode="mobile"]:not(.dark) #dashboardPage .player-toolbar-controls {
+    background: rgba(255, 255, 255, 0.74) !important;
+    border-color: rgba(203, 213, 225, 0.88) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86), 0 8px 18px -17px rgba(15, 23, 42, 0.42);
+}
+
+html[data-layout-mode="mobile"]:not(.dark) #dashboardPage .player-toolbar-divider {
+    background: rgba(148, 163, 184, 0.34) !important;
 }
 
 html[data-layout-mode="mobile"] #dashboardPage #focusIndicator {
@@ -169,46 +188,114 @@ html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel {
     box-shadow: none !important;
 }
 
-html[data-layout-mode="mobile"] #dashboardPage .mobile-monitor-actions {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 8px;
-    margin-bottom: 0;
-}
-
-html[data-layout-mode="mobile"] #dashboardPage .mobile-monitor-action {
+html[data-layout-mode="mobile"] #dashboardPage .mobile-stage-device-trigger {
+    align-self: center;
     display: inline-flex;
-    width: 100%;
+    max-width: min(280px, 100%);
     min-width: 0;
-    height: 42px;
+    min-height: 42px;
     align-items: center;
     justify-content: center;
-    gap: 7px;
-    border: 1px solid var(--mobile-border);
-    border-radius: 13px;
-    background: var(--mobile-surface);
-    color: var(--mobile-text);
-    font-size: 12px;
-    font-weight: 900;
-    box-shadow: var(--mobile-shadow);
-    transition: transform 160ms ease, background-color 160ms ease, color 160ms ease;
+    gap: 8px;
+    border: 1px solid rgba(37, 99, 235, 0.26);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 6px 12px;
+    color: #1d4ed8;
+    box-shadow: 0 14px 28px -24px rgba(15, 23, 42, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(14px) saturate(1.12);
+    transition: transform 160ms ease, background-color 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
     touch-action: manipulation;
 }
 
-html[data-layout-mode="mobile"] #dashboardPage .mobile-monitor-action--primary {
-    border-color: rgba(37, 99, 235, 0.28);
-    background: linear-gradient(135deg, rgba(37, 99, 235, 0.92), rgba(14, 165, 233, 0.86));
-    color: #ffffff;
+html.dark[data-layout-mode="mobile"] #dashboardPage .mobile-stage-device-trigger {
+    border-color: rgba(96, 165, 250, 0.34);
+    background: rgba(15, 23, 42, 0.76);
+    color: #eff6ff;
+    box-shadow: 0 18px 40px -28px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
-html[data-layout-mode="mobile"] #dashboardPage .mobile-monitor-action svg {
-    width: 17px;
-    height: 17px;
-    flex: 0 0 auto;
-}
-
-html[data-layout-mode="mobile"] #dashboardPage .mobile-monitor-action:active {
+html[data-layout-mode="mobile"] #dashboardPage .mobile-stage-device-trigger:active {
     transform: scale(0.98);
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .mobile-stage-device-trigger.is-empty {
+    min-height: 40px;
+    padding: 0 18px;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .mobile-stage-device-trigger.is-empty .mobile-stage-device-dot,
+html[data-layout-mode="mobile"] #dashboardPage .mobile-stage-device-trigger.is-empty .mobile-stage-device-copy em,
+html[data-layout-mode="mobile"] #dashboardPage .mobile-stage-device-trigger.is-empty .mobile-stage-device-caret {
+    display: none;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .mobile-stage-device-dot {
+    width: 8px;
+    height: 8px;
+    flex: 0 0 auto;
+    border-radius: 999px;
+    background: #f59e0b;
+    box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.16);
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .mobile-stage-device-dot.is-online {
+    background: #22c55e;
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.18);
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .mobile-stage-device-dot.is-offline {
+    background: #f43f5e;
+    box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.18);
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .mobile-stage-device-copy {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    text-align: center;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .mobile-stage-device-copy strong,
+html[data-layout-mode="mobile"] #dashboardPage .mobile-stage-device-copy em {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .mobile-stage-device-copy strong {
+    color: currentColor;
+    font-size: 12px;
+    font-weight: 900;
+    line-height: 14px;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .mobile-stage-device-trigger.is-empty .mobile-stage-device-copy strong {
+    font-size: 13px;
+    line-height: 1;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .mobile-stage-device-copy em {
+    margin-top: 1px;
+    color: #64748b;
+    font-size: 9px;
+    font-style: normal;
+    font-weight: 800;
+    line-height: 11px;
+}
+
+html.dark[data-layout-mode="mobile"] #dashboardPage .mobile-stage-device-copy em {
+    color: rgba(226, 232, 240, 0.76);
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .mobile-stage-device-caret {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 auto;
+    color: currentColor;
+    opacity: 0.72;
 }
 
 html[data-layout-mode="mobile"] #dashboardPage #recordList {
@@ -220,38 +307,119 @@ html[data-layout-mode="mobile"] #dashboardPage #recordList {
 }
 
 html[data-layout-mode="mobile"] .mobile-record-range-quick {
-    display: grid;
-    gap: 6px;
-    grid-template-columns: minmax(0, 1.15fr) repeat(4, minmax(0, 1fr));
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
-html[data-layout-mode="mobile"] .mobile-record-range-quick button,
 html[data-layout-mode="mobile"] .mobile-record-device-picker {
+    display: flex;
+    width: 100%;
     min-width: 0;
-    height: 36px;
+    min-height: 46px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
     border: 1px solid var(--mobile-border);
-    border-radius: 10px;
+    border-radius: 14px;
     background: var(--mobile-surface-strong);
-    color: var(--mobile-muted);
-    font-size: 11px;
-    font-weight: 900;
-    transition: transform 160ms ease, background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+    padding: 8px 12px;
+    color: var(--mobile-text);
+    text-align: left;
+    box-shadow: 0 12px 26px -24px rgba(15, 23, 42, 0.55);
+    transition: transform 160ms ease, background-color 160ms ease, color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
     touch-action: manipulation;
 }
 
 html[data-layout-mode="mobile"] .mobile-record-device-picker {
-    border-color: rgba(37, 99, 235, 0.28);
-    background: linear-gradient(135deg, rgba(37, 99, 235, 0.92), rgba(14, 165, 233, 0.86));
-    color: #ffffff;
+    border-color: rgba(37, 99, 235, 0.24);
 }
 
-html[data-layout-mode="mobile"] .mobile-record-range-quick button.is-active {
+html.dark[data-layout-mode="mobile"] .mobile-record-device-picker {
+    background: rgba(15, 23, 42, 0.82);
+    border-color: rgba(96, 165, 250, 0.28);
+    box-shadow: none;
+}
+
+html[data-layout-mode="mobile"] .mobile-record-device-copy {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+}
+
+html[data-layout-mode="mobile"] .mobile-record-device-copy strong,
+html[data-layout-mode="mobile"] .mobile-record-device-copy em {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+html[data-layout-mode="mobile"] .mobile-record-device-copy strong {
+    color: var(--mobile-text);
+    font-size: 13px;
+    font-weight: 900;
+    line-height: 17px;
+}
+
+html[data-layout-mode="mobile"] .mobile-record-device-copy em {
+    margin-top: 2px;
+    color: var(--mobile-muted);
+    font-size: 10px;
+    font-style: normal;
+    font-weight: 800;
+    line-height: 13px;
+}
+
+html[data-layout-mode="mobile"] .mobile-record-device-caret {
+    width: 15px;
+    height: 15px;
+    flex: 0 0 auto;
+    color: var(--mobile-muted);
+}
+
+html[data-layout-mode="mobile"] .mobile-record-range-segment {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+    border: 1px solid var(--mobile-border);
+    border-radius: 14px;
+    background: rgba(148, 163, 184, 0.12);
+    padding: 4px;
+}
+
+html.dark[data-layout-mode="mobile"] .mobile-record-range-segment {
+    background: rgba(2, 6, 23, 0.22);
+}
+
+html[data-layout-mode="mobile"] .mobile-record-range-segment button {
+    min-width: 0;
+    height: 34px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--mobile-muted);
+    font-size: 11px;
+    font-weight: 900;
+    transition: transform 160ms ease, background-color 160ms ease, color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+    touch-action: manipulation;
+}
+
+html[data-layout-mode="mobile"] .mobile-record-range-segment button.is-active {
     border-color: rgba(16, 185, 129, 0.34);
-    background: rgba(16, 185, 129, 0.12);
+    background: var(--mobile-surface-strong);
     color: #059669;
+    box-shadow: 0 8px 18px -16px rgba(15, 23, 42, 0.46);
 }
 
-html[data-layout-mode="mobile"] .mobile-record-range-quick button:active,
+html.dark[data-layout-mode="mobile"] .mobile-record-range-segment button.is-active {
+    background: rgba(16, 185, 129, 0.14);
+    color: #6ee7b7;
+    box-shadow: none;
+}
+
+html[data-layout-mode="mobile"] .mobile-record-range-segment button:active,
 html[data-layout-mode="mobile"] .mobile-record-device-picker:active {
     transform: scale(0.97);
 }
@@ -481,4 +649,759 @@ html[data-layout-mode="mobile"] .user-list-panel,
 html[data-layout-mode="mobile"] .user-editor-panel {
     border-radius: 14px !important;
     box-shadow: none !important;
+}
+
+/* Mobile full-width pass: keep controls readable while removing outer cards. */
+html[data-layout-mode="mobile"] body.bg-gray-100 {
+    padding: 0 0 calc(var(--mobile-tabbar-height) + var(--mobile-safe-bottom) + 8px) !important;
+}
+
+html[data-layout-mode="mobile"][data-mobile-page="config"] body.bg-gray-100,
+html[data-layout-mode="mobile"][data-mobile-page="users"] body.bg-gray-100 {
+    padding-bottom: calc(var(--mobile-safe-bottom) + 8px) !important;
+}
+
+html[data-layout-mode="mobile"] .app-shell {
+    padding-top: 0 !important;
+}
+
+html[data-layout-mode="mobile"] .mobile-appbar {
+    min-height: 50px;
+    margin: 0 !important;
+    padding: max(8px, env(safe-area-inset-top, 0px)) 12px 8px !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage {
+    height: calc(100svh - 50px - var(--mobile-tabbar-height) - var(--mobile-safe-bottom) - 8px);
+    width: 100%;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .dashboard-main-grid,
+html[data-layout-mode="mobile"] #dashboardPage #playback-column {
+    gap: 6px !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .live-node-panel,
+html[data-layout-mode="mobile"] #dashboardPage .history-record-panel {
+    padding-inline: 8px !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .live-node-panel .nm-card-head,
+html[data-layout-mode="mobile"] #dashboardPage .history-record-panel > .mb-3 {
+    padding-inline: 0 !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #camStatsPanel.live-stats-panel,
+html[data-layout-mode="mobile"] #dashboardPage #camList,
+html[data-layout-mode="mobile"] #dashboardPage #recordList,
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel {
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+html.dark[data-layout-mode="mobile"] #dashboardPage #camList,
+html.dark[data-layout-mode="mobile"] #dashboardPage #recordList {
+    background: transparent !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #camStatsPanel.live-stats-panel {
+    padding: 0 0 8px !important;
+    border-bottom: 1px solid var(--mobile-border) !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #camStatsPanel .live-stats-total,
+html[data-layout-mode="mobile"] #dashboardPage #camStatsPanel .live-stat-item {
+    border-radius: 10px !important;
+    box-shadow: none !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #camList,
+html[data-layout-mode="mobile"] #dashboardPage #recordList {
+    padding: 0 0 calc(8px + var(--mobile-safe-bottom)) !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #camList > :not([hidden]) ~ :not([hidden]),
+html[data-layout-mode="mobile"] #dashboardPage #recordList > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0 !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .camera-node-card {
+    border-width: 0 0 1px !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .camera-node-card:hover {
+    transform: none !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .camera-node-card.is-selected {
+    background: var(--mobile-accent-soft) !important;
+    box-shadow: inset 3px 0 0 var(--mobile-accent) !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .camera-node-card.has-cover-background::after {
+    opacity: 0.1;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .camera-node-card-body {
+    padding: 10px 2px 10px 10px !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .mobile-camera-intents {
+    padding: 8px 2px 10px 10px;
+    background: transparent !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #video-wrapper {
+    margin-inline: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #000000 !important;
+    box-shadow: none !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #video-stage {
+    border-radius: 0 !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #video-toolbar {
+    border-top-width: 1px !important;
+    box-shadow: none !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .mobile-stage-device-trigger {
+    max-width: calc(100% - 24px);
+    border-radius: 12px;
+    box-shadow: none;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .mobile-stage-device-copy {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    text-align: center;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .mobile-stage-device-copy strong {
+    min-width: 0;
+    flex: 1 1 auto;
+    font-size: 12px;
+    line-height: 16px;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .mobile-stage-device-copy em {
+    margin-top: 0;
+    flex: 0 0 auto;
+    line-height: 16px;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .mobile-stage-device-copy em:empty {
+    display: none;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock {
+    margin-top: 0;
+    padding-inline: 0;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel .custom-scrollbar {
+    padding-inline: 8px !important;
+}
+
+html[data-layout-mode="mobile"] .mobile-record-range-quick {
+    gap: 6px;
+}
+
+html[data-layout-mode="mobile"] .mobile-record-device-picker,
+html[data-layout-mode="mobile"] .mobile-record-range-segment {
+    border-radius: 10px;
+    box-shadow: none;
+}
+
+html[data-layout-mode="mobile"] .mobile-record-range-segment button {
+    border-radius: 8px;
+}
+
+html[data-layout-mode="mobile"] #recordList .record-archive-group,
+html[data-layout-mode="mobile"] #recordList .record-timeline-frame,
+html[data-layout-mode="mobile"] #recordList .record24h,
+html[data-layout-mode="mobile"] .record24h-dock .record24h {
+    overflow: hidden;
+    border-width: 1px 0 !important;
+    border-radius: 0 !important;
+    background: var(--mobile-surface-strong) !important;
+    box-shadow: none !important;
+}
+
+html.dark[data-layout-mode="mobile"] #recordList .record-archive-group,
+html.dark[data-layout-mode="mobile"] #recordList .record-timeline-frame,
+html.dark[data-layout-mode="mobile"] #recordList .record24h,
+html.dark[data-layout-mode="mobile"] .record24h-dock .record24h {
+    background: rgba(15, 23, 42, 0.72) !important;
+}
+
+html[data-layout-mode="mobile"] #recordList .record-archive-content-shell {
+    border-radius: 0 !important;
+    background: transparent !important;
+}
+
+html[data-layout-mode="mobile"] #recordList .record-timeline-card {
+    border-radius: 8px !important;
+    box-shadow: none !important;
+}
+
+html[data-layout-mode="mobile"] .record24h-dock {
+    margin-inline: -8px;
+}
+
+html[data-layout-mode="mobile"] .mobile-settings-panel {
+    padding: 0 8px calc(8px + var(--mobile-safe-bottom));
+}
+
+html[data-layout-mode="mobile"] .mobile-settings-head {
+    padding: 0 2px 6px;
+}
+
+html[data-layout-mode="mobile"] .mobile-settings-theme,
+html[data-layout-mode="mobile"] .mobile-settings-row {
+    border-width: 0 0 1px;
+    border-radius: 0;
+    background: transparent;
+    padding-inline: 2px;
+}
+
+html[data-layout-mode="mobile"] .mobile-settings-theme {
+    padding-block: 10px 12px;
+}
+
+html[data-layout-mode="mobile"] .mobile-settings-row {
+    min-height: 60px;
+}
+
+html[data-layout-mode="mobile"] .mobile-subpage-appbar {
+    min-height: 50px;
+    margin: 0 !important;
+    border-width: 0 0 1px !important;
+    border-radius: 0 !important;
+    background: rgba(248, 250, 252, 0.88) !important;
+    padding: max(7px, env(safe-area-inset-top, 0px)) 8px 7px !important;
+    box-shadow: none !important;
+}
+
+html.dark[data-layout-mode="mobile"] .mobile-subpage-appbar {
+    background: rgba(2, 6, 23, 0.88) !important;
+}
+
+html[data-layout-mode="mobile"] .mobile-subpage-back,
+html[data-layout-mode="mobile"] .mobile-subpage-action {
+    border-radius: 10px;
+    box-shadow: none;
+}
+
+html[data-layout-mode="mobile"] .config-page-card,
+html[data-layout-mode="mobile"] .config-page-card--with-actionbar,
+html[data-layout-mode="mobile"] #userPage .config-page-card {
+    min-height: calc(100svh - 50px - var(--mobile-safe-bottom) - 8px);
+}
+
+html[data-layout-mode="mobile"] .config-page-body,
+html[data-layout-mode="mobile"] #userPage .config-page-body {
+    padding: 0 !important;
+}
+
+html[data-layout-mode="mobile"] .config-workspace {
+    gap: 10px;
+}
+
+html[data-layout-mode="mobile"] .config-tabs,
+html[data-layout-mode="mobile"] .config-page-actionbar {
+    margin-inline: 8px;
+}
+
+html[data-layout-mode="mobile"] .config-page-actionbar {
+    bottom: calc(var(--mobile-safe-bottom) + 8px);
+    border-radius: 12px;
+    box-shadow: none;
+}
+
+html[data-layout-mode="mobile"] .config-discovery-card,
+html[data-layout-mode="mobile"] .config-daily-merge-card,
+html[data-layout-mode="mobile"] .config-section,
+html[data-layout-mode="mobile"] .config-yaml-panel,
+html[data-layout-mode="mobile"] .config-batch-camera-panel,
+html[data-layout-mode="mobile"] #configFormPanel,
+html[data-layout-mode="mobile"] #configYamlPanel {
+    border-width: 1px 0 !important;
+    border-radius: 0 !important;
+    background: var(--mobile-surface-strong) !important;
+    box-shadow: none !important;
+}
+
+html.dark[data-layout-mode="mobile"] .config-discovery-card,
+html.dark[data-layout-mode="mobile"] .config-daily-merge-card,
+html.dark[data-layout-mode="mobile"] .config-section,
+html.dark[data-layout-mode="mobile"] .config-yaml-panel,
+html.dark[data-layout-mode="mobile"] .config-batch-camera-panel,
+html.dark[data-layout-mode="mobile"] #configFormPanel,
+html.dark[data-layout-mode="mobile"] #configYamlPanel {
+    background: rgba(15, 23, 42, 0.72) !important;
+}
+
+html[data-layout-mode="mobile"] .config-discovery-card {
+    margin-bottom: 10px;
+}
+
+html[data-layout-mode="mobile"] .config-discovery-main,
+html[data-layout-mode="mobile"] .config-discovery-panel,
+html[data-layout-mode="mobile"] .config-section-head,
+html[data-layout-mode="mobile"] .config-daily-merge-card {
+    padding-inline: 10px !important;
+}
+
+html[data-layout-mode="mobile"] #configCameraList {
+    padding: 0 !important;
+}
+
+html[data-layout-mode="mobile"] #configCameraList .config-camera-card {
+    border-width: 1px 0 0 !important;
+    border-radius: 0 !important;
+    background: var(--mobile-surface-strong) !important;
+    box-shadow: none !important;
+}
+
+html.dark[data-layout-mode="mobile"] #configCameraList .config-camera-card {
+    background: rgba(15, 23, 42, 0.72) !important;
+}
+
+html[data-layout-mode="mobile"] .config-camera-card-head,
+html[data-layout-mode="mobile"] .config-camera-card-body {
+    padding-inline: 10px !important;
+}
+
+html[data-layout-mode="mobile"] .config-camera-card-body {
+    background: rgba(248, 250, 252, 0.7) !important;
+}
+
+html.dark[data-layout-mode="mobile"] .config-camera-card-body {
+    background: rgba(2, 6, 23, 0.24) !important;
+}
+
+html[data-layout-mode="mobile"] .config-form-section {
+    border-radius: 0;
+    box-shadow: none;
+}
+
+html[data-layout-mode="mobile"] .user-management-layout {
+    height: 100%;
+}
+
+html[data-layout-mode="mobile"] .user-list-panel,
+html[data-layout-mode="mobile"] .user-editor-panel {
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+html[data-layout-mode="mobile"] .user-list-head,
+html[data-layout-mode="mobile"] .user-editor-head {
+    padding-inline: 10px !important;
+}
+
+html[data-layout-mode="mobile"] .user-list,
+html[data-layout-mode="mobile"] .user-editor-panel {
+    padding: 10px !important;
+}
+
+html[data-layout-mode="mobile"] .user-list-item {
+    border-width: 0 0 1px !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+html[data-layout-mode="mobile"] .user-list-item:hover,
+html[data-layout-mode="mobile"] .user-list-item.is-active {
+    background: var(--mobile-accent-soft) !important;
+    transform: none !important;
+}
+
+html[data-layout-mode="mobile"] .user-password-panel {
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+
+html[data-layout-mode="mobile"] .mobile-sheet {
+    border-right: 0;
+    border-left: 0;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -18px 44px -34px rgba(2, 6, 23, 0.72);
+}
+
+html[data-layout-mode="mobile"] .mobile-sheet-body {
+    padding: 8px 0 calc(10px + var(--mobile-safe-bottom));
+}
+
+html[data-layout-mode="mobile"] .mobile-picker-wrap {
+    gap: 8px;
+}
+
+html[data-layout-mode="mobile"] .mobile-picker-toolbar {
+    padding-inline: 8px;
+}
+
+html[data-layout-mode="mobile"] .mobile-picker-list,
+html[data-layout-mode="mobile"] .mobile-sheet-actions {
+    gap: 0;
+}
+
+html[data-layout-mode="mobile"] .mobile-picker-item,
+html[data-layout-mode="mobile"] .mobile-sheet-action {
+    min-height: 58px;
+    border-width: 0 0 1px;
+    border-radius: 0;
+    background: transparent;
+    padding-inline: 10px;
+}
+
+html[data-layout-mode="mobile"] .mobile-picker-item.is-selected {
+    background: var(--mobile-accent-soft);
+}
+
+html[data-layout-mode="mobile"] .mobile-sheet-empty {
+    margin-inline: 8px;
+    border-radius: 10px;
+    box-shadow: none;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock {
+    flex: 0 0 auto;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded {
+    display: flex;
+    width: 100%;
+    flex: 1 1 0;
+    min-height: 0;
+    align-items: stretch;
+    overflow: hidden;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-collapsed {
+    flex: 0 0 auto;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel {
+    display: flex;
+    width: 100% !important;
+    max-width: none !important;
+    height: 100%;
+    max-height: 100% !important;
+    min-height: 0;
+    flex: 1 1 auto;
+    align-items: stretch;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel > .custom-scrollbar {
+    display: flex !important;
+    flex-direction: column;
+    width: 100%;
+    flex: 1 1 auto;
+    height: 100%;
+    min-height: 0;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 8px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 8px !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel > .custom-scrollbar > .mb-3 {
+    width: 100%;
+    flex: 0 0 auto;
+    margin-bottom: 0 !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-dial {
+    display: grid;
+    width: 100%;
+    flex: 1 0 auto;
+    min-height: 112px;
+    max-height: clamp(124px, 24svh, 148px);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: repeat(3, minmax(32px, 1fr));
+    justify-items: stretch;
+    align-items: stretch;
+    gap: 8px;
+    padding: 6px;
+    overflow: hidden;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-btn {
+    aspect-ratio: auto;
+    width: 100%;
+    height: 100%;
+    min-height: 32px;
+    justify-self: stretch;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-btn svg {
+    width: 15px;
+    height: 15px;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-tool-panel {
+    display: flex;
+    width: 100%;
+    max-width: none;
+    flex: 0.58 1 52px;
+    min-height: 42px;
+    margin-top: 0 !important;
+    padding: 5px !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-tool-panel .ptz-control-grid {
+    width: 100%;
+    height: 100%;
+    flex: 1 1 auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    justify-items: stretch;
+    align-items: stretch;
+    grid-template-rows: minmax(34px, 1fr);
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-action-btn {
+    width: 100%;
+    height: 100%;
+    min-height: 34px;
+    justify-content: center;
+    justify-self: stretch;
+    padding: 0 10px !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-action-icon {
+    width: 24px;
+    height: 24px;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-speed-panel {
+    width: 100%;
+    flex: 0 0 auto;
+    min-height: 38px;
+    margin-top: 0 !important;
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+}
+
+@media (max-height: 700px) {
+    html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel > .custom-scrollbar {
+        gap: 6px;
+        padding-top: 6px !important;
+        padding-bottom: 6px !important;
+    }
+
+    html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-dial {
+        flex-basis: clamp(112px, 20svh, 128px);
+        min-height: 112px;
+        max-height: clamp(112px, 20svh, 128px);
+        grid-template-rows: repeat(3, minmax(30px, 1fr));
+        gap: 4px;
+        padding: 4px;
+    }
+
+    html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-btn {
+        min-height: 30px;
+    }
+
+    html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-action-btn {
+        min-height: 32px;
+    }
+
+    html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-tool-panel {
+        flex-basis: 36px;
+        min-height: 34px;
+        padding: 4px !important;
+    }
+
+    html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-tool-panel .ptz-control-grid {
+        gap: 4px;
+        grid-template-rows: minmax(30px, 1fr);
+    }
+
+    html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-action-icon {
+        width: 20px;
+        height: 20px;
+    }
+
+    html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-speed-panel {
+        min-height: 34px;
+        padding-top: 5px !important;
+        padding-bottom: 5px !important;
+    }
+}
+
+@media (max-height: 600px) {
+    html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel > .custom-scrollbar {
+        gap: 4px;
+        padding: 4px 8px !important;
+    }
+
+    html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel > .custom-scrollbar > .mb-3 {
+        min-height: 28px;
+    }
+
+    html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-panel-feedback {
+        display: none;
+    }
+
+    html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-panel-collapse-btn {
+        width: 28px;
+        height: 28px;
+    }
+
+    html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-dial {
+        flex-basis: clamp(96px, 18svh, 108px);
+        min-height: 96px;
+        max-height: clamp(96px, 18svh, 108px);
+        gap: 3px;
+        padding: 3px;
+    }
+
+    html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-btn {
+        min-height: 28px;
+    }
+
+    html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-tool-panel .ptz-control-grid {
+        grid-template-rows: minmax(28px, 1fr);
+    }
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #playback-column {
+    align-items: stretch !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock {
+    width: 100%;
+    min-width: 0;
+    align-self: stretch;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel.is-expanded {
+    position: static !important;
+    right: auto !important;
+    left: auto !important;
+    display: flex !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: none !important;
+    align-self: stretch !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel.is-expanded > .custom-scrollbar {
+    width: 100% !important;
+    min-width: 0;
+    align-self: stretch;
+    justify-self: stretch;
+    justify-items: stretch;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel.is-expanded .ptz-dial,
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel.is-expanded .ptz-tool-panel,
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel.is-expanded .ptz-speed-panel {
+    width: 100% !important;
+    min-width: 0;
+    max-width: none !important;
+    justify-self: stretch;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel.is-expanded .ptz-dial {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel.is-expanded .ptz-control-grid {
+    width: 100% !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel.is-expanded .ptz-btn,
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel.is-expanded .ptz-action-btn {
+    width: 100% !important;
+    min-width: 0;
+    justify-self: stretch;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel.is-mobile-docked {
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    inline-size: 100% !important;
+    width: 100% !important;
+    min-inline-size: 100% !important;
+    min-width: 100% !important;
+    max-inline-size: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    transform: none !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel.is-mobile-docked.is-expanded {
+    display: flex !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel.is-mobile-docked > .custom-scrollbar {
+    box-sizing: border-box;
+    inline-size: 100% !important;
+    width: 100% !important;
+    min-inline-size: 0;
+    max-inline-size: none;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel.is-mobile-docked > .custom-scrollbar > * {
+    box-sizing: border-box;
+    inline-size: 100% !important;
+    width: 100% !important;
+    min-inline-size: 0;
+    max-inline-size: none !important;
+    justify-self: stretch !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel.is-mobile-docked .ptz-dial {
+    display: grid !important;
+    min-height: 112px;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    grid-template-rows: repeat(3, minmax(32px, 1fr)) !important;
+    overflow: hidden;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel.is-mobile-docked .ptz-control-grid {
+    display: grid !important;
+    inline-size: 100% !important;
+    width: 100% !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-rows: minmax(34px, 1fr) !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel.is-mobile-docked .ptz-btn,
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel.is-mobile-docked .ptz-action-btn {
+    inline-size: 100% !important;
+    width: 100% !important;
+    min-inline-size: 0;
+    justify-self: stretch !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel.is-mobile-docked .ptz-btn {
+    min-height: 32px;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel.is-mobile-docked .ptz-action-btn {
+    min-height: 34px;
 }

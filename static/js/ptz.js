@@ -67,6 +67,8 @@
         const visible = Boolean(panel && !panel.classList.contains('hidden') && isMobileViewport());
         dock.hidden = !visible;
         dock.setAttribute('aria-hidden', visible ? 'false' : 'true');
+        dock.classList.toggle('is-expanded', visible && panel.classList.contains('is-expanded'));
+        dock.classList.toggle('is-collapsed', visible && panel.classList.contains('is-collapsed'));
     }
 
     function getPanelCollapsed(mode = currentPanelMode()) {
@@ -305,8 +307,9 @@
 
         const text = panelStateText(status);
         const collapsedClass = state.panelCollapsed ? 'is-collapsed' : 'is-expanded';
+        const mobileDockedClass = mode === 'mobile' ? 'is-mobile-docked' : '';
         const enteringClass = !state.panelCollapsed && panel.classList.contains('is-collapsed') ? 'is-entering' : '';
-        panel.className = `${PANEL_BASE_CLASS} ${collapsedClass} ${enteringClass}`.trim();
+        panel.className = `${PANEL_BASE_CLASS} ${collapsedClass} ${mobileDockedClass} ${enteringClass}`.trim();
 
         panel.setAttribute('aria-hidden', 'false');
         syncMobileDockVisibility(panel);

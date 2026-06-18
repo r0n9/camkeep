@@ -520,6 +520,7 @@ function renderStatusLoadFailure(key, message, detail = '') {
     window.cameraOnvifEventOverlayNoticeCache?.clear?.();
     setSelectedRecordPath('');
     updateSelectedRecordCameraBadge('');
+    window.syncMobileStageDevicePicker?.();
     renderRecordSelectionPrompt(message);
     updateCameraStats([], true);
     const list = document.getElementById('camList');
@@ -556,6 +557,7 @@ async function loadStatus() {
             updateSelectedRecordCameraBadge('');
             renderRecordSelectionPrompt('当前账号不可访问原选中的摄像头');
         }
+        window.syncMobileStageDevicePicker?.();
 
         Array.from(cameraCardRenderKeys.keys()).forEach(id => {
             if (!visibleCamIds.has(id)) cameraCardRenderKeys.delete(id);
@@ -582,6 +584,7 @@ async function loadStatus() {
         if (cameras.length === 0 && !currentSelectedCam) renderRecordSelectionPrompt('当前账号暂无可访问摄像头');
 
         if (typeof refreshOnvifEventOverlay === 'function') refreshOnvifEventOverlay();
+        window.syncMobileStageDevicePicker?.();
         refreshPTZPanel();
     } catch (e) {
         if (typeof refreshOnvifEventOverlay === 'function') refreshOnvifEventOverlay();
@@ -845,6 +848,7 @@ function selectCamera(camId) {
     currentSelectedCam = camId;
     updateSelectedRecordCameraBadge(camId);
     applySelectedCameraCardStyles();
+    window.syncMobileStageDevicePicker?.();
     refreshPTZPanel();
     loadRecords(camId);
 }
@@ -853,6 +857,7 @@ function previewLive(camId) {
     currentSelectedCam = camId;
     updateSelectedRecordCameraBadge(camId);
     applySelectedCameraCardStyles();
+    window.syncMobileStageDevicePicker?.();
     refreshPTZPanel();
     playVideo(camId, true, `🟢 直播: ${camId}`);
     loadRecords(camId);

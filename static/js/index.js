@@ -2069,6 +2069,74 @@ function escapeHtml(value) {
     })[char]);
 }
 
+function getMobileStageCameraEntries() {
+    if (typeof window.getMobileCameraEntries === 'function') return window.getMobileCameraEntries();
+    return [];
+}
+
+function getMobileStageCameraState(cam) {
+    const running = cam?.is_running === true || cam?.running === true;
+    const streamState = String(cam?.stream_state || cam?.state || '').toLowerCase();
+    const recordState = String(cam?.record_state || '').toLowerCase();
+    if (running || streamState === 'online' || streamState === 'running' || recordState === 'recording') return 'online';
+    if (streamState === 'offline' || cam?.online === false) return 'offline';
+    return 'idle';
+}
+
+function getMobileStageCameraStateLabel(state) {
+    if (state === 'online') return '在线';
+    if (state === 'offline') return '离线';
+    return '待连接';
+}
+
+function getMobileStageCameraMeta(cam, state) {
+    if (!cam) return '设备已选择';
+    const parts = [getMobileStageCameraStateLabel(state)];
+    const recordState = String(cam.record_state || '').toLowerCase();
+    if (recordState === 'recording') {
+        parts.push('录制中');
+    } else if (recordState === 'motion_recording') {
+        parts.push('动检录制');
+    } else if (cam.mode) {
+        parts.push(cam.mode);
+    }
+    return parts.join(' · ');
+}
+
+function syncMobileStageDevicePicker() {
+    const trigger = document.getElementById('mobileStageDeviceTrigger');
+    const dot = document.getElementById('mobileStageDeviceDot');
+    const name = document.getElementById('mobileStageDeviceName');
+    const meta = document.getElementById('mobileStageDeviceMeta');
+    if (!trigger || !dot || !name || !meta) return;
+
+    const camId = String(currentSelectedCam || '').trim();
+    const hasSelection = camId !== '';
+    trigger.classList.toggle('is-empty', !hasSelection);
+
+    if (!hasSelection) {
+        name.textContent = '选择设备开始预览';
+        meta.textContent = '';
+        trigger.setAttribute('aria-label', '选择设备开始预览');
+        trigger.removeAttribute('title');
+        dot.classList.remove('is-online', 'is-offline', 'is-idle');
+        dot.classList.add('is-idle');
+        return;
+    }
+
+    const entry = getMobileStageCameraEntries().find(item => item && item.id === camId);
+    const state = getMobileStageCameraState(entry?.cam);
+    const metaText = getMobileStageCameraMeta(entry?.cam, state);
+    name.textContent = metaText ? `${camId} · ${metaText}` : camId;
+    meta.textContent = '';
+    trigger.setAttribute('aria-label', `切换设备，当前 ${camId}`);
+    trigger.title = metaText ? `当前设备: ${camId} · ${metaText}` : `当前设备: ${camId}`;
+    dot.classList.remove('is-online', 'is-offline', 'is-idle');
+    dot.classList.add(`is-${state}`);
+}
+
+window.syncMobileStageDevicePicker = syncMobileStageDevicePicker;
+
 // --- 宫格矩阵与播放逻辑 ---
 function setLayout(layoutCount) {
     currentLayout = layoutCount;
@@ -2306,6 +2374,7 @@ function updateFocusUI() {
     }
     const focusTitle = cellData[activeCell] ? cellData[activeCell].title : '空闲';
     document.getElementById('currentCam').innerText = `[窗口 ${activeCell + 1}] ${focusTitle}`;
+    syncMobileStageDevicePicker();
 }
 
 function lockRecordListHeightDuringRender(list) {
@@ -3394,12 +3463,22 @@ function renderRecordSelectionPrompt(message = '请先选择一个实时节点')
 
 function updateSelectedRecordCameraBadge(camId = currentSelectedCam) {
     const badge = document.getElementById('recordSelectedCam');
-    if (!badge) return;
-
     const normalizedCamId = String(camId || '').trim();
-    badge.classList.toggle('hidden', normalizedCamId === '');
-    badge.textContent = normalizedCamId ? `当前: ${normalizedCamId}` : '';
-    badge.title = normalizedCamId ? `当前摄像头: ${normalizedCamId}` : '';
+    if (badge) {
+        badge.classList.toggle('hidden', normalizedCamId === '');
+        badge.textContent = normalizedCamId ? `当前: ${normalizedCamId}` : '';
+        badge.title = normalizedCamId ? `当前摄像头: ${normalizedCamId}` : '';
+    }
+
+    const mobileName = document.getElementById('mobileRecordDeviceName');
+    const mobileMeta = document.getElementById('mobileRecordDeviceMeta');
+    const mobileButton = document.querySelector('.mobile-record-device-picker');
+    if (!mobileName || !mobileMeta || !mobileButton) return;
+
+    mobileName.textContent = normalizedCamId || '选择设备';
+    mobileMeta.textContent = normalizedCamId ? '查看该设备录像' : '查看对应录像';
+    mobileButton.setAttribute('aria-label', normalizedCamId ? `切换录像设备，当前 ${normalizedCamId}` : '选择录像设备');
+    mobileButton.title = normalizedCamId ? `当前摄像头: ${normalizedCamId}` : '选择录像设备';
 }
 
 function validateRecordRange(start, end) {

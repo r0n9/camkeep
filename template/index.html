@@ -194,16 +194,6 @@
             <img src="/static/image/camkeep_w80.png" alt="CamKeep">
             <span>CamKeep NVR</span>
         </a>
-        <div class="mobile-appbar-status">
-            <span id="mobileAppbarTabTitle">监控</span>
-            <small id="mobileAppbarMode">LIVE</small>
-        </div>
-        <button type="button" class="mobile-appbar-action" onclick="window.CamKeepMobile?.setTab('settings')" title="设置" aria-label="设置">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 6.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11z"></path>
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 2.5v2m0 15v2m9.5-9.5h-2m-15 0h-2m16.36-6.36l-1.42 1.42M6.56 17.44l-1.42 1.42m0-13.72l1.42 1.42m10.88 10.88l1.42 1.42"></path>
-            </svg>
-        </button>
     </header>
 
     <section id="configPage" class="config-page hidden">
@@ -597,14 +587,16 @@
         </section>
 
         <section id="playback-column" class="app-section app-section-monitor min-w-0 flex flex-col gap-2">
-        <div class="mobile-monitor-actions" aria-label="移动端监控快捷操作">
-            <button type="button" onclick="window.CamKeepMobile?.openCameraPicker()" class="mobile-monitor-action mobile-monitor-action--primary">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1" d="M4 7h16M4 12h16M4 17h16"></path>
-                </svg>
-                <span>选择设备</span>
-            </button>
-        </div>
+        <button id="mobileStageDeviceTrigger" type="button" onclick="window.CamKeepMobile?.openCameraPicker()" class="mobile-stage-device-trigger is-empty" aria-label="选择设备开始预览">
+            <span id="mobileStageDeviceDot" class="mobile-stage-device-dot is-idle" aria-hidden="true"></span>
+            <span class="mobile-stage-device-copy">
+                <strong id="mobileStageDeviceName">选择设备开始预览</strong>
+                <em id="mobileStageDeviceMeta">选择实时节点</em>
+            </span>
+            <svg class="mobile-stage-device-caret" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M6 9l6 6 6-6"></path>
+            </svg>
+        </button>
         <div id="video-wrapper" class="player-shell nm-screen bg-gray-900 rounded-xl shadow-xl overflow-hidden relative h-auto min-h-0 max-h-none lg:h-[560px] lg:max-h-none flex flex-col border border-gray-800 transition-all duration-300">
 
             <div id="video-stage" class="player-stage relative flex min-h-0 flex-none aspect-video bg-black lg:flex-1 lg:aspect-auto">
@@ -675,14 +667,22 @@
                     </button>
                 </div>
             </div>
-            <div class="mobile-record-range-quick" aria-label="移动端录像快捷日期">
+            <div class="mobile-record-range-quick" aria-label="移动端录像筛选">
                 <button type="button" onclick="window.CamKeepMobile?.openCameraPicker()" class="mobile-record-device-picker">
-                    选择设备
+                    <span class="mobile-record-device-copy">
+                        <strong id="mobileRecordDeviceName">选择设备</strong>
+                        <em id="mobileRecordDeviceMeta">查看对应录像</em>
+                    </span>
+                    <svg class="mobile-record-device-caret" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M6 9l6 6 6-6"></path>
+                    </svg>
                 </button>
-                <button type="button" onclick="window.CamKeepMobile?.applyRecordQuickRange('today')">今天</button>
-                <button type="button" onclick="window.CamKeepMobile?.applyRecordQuickRange('yesterday')">昨天</button>
-                <button type="button" onclick="window.CamKeepMobile?.applyRecordQuickRange('3d')">近3天</button>
-                <button type="button" onclick="window.CamKeepMobile?.applyRecordQuickRange('7d')">近7天</button>
+                <div class="mobile-record-range-segment" role="group" aria-label="录像快捷日期">
+                    <button type="button" data-mobile-record-range="today" onclick="window.CamKeepMobile?.applyRecordQuickRange('today')">今天</button>
+                    <button type="button" data-mobile-record-range="yesterday" onclick="window.CamKeepMobile?.applyRecordQuickRange('yesterday')">昨天</button>
+                    <button type="button" data-mobile-record-range="3d" onclick="window.CamKeepMobile?.applyRecordQuickRange('3d')">近3天</button>
+                    <button type="button" data-mobile-record-range="7d" onclick="window.CamKeepMobile?.applyRecordQuickRange('7d')">近7天</button>
+                </div>
             </div>
         </div>
         <div id="recordList" class="space-y-2"></div>
