@@ -1,6 +1,10 @@
 :root {
     --mobile-tabbar-height: 62px;
+    --mobile-safe-top: env(safe-area-inset-top, 0px);
     --mobile-safe-bottom: env(safe-area-inset-bottom, 0px);
+    --mobile-appbar-height: calc(50px + max(0px, var(--mobile-safe-top) - 8px));
+    --mobile-subpage-appbar-height: calc(50px + max(0px, var(--mobile-safe-top) - 7px));
+    --mobile-page-gutter: 12px;
     --mobile-shell-bg: #eef3f8;
     --mobile-surface: rgba(255, 255, 255, 0.92);
     --mobile-surface-strong: #ffffff;
@@ -34,6 +38,11 @@ html.dark {
 .mobile-subpage-appbar,
 .mobile-settings-panel,
 .mobile-camera-intents {
+    display: none;
+}
+
+.mobile-only-page-heading,
+.mobile-page-title {
     display: none;
 }
 

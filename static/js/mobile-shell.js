@@ -259,6 +259,70 @@
         return false;
     }
 
+    let lastYamlNavBypassAt = 0;
+
+    function eventPoint(event) {
+        const touch = event.changedTouches?.[0] || event.touches?.[0];
+        if (touch) return {x: touch.clientX, y: touch.clientY};
+        if (Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
+            return {x: event.clientX, y: event.clientY};
+        }
+        return null;
+    }
+
+    function pointInRect(point, rect, pad = 0) {
+        return point.x >= rect.left - pad
+            && point.x <= rect.right + pad
+            && point.y >= rect.top - pad
+            && point.y <= rect.bottom + pad;
+    }
+
+    function runAfterYamlTouch(action) {
+        document.activeElement?.blur?.();
+        window.setTimeout(action, 0);
+    }
+
+    function handleConfigYamlNavBypass(event) {
+        const configPage = document.getElementById('configPage');
+        if (!isMobileMode() || currentPage() !== 'config' || !configPage?.classList.contains('is-config-mode-yaml')) return;
+
+        const now = Date.now();
+        if (now - lastYamlNavBypassAt < 450) {
+            event.preventDefault();
+            event.stopImmediatePropagation?.();
+            return;
+        }
+
+        const point = eventPoint(event);
+        if (!point) return;
+
+        const backButton = document.querySelector('.mobile-subpage-appbar--config .mobile-subpage-back');
+        if (backButton && pointInRect(point, backButton.getBoundingClientRect(), 12)) {
+            lastYamlNavBypassAt = now;
+            event.preventDefault();
+            event.stopImmediatePropagation?.();
+            runAfterYamlTouch(() => window.closeConfig?.());
+            return;
+        }
+
+        const tabbar = document.getElementById('mobileTabbar');
+        if (!tabbar || !pointInRect(point, tabbar.getBoundingClientRect())) return;
+        const targetButton = Array.from(tabbar.querySelectorAll('[data-mobile-tab-target]'))
+            .find(button => pointInRect(point, button.getBoundingClientRect()));
+        const targetTab = targetButton?.dataset.mobileTabTarget;
+        if (!targetTab) return;
+
+        lastYamlNavBypassAt = now;
+        event.preventDefault();
+        event.stopImmediatePropagation?.();
+        runAfterYamlTouch(() => setTab(targetTab, {instant: true}));
+    }
+
+    function handleConfigYamlNavStart(event) {
+        if (event.type === 'mousedown' && event.button !== 0) return;
+        handleConfigYamlNavBypass(event);
+    }
+
     function formatDateKey(date) {
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -341,6 +405,12 @@
     document.addEventListener('keydown', event => {
         if (event.key === 'Escape') closeTopMostOverlay();
     });
+    document.addEventListener('pointerdown', handleConfigYamlNavStart, true);
+    document.addEventListener('touchstart', handleConfigYamlNavStart, true);
+    document.addEventListener('mousedown', handleConfigYamlNavStart, true);
+    document.addEventListener('pointerup', handleConfigYamlNavBypass, true);
+    document.addEventListener('touchend', handleConfigYamlNavBypass, true);
+    document.addEventListener('click', handleConfigYamlNavBypass, true);
 
     document.addEventListener('DOMContentLoaded', () => {
         const saved = normalizeTab(document.documentElement.dataset.mobileTab || localStorage.getItem('camkeep-mobile-tab') || 'devices');

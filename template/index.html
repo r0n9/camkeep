@@ -589,8 +589,10 @@
     <div class="dashboard-main-grid grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] gap-4 lg:gap-5 mb-5 md:mb-6">
 
         <section id="liveNodePanel" class="live-node-panel app-section app-section-devices nm-card nm-card--blue bg-white p-3 rounded-xl shadow-sm border-t-4 border-blue-500 flex flex-col h-[340px] min-h-[300px] max-h-[360px] lg:h-[560px] lg:min-h-0 lg:max-h-none">
-            <div class="nm-card-head mb-2.5 flex items-center justify-between">
-                <h2 class="font-bold text-base text-gray-700 flex items-center"><span class="nm-card-dot" aria-hidden="true"></span>实时节点</h2>
+            <div class="nm-card-head mobile-page-heading mb-2.5 flex items-center justify-between">
+                <div class="mobile-page-heading-copy">
+                    <h2 class="font-bold text-base text-gray-700 flex items-center"><span class="nm-card-dot" aria-hidden="true"></span><span class="desktop-page-title">实时节点</span><span class="mobile-page-title">设备</span></h2>
+                </div>
                 <span id="camStatsSummary" data-state="empty" class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-500 border border-slate-200">0 节点</span>
             </div>
             <div id="camStatsPanel" class="live-stats-panel" aria-label="实时节点统计">
@@ -637,6 +639,11 @@
         </section>
 
         <section id="playback-column" class="app-section app-section-monitor min-w-0 flex flex-col gap-2">
+        <div class="mobile-only-page-heading mobile-page-heading">
+            <div class="mobile-page-heading-copy">
+                <h2>监控</h2>
+            </div>
+        </div>
         <button id="mobileStageDeviceTrigger" type="button" onclick="window.CamKeepMobile?.openCameraPicker()" class="mobile-stage-device-trigger is-empty" aria-label="选择设备开始预览">
             <span id="mobileStageDeviceDot" class="mobile-stage-device-dot is-idle" aria-hidden="true"></span>
             <span class="mobile-stage-device-copy">
@@ -696,11 +703,13 @@
 
     <section id="recordPanel" class="history-record-panel app-section app-section-records nm-card nm-card--emerald bg-white p-3 sm:p-4 rounded-xl shadow-sm border-t-4 border-emerald-500">
         <div class="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div class="flex flex-wrap items-center gap-2">
-                <h2 class="font-bold text-base text-gray-700 flex items-center"><span class="nm-card-dot" aria-hidden="true"></span>历史录像</h2>
-                <span id="recordSelectedCam" class="hidden max-w-[220px] truncate rounded-full border border-blue-100 bg-blue-50 px-2.5 py-0.5 text-[11px] font-extrabold text-blue-700" title=""></span>
-                <span id="recordCount" class="text-[11px] font-medium text-gray-500 bg-gray-100 px-2.5 py-0.5 rounded-full border border-gray-200">0 个文件</span>
-                <span id="recordRangeStatus" class="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100">最近7个录像日</span>
+            <div class="mobile-page-heading">
+                <div class="mobile-page-heading-copy flex flex-wrap items-center gap-2">
+                    <h2 class="font-bold text-base text-gray-700 flex items-center"><span class="nm-card-dot" aria-hidden="true"></span><span class="desktop-page-title">历史录像</span><span class="mobile-page-title">录像</span></h2>
+                    <span id="recordSelectedCam" class="hidden max-w-[220px] truncate rounded-full border border-blue-100 bg-blue-50 px-2.5 py-0.5 text-[11px] font-extrabold text-blue-700" title=""></span>
+                    <span id="recordCount" class="text-[11px] font-medium text-gray-500 bg-gray-100 px-2.5 py-0.5 rounded-full border border-gray-200">0 个文件</span>
+                    <span id="recordRangeStatus" class="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100">最近7个录像日</span>
+                </div>
             </div>
             <div class="mobile-record-device-row" aria-label="移动端录像设备选择">
                 <button type="button" onclick="window.CamKeepMobile?.openCameraPicker()" class="mobile-record-device-picker">
@@ -742,9 +751,10 @@
 
     <section id="mobileSettingsPanel" class="app-section app-section-settings mobile-settings-panel" aria-label="移动端设置">
         <div class="mobile-settings-group">
-            <div class="mobile-settings-head">
-                <h2>设置</h2>
-                <p>主题、配置和访问控制。</p>
+            <div class="mobile-settings-head mobile-page-heading">
+                <div class="mobile-page-heading-copy">
+                    <h2>设置</h2>
+                </div>
             </div>
             <button type="button" class="mobile-settings-row mobile-settings-row--nav" onclick="window.CamKeepMobile?.openThemeSettings()">
                 <span class="mobile-settings-icon mobile-settings-icon--blue">

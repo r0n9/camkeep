@@ -21,6 +21,7 @@ let matrixToolbarTimer = null;
 let configPageVisible = false;
 let configCleanSnapshot = '';
 let configDirtyTrackingReady = false;
+let configUserEdited = false;
 let recordListHeightLockToken = 0;
 const authState = window.CAMKEEP_AUTH || {
     auth_enabled: false,
@@ -53,6 +54,7 @@ window.onload = function () {
     initThemeControls();
     initAccountMenu();
     initUpdateBadge();
+    initConfigDirtyTracking();
     if (typeof DPlayer === 'undefined') {
         alert("播放器组件加载失败，请检查网络！");
         return;
@@ -477,8 +479,27 @@ function closeConfig(options = {}) {
 
 function confirmLeaveConfigIfDirty(onConfirm) {
     if (!configPageVisible || !hasUnsavedConfigChanges()) return false;
+    if (window.CamKeepMobile?.isMobileMode?.()) {
+        const confirmed = window.confirm('当前配置有未保存的修改。离开后这些修改不会写入配置，也不会应用到录像任务。确定放弃修改并离开？');
+        if (confirmed && typeof onConfirm === 'function') onConfirm();
+        return true;
+    }
     confirmDiscardConfigChanges(onConfirm);
     return true;
+}
+
+function initConfigDirtyTracking() {
+    const markFromEvent = event => {
+        if (!configPageVisible) return;
+        const configPage = document.getElementById('configPage');
+        const target = event.target;
+        if (!configPage || !target || !configPage.contains(target)) return;
+        if (!target.closest?.('#configFormPanel, #configYamlPanel')) return;
+        if (target.closest?.('.config-batch-camera-panel')) return;
+        markConfigUserEdited();
+    };
+    document.addEventListener('input', markFromEvent, true);
+    document.addEventListener('change', markFromEvent, true);
 }
 
 function confirmDiscardConfigChanges(onConfirm) {
@@ -606,7 +627,11 @@ async function saveConfig() {
 }
 
 async function switchConfigMode(mode, options = {}) {
-    if (mode === 'form' && configEditMode !== 'form' && !options.skipSync) {
+    if (mode !== 'form' && mode !== 'yaml') return;
+    const wasCleanBeforeModeSwitch = configDirtyTrackingReady && !hasUnsavedConfigChanges();
+    const previousMode = configEditMode;
+
+    if (mode === 'form' && previousMode !== 'form' && !options.skipSync) {
         const parsed = await parseConfigYamlToForm(document.getElementById('configYaml').value);
         if (!parsed.ok) {
             alert('YAML 无法转换为表单: ' + parsed.error);
@@ -616,13 +641,6 @@ async function switchConfigMode(mode, options = {}) {
         configCameraExpandedKeys = new Set();
         configOnvifDiagnosticsOpenKeys = new Set();
         renderConfigForm();
-    }
-    if (mode === 'yaml' && configEditMode !== 'yaml' && !options.skipSync) {
-        try {
-            document.getElementById('configYaml').value = configToYaml(collectConfigForm());
-        } catch (e) {
-            alert('表单内容还不完整，已保留当前 YAML 内容: ' + e.message);
-        }
     }
 
     configEditMode = mode;
@@ -639,6 +657,18 @@ async function switchConfigMode(mode, options = {}) {
     document.getElementById('configYamlTab').className = mode === 'yaml'
         ? 'config-tab-btn is-active'
         : 'config-tab-btn';
+
+    if (mode === 'yaml' && previousMode !== 'yaml' && !options.skipSync) {
+        try {
+            document.getElementById('configYaml').value = configToYaml(collectConfigForm());
+        } catch (e) {
+            alert('表单内容还不完整，已保留当前 YAML 内容: ' + e.message);
+        }
+    }
+
+    if (wasCleanBeforeModeSwitch) {
+        markConfigClean(currentConfigSnapshot() || configCleanSnapshot);
+    }
 }
 
 async function validateConfigYaml(yamlText) {
@@ -656,10 +686,17 @@ async function validateConfigYaml(yamlText) {
 function markConfigClean(snapshot) {
     configCleanSnapshot = normalizeConfigSnapshot(snapshot);
     configDirtyTrackingReady = true;
+    configUserEdited = false;
+}
+
+function markConfigUserEdited() {
+    if (!configDirtyTrackingReady) return;
+    configUserEdited = true;
 }
 
 function hasUnsavedConfigChanges() {
     if (!configPageVisible || !configDirtyTrackingReady) return false;
+    if (!configUserEdited) return false;
     const current = currentConfigSnapshot();
     if (current === null) return false;
     return normalizeConfigSnapshot(current) !== configCleanSnapshot;
@@ -1602,6 +1639,7 @@ function restoreConfigCameras() {
     configFormState.cameras = cloneConfigCameraList(configFormInitialCameras);
     configCameraExpandedKeys = new Set();
     configOnvifDiagnosticsOpenKeys = new Set();
+    markConfigUserEdited();
     renderConfigForm();
 }
 
@@ -1696,6 +1734,7 @@ function addConfigCamera(seed = {}) {
     const uiKey = ensureConfigCameraUiKey(nextCam);
     configFormState.cameras.unshift(nextCam);
     configCameraExpandedKeys.add(uiKey);
+    markConfigUserEdited();
     renderConfigForm();
 }
 
@@ -1948,6 +1987,7 @@ function applyBatchAddCameras() {
     configFormState.cameras = [...nextCameras, ...configFormState.cameras];
     configCameraExpandedKeys = new Set();
     configOnvifDiagnosticsOpenKeys = new Set();
+    markConfigUserEdited();
     renderConfigForm();
 
     input.value = '';
@@ -1970,6 +2010,7 @@ function removeConfigCamera(index) {
     configFormState.cameras.splice(index, 1);
     if (removedKey) configCameraExpandedKeys.delete(removedKey);
     if (removedKey) configOnvifDiagnosticsOpenKeys.delete(removedKey);
+    markConfigUserEdited();
     renderConfigForm();
 }
 
@@ -2069,6 +2110,7 @@ function appendStreamToConfig(stream) {
     }
 
     textArea.value = content + newCamYaml;
+    markConfigUserEdited();
 
     finishAppendStream(streamId);
 

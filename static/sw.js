@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v5';
 const STATIC_CACHE = `camkeep-static-${CACHE_VERSION}`;
 
 const CORE_STATIC_ASSETS = [
@@ -45,6 +45,11 @@ const BYPASS_PREFIXES = [
     '/logout'
 ];
 
+const NETWORK_FIRST_STATIC_EXTENSIONS = [
+    '.css',
+    '.js'
+];
+
 self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(STATIC_CACHE)
@@ -76,12 +81,18 @@ self.addEventListener('fetch', event => {
     }
 
     if (url.pathname.startsWith('/static/')) {
-        event.respondWith(cacheFirstStatic(request));
+        event.respondWith(shouldNetworkFirstStatic(url.pathname)
+            ? networkFirstStatic(request)
+            : cacheFirstStatic(request));
     }
 });
 
 function shouldBypass(pathname) {
     return BYPASS_PREFIXES.some(prefix => pathname === prefix || pathname.startsWith(prefix));
+}
+
+function shouldNetworkFirstStatic(pathname) {
+    return NETWORK_FIRST_STATIC_EXTENSIONS.some(ext => pathname.endsWith(ext));
 }
 
 async function cacheFirstStatic(request) {
@@ -97,6 +108,20 @@ async function cacheFirstStatic(request) {
         .catch(() => null);
 
     return cached || await networkFetch || offlinePlainResponse();
+}
+
+async function networkFirstStatic(request) {
+    const cached = await caches.match(request);
+    try {
+        const response = await fetch(request);
+        if (response && response.ok) {
+            const clone = response.clone();
+            caches.open(STATIC_CACHE).then(cache => cache.put(request, clone));
+        }
+        return response;
+    } catch (e) {
+        return cached || offlinePlainResponse();
+    }
 }
 
 async function networkFirstNavigation(request) {
