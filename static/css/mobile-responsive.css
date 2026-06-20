@@ -895,6 +895,12 @@ html[data-layout-mode="mobile"] .config-page {
     -webkit-overflow-scrolling: touch;
 }
 
+html.is-standalone-pwa[data-layout-mode="mobile"] .config-page {
+    height: calc(100svh - var(--mobile-appbar-height) - var(--mobile-tabbar-height));
+    padding-bottom: 0;
+    scroll-padding-bottom: var(--mobile-tabbar-height);
+}
+
 html[data-layout-mode="mobile"] #dashboardPage {
     height: calc(100svh - var(--mobile-appbar-height) - var(--mobile-tabbar-height));
     width: 100%;
@@ -2735,6 +2741,12 @@ html[data-layout-mode="mobile"] .config-page-card--with-actionbar,
 html[data-layout-mode="mobile"] #userPage .config-page-card {
     min-height: calc(100svh - var(--mobile-appbar-height) - var(--mobile-subpage-appbar-height) - var(--mobile-tabbar-height) - var(--mobile-safe-bottom) - 8px);
     overflow: visible !important;
+}
+
+html.is-standalone-pwa[data-layout-mode="mobile"] .config-page-card,
+html.is-standalone-pwa[data-layout-mode="mobile"] .config-page-card--with-actionbar,
+html.is-standalone-pwa[data-layout-mode="mobile"] #userPage .config-page-card {
+    min-height: calc(100svh - var(--mobile-appbar-height) - var(--mobile-subpage-appbar-height) - var(--mobile-tabbar-height));
 }
 
 html[data-layout-mode="mobile"] .config-page-card--with-actionbar {
