@@ -4831,7 +4831,7 @@ html.dark .record-timeline-card-action-delete:hover {
 
     .config-import-modal-dialog {
         width: 100%;
-        max-height: calc(100svh - var(--mobile-tabbar-height, 62px) - env(safe-area-inset-bottom, 0px) - 58px);
+        max-height: calc(100svh - var(--mobile-tabbar-height, 62px) - var(--mobile-safe-bottom, 0px) - 58px);
         border-right: 0;
         border-bottom: 0;
         border-left: 0;
@@ -4844,7 +4844,7 @@ html.dark .record-timeline-card-action-delete:hover {
 
     .config-import-modal-body {
         gap: 12px;
-        padding: 12px 12px calc(var(--mobile-tabbar-height, 62px) + env(safe-area-inset-bottom, 0px) + 14px);
+        padding: 12px 12px calc(var(--mobile-tabbar-height, 62px) + var(--mobile-safe-bottom, 0px) + 14px);
     }
 
     .config-import-flow {

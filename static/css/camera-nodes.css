@@ -48,6 +48,47 @@
     scroll-padding-top: 1px;
 }
 
+.camera-node-search {
+    display: flex;
+    min-height: 36px;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    border: 1px solid rgba(203, 213, 225, 0.92);
+    border-radius: 10px;
+    background: rgba(248, 250, 252, 0.84);
+    padding: 0 10px;
+    color: #94a3b8;
+}
+
+.camera-node-search svg {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+}
+
+.camera-node-search input {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    flex: 1 1 0;
+    height: 34px;
+    border: 0;
+    background: transparent;
+    color: #334155;
+    padding-left: 3px;
+    font-size: 12px;
+    font-weight: 800;
+    outline: 0;
+}
+
+.camera-node-search input::placeholder {
+    color: #94a3b8;
+    opacity: 0.82;
+}
+
 .camera-node-empty {
     display: grid;
     gap: 5px;
@@ -404,6 +445,20 @@ html.dark .camera-node-empty {
     border-color: rgba(71, 85, 105, 0.76);
     background: rgba(15, 23, 42, 0.46);
     color: #94a3b8;
+}
+
+html.dark .camera-node-search {
+    border-color: rgba(71, 85, 105, 0.76);
+    background: rgba(15, 23, 42, 0.46);
+    color: #94a3b8;
+}
+
+html.dark .camera-node-search input {
+    color: #e2e8f0;
+}
+
+html.dark .camera-node-search input::placeholder {
+    color: #64748b;
 }
 
 html.dark .camera-node-empty strong {

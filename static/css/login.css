@@ -1,3 +1,14 @@
+.login-body,
+html {
+    --login-safe-top: 0px;
+    --login-safe-bottom: 0px;
+}
+
+html.is-standalone-pwa {
+    --login-safe-top: env(safe-area-inset-top, 0px);
+    --login-safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 .login-body {
     min-height: 100svh;
     margin: 0;
@@ -19,7 +30,7 @@ html.dark .login-body {
     display: grid;
     min-height: 100svh;
     grid-template-rows: auto 1fr;
-    padding: max(20px, env(safe-area-inset-top, 0px)) 22px max(22px, env(safe-area-inset-bottom, 0px));
+    padding: max(20px, var(--login-safe-top)) 22px max(22px, var(--login-safe-bottom));
 }
 
 .login-brand {
@@ -33,7 +44,7 @@ html.dark .login-body {
 
 .login-theme-menu {
     position: absolute;
-    top: max(20px, env(safe-area-inset-top, 0px));
+    top: max(20px, var(--login-safe-top));
     right: 22px;
     z-index: 5;
 }
@@ -402,7 +413,7 @@ html.dark[data-skin="neu"] .login-error {
 
     .login-brand {
         position: fixed;
-        top: max(12px, env(safe-area-inset-top, 0px));
+        top: max(12px, var(--login-safe-top));
         left: 12px;
         z-index: 4;
         margin-left: 0;
@@ -412,7 +423,7 @@ html.dark[data-skin="neu"] .login-error {
 
     .login-theme-menu {
         position: fixed;
-        top: max(12px, env(safe-area-inset-top, 0px));
+        top: max(12px, var(--login-safe-top));
         right: 12px;
     }
 
@@ -441,7 +452,7 @@ html.dark[data-skin="neu"] .login-error {
         min-height: 100svh;
         align-items: center;
         justify-content: center;
-        padding: calc(env(safe-area-inset-top, 0px) + 72px) 0 calc(env(safe-area-inset-bottom, 0px) + 24px);
+        padding: calc(var(--login-safe-top) + 72px) 0 calc(var(--login-safe-bottom) + 24px);
     }
 
     .login-panel.nm-login-card,

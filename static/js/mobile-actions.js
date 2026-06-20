@@ -1,5 +1,6 @@
 (function () {
     let cameraPickerFilter = 'all';
+    let cameraPickerQuery = '';
 
     function escapeHtmlValue(value) {
         return String(value == null ? '' : value).replace(/[&<>"']/g, char => ({
@@ -43,18 +44,33 @@
     function syncCameraPickerList(wrapper, entries) {
         const list = wrapper?.querySelector('.mobile-picker-list');
         const toolbar = wrapper?.querySelector('.mobile-picker-toolbar');
+        const search = wrapper?.querySelector('.mobile-picker-search-input');
         if (!list || !toolbar) return;
         toolbar.querySelectorAll('[data-filter]').forEach(button => {
             button.classList.toggle('is-active', button.dataset.filter === cameraPickerFilter);
         });
-        const filtered = entries.filter(({cam}) => cameraPickerFilter === 'all' || cameraOnlineState(cam) === cameraPickerFilter);
+        if (search && search.value !== cameraPickerQuery) search.value = cameraPickerQuery;
+        const query = cameraPickerQuery.trim().toLowerCase();
+        const filtered = entries.filter(({id, cam}) => {
+            if (cameraPickerFilter !== 'all' && cameraOnlineState(cam) !== cameraPickerFilter) return false;
+            if (!query) return true;
+            return [
+                id,
+                cam?.name,
+                cam?.mode,
+                cam?.record_state,
+                cam?.stream_state,
+                cam?.state,
+                cameraMetaText(cam)
+            ].some(value => String(value || '').toLowerCase().includes(query));
+        });
         list.innerHTML = '';
         if (!entries.length) {
             list.innerHTML = '<div class="mobile-sheet-empty">暂无可访问的摄像头</div>';
             return;
         }
         if (!filtered.length) {
-            list.innerHTML = '<div class="mobile-sheet-empty">当前筛选条件下没有摄像头</div>';
+            list.innerHTML = '<div class="mobile-sheet-empty">没有匹配的摄像头</div>';
             return;
         }
 
@@ -113,8 +129,21 @@
 
     function openCameraPicker() {
         const entries = getCameraEntries();
+        cameraPickerQuery = '';
         const wrapper = document.createElement('div');
         wrapper.className = 'mobile-picker-wrap';
+        const search = document.createElement('label');
+        search.className = 'mobile-picker-search';
+        search.innerHTML = `
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1" d="M21 21l-4.35-4.35M10.8 18a7.2 7.2 0 100-14.4 7.2 7.2 0 000 14.4z"></path>
+            </svg>
+            <input class="mobile-picker-search-input" type="search" placeholder="搜索设备" autocomplete="off" autocapitalize="off" spellcheck="false">
+        `;
+        search.querySelector('input')?.addEventListener('input', event => {
+            cameraPickerQuery = event.target.value || '';
+            syncCameraPickerList(wrapper, entries);
+        });
         const toolbar = document.createElement('div');
         toolbar.className = 'mobile-picker-toolbar';
         toolbar.innerHTML = `
@@ -129,6 +158,7 @@
                 syncCameraPickerList(wrapper, entries);
             });
         });
+        wrapper.appendChild(search);
         wrapper.appendChild(toolbar);
         const list = document.createElement('div');
         list.className = 'mobile-picker-list';

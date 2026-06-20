@@ -16,6 +16,8 @@
                     root.classList.add('dark');
                 }
                 root.dataset.skin = localStorage.getItem('camkeep-skin') || 'neu';
+                var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+                root.classList.toggle('is-standalone-pwa', standalone);
             } catch (e) {
             }
         })();

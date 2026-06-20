@@ -205,6 +205,40 @@ h1, h2, .config-page-title, .config-doc-hero h1, .config-doc-content h1 {
     overflow-anchor: none;
 }
 
+.camera-node-search {
+    min-height: 38px;
+    border: 0 !important;
+    border-radius: var(--nm-r-sm) !important;
+    background:
+        linear-gradient(145deg, rgba(170, 182, 204, 0.13), rgba(255, 255, 255, 0.16)),
+        var(--nm-well) !important;
+    color: var(--nm-text-soft) !important;
+    box-shadow: var(--nm-inset-sm), var(--nm-edge) !important;
+    padding: 0 10px !important;
+    transition: box-shadow 160ms ease, background 160ms ease;
+}
+
+.camera-node-search:focus-within {
+    box-shadow:
+        var(--nm-inset-sm),
+        0 0 0 3px color-mix(in srgb, var(--nm-accent) 13%, transparent),
+        var(--nm-edge) !important;
+}
+
+.camera-node-search svg {
+    color: var(--nm-accent) !important;
+    opacity: 0.9;
+}
+
+.camera-node-search input {
+    color: var(--nm-text) !important;
+}
+
+.camera-node-search input::placeholder {
+    color: var(--nm-text-faint) !important;
+    opacity: 1;
+}
+
 /* ---- 4. Header toolbar --------------------------------------------------- */
 .nm-toolbar {
     border: 0 !important;

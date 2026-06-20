@@ -1058,6 +1058,18 @@ html[data-layout-mode="mobile"] #dashboardPage #recordList {
     padding: 0 0 calc(8px + var(--mobile-safe-bottom)) !important;
 }
 
+html[data-layout-mode="mobile"] #dashboardPage .camera-node-search {
+    min-height: 38px;
+    margin: 0 0 8px !important;
+    border-radius: 12px;
+    padding-inline: 10px;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage .camera-node-search input {
+    height: 36px;
+    font-size: 13px;
+}
+
 html[data-layout-mode="mobile"] #dashboardPage #camList > :not([hidden]) ~ :not([hidden]),
 html[data-layout-mode="mobile"] #dashboardPage #recordList > :not([hidden]) ~ :not([hidden]) {
     margin-top: 0 !important;
@@ -1112,6 +1124,66 @@ html.dark[data-skin="neu"][data-layout-mode="mobile"] #dashboardPage #camStatsPa
         inset 3px 3px 8px rgba(0, 0, 0, 0.56),
         inset -2px -2px 6px rgba(255, 255, 255, 0.045),
         var(--nm-edge) !important;
+}
+
+html[data-skin="neu"][data-layout-mode="mobile"] #dashboardPage .camera-node-search {
+    min-height: 44px;
+    border: 0 !important;
+    border-radius: 18px !important;
+    background:
+        linear-gradient(145deg, rgba(170, 182, 204, 0.16), rgba(255, 255, 255, 0.18)),
+        var(--nm-well) !important;
+    color: var(--nm-text-soft) !important;
+    box-shadow:
+        inset 3px 3px 8px var(--nm-dark),
+        inset -3px -3px 8px var(--nm-light),
+        var(--nm-edge) !important;
+    padding-inline: 8px 12px !important;
+    transition: box-shadow 160ms ease, background-color 160ms ease, transform 160ms ease;
+}
+
+html.dark[data-skin="neu"][data-layout-mode="mobile"] #dashboardPage .camera-node-search {
+    background:
+        linear-gradient(145deg, rgba(0, 0, 0, 0.16), rgba(255, 255, 255, 0.025)),
+        var(--nm-well) !important;
+}
+
+html[data-skin="neu"][data-layout-mode="mobile"] #dashboardPage .camera-node-search:focus-within {
+    box-shadow:
+        inset 3px 3px 8px var(--nm-dark),
+        inset -3px -3px 8px var(--nm-light),
+        0 0 0 3px color-mix(in srgb, var(--nm-accent) 15%, transparent),
+        var(--nm-edge) !important;
+}
+
+html[data-skin="neu"][data-layout-mode="mobile"] #dashboardPage .camera-node-search svg {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    border-radius: 12px;
+    background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.38), rgba(15, 23, 42, 0.018)),
+        var(--nm-surface);
+    padding: 7px;
+    color: var(--nm-accent);
+    box-shadow: var(--nm-raise-sm), var(--nm-edge);
+}
+
+html.dark[data-skin="neu"][data-layout-mode="mobile"] #dashboardPage .camera-node-search svg {
+    background:
+        linear-gradient(145deg, rgba(45, 53, 73, 0.96), rgba(27, 31, 43, 0.96)),
+        var(--nm-surface);
+}
+
+html[data-skin="neu"][data-layout-mode="mobile"] #dashboardPage .camera-node-search input {
+    height: 40px;
+    color: var(--nm-text) !important;
+    font-weight: 900;
+}
+
+html[data-skin="neu"][data-layout-mode="mobile"] #dashboardPage .camera-node-search input::placeholder {
+    color: var(--nm-text-faint) !important;
+    opacity: 1;
 }
 
 html[data-skin="neu"][data-layout-mode="mobile"] #dashboardPage #camStatsPanel .live-stats-total,
@@ -3100,16 +3172,20 @@ html[data-layout-mode="mobile"] .user-password-panel {
 html[data-layout-mode="mobile"] .mobile-sheet {
     border-right: 0;
     border-left: 0;
-    border-radius: 16px 16px 0 0;
+    border-radius: 16px;
     box-shadow: 0 -18px 44px -34px rgba(2, 6, 23, 0.72);
 }
 
 html[data-layout-mode="mobile"] .mobile-sheet-body {
-    padding: 8px 0 calc(10px + var(--mobile-safe-bottom));
+    padding: 8px 0 10px;
 }
 
 html[data-layout-mode="mobile"] .mobile-picker-wrap {
     gap: 8px;
+}
+
+html[data-layout-mode="mobile"] .mobile-picker-search {
+    margin-inline: 8px;
 }
 
 html[data-layout-mode="mobile"] .mobile-picker-toolbar {
@@ -3148,7 +3224,7 @@ html[data-skin="neu"][data-layout-mode="mobile"] .mobile-sheet-backdrop {
 
 html[data-skin="neu"][data-layout-mode="mobile"] .mobile-sheet {
     border: 0 !important;
-    border-radius: 22px 22px 0 0 !important;
+    border-radius: 22px !important;
     background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(15, 23, 42, 0.012)),
         var(--nm-surface) !important;
@@ -3540,6 +3616,28 @@ html[data-skin="neu"][data-layout-mode="mobile"] .mobile-picker-toolbar {
     background: var(--nm-well);
     box-shadow: var(--nm-inset-sm), var(--nm-edge);
     padding: 5px;
+}
+
+html[data-skin="neu"][data-layout-mode="mobile"] .mobile-picker-search {
+    min-height: 42px;
+    flex-wrap: nowrap;
+    border: 0;
+    border-radius: 16px;
+    background: var(--nm-well);
+    color: var(--nm-text-soft);
+    box-shadow: var(--nm-inset-sm), var(--nm-edge);
+    padding-inline: 12px;
+}
+
+html[data-skin="neu"][data-layout-mode="mobile"] .mobile-picker-search-input {
+    min-width: 0;
+    flex: 1 1 0;
+    color: var(--nm-text);
+}
+
+html[data-skin="neu"][data-layout-mode="mobile"] .mobile-picker-search-input::placeholder {
+    color: var(--nm-text-faint);
+    opacity: 1;
 }
 
 html[data-skin="neu"][data-layout-mode="mobile"] .mobile-picker-filter {

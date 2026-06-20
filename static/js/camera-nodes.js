@@ -5,6 +5,7 @@ const cameraCoverFailed = new Set();
 const cameraCardRenderKeys = new Map();
 let latestCameraStatusEntries = [];
 let activeCameraStatusFilter = 'all';
+let activeCameraSearchQuery = '';
 
 // 窄屏/触屏折叠态下，录制控制收起为单个「当前状态」按钮，点击后展开三个控制按钮。
 // 这里按当前覆盖状态映射折叠按钮要显示的图标与文案（与三个控制按钮的图标保持一致）。
@@ -359,7 +360,29 @@ function cameraMatchesStatusFilter(cam, filter) {
 }
 
 function filteredCameraStatusEntries() {
-    return latestCameraStatusEntries.filter(entry => cameraMatchesStatusFilter(entry.cam, activeCameraStatusFilter));
+    const query = activeCameraSearchQuery.trim().toLowerCase();
+    return latestCameraStatusEntries.filter(entry => {
+        if (!cameraMatchesStatusFilter(entry.cam, activeCameraStatusFilter)) return false;
+        if (!query) return true;
+        return cameraMatchesSearchQuery(entry, query);
+    });
+}
+
+function cameraMatchesSearchQuery(entry, query) {
+    if (!entry) return false;
+    const {id, cam} = entry;
+    return [
+        id,
+        cam?.name,
+        cam?.mode,
+        cam?.record_state,
+        cam?.stream_state,
+        cam?.state,
+        cam?.record_time,
+        buildRecordStateView(cam?.record_state || (cam?.is_running ? 'recording' : 'idle'), normalizeRecordOverride(cam?.record_override)).label,
+        cameraStatusFilterLabel(normalizeCameraStreamState(cam)),
+        cameraRecordStateIsActive(normalizeCameraRecordState(cam)) ? '录制' : ''
+    ].some(value => String(value || '').toLowerCase().includes(query));
 }
 
 function syncCameraStatusFilterControls(visibleCount = 0, totalCount = 0) {
@@ -414,7 +437,14 @@ function renderCameraListFromState() {
         return;
     }
     if (entries.length === 0) {
-        renderCameraListMessage(list, `empty-filter-${activeCameraStatusFilter}`, `暂无${cameraStatusFilterLabel(activeCameraStatusFilter)}节点`, '点击 TOTAL 可恢复全部节点');
+        const statusLabel = cameraStatusFilterLabel(activeCameraStatusFilter);
+        const title = activeCameraSearchQuery.trim()
+            ? '没有匹配的设备'
+            : `暂无${statusLabel}节点`;
+        const detail = activeCameraSearchQuery.trim()
+            ? '可尝试更换关键词或切换状态筛选'
+            : '点击 TOTAL 可恢复全部节点';
+        renderCameraListMessage(list, `empty-filter-${activeCameraStatusFilter}-${activeCameraSearchQuery.trim()}`, title, detail);
         return;
     }
 
@@ -489,6 +519,15 @@ function bindCameraCardIntentHandlers(item, camId) {
     item.querySelector('[data-mobile-camera-records]')?.addEventListener('click', event => {
         event.stopPropagation();
         openCameraRecordsFromNode(camId);
+    });
+}
+
+function initCameraNodeSearch() {
+    const input = document.getElementById('cameraNodeSearchInput');
+    if (!input) return;
+    input.addEventListener('input', () => {
+        activeCameraSearchQuery = input.value || '';
+        renderCameraListFromState();
     });
 }
 
@@ -917,3 +956,9 @@ document.addEventListener('keydown', event => {
         collapseCameraNodeActions();
     }
 });
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initCameraNodeSearch);
+} else {
+    initCameraNodeSearch();
+}
