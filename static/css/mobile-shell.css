@@ -3,7 +3,7 @@
     --mobile-safe-top: 0px;
     --mobile-safe-bottom: 0px;
     --mobile-appbar-height: calc(50px + max(0px, var(--mobile-safe-top) - 8px));
-    --mobile-subpage-appbar-height: calc(50px + max(0px, var(--mobile-safe-top) - 7px));
+    --mobile-subpage-appbar-height: 50px;
     --mobile-page-gutter: 12px;
     --mobile-shell-bg: #eef3f8;
     --mobile-surface: rgba(255, 255, 255, 0.92);

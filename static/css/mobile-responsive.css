@@ -1,9 +1,9 @@
 html[data-layout-mode="mobile"] body.bg-gray-100 {
-    padding: 0 8px calc(var(--mobile-tabbar-height) + var(--mobile-safe-bottom) + 10px) !important;
+    padding: 0 8px var(--mobile-tabbar-height) !important;
 }
 
 html[data-layout-mode="mobile"] #dashboardPage {
-    height: calc(100svh - var(--mobile-appbar-height) - var(--mobile-tabbar-height) - var(--mobile-safe-bottom) - 8px);
+    height: calc(100svh - var(--mobile-appbar-height) - var(--mobile-tabbar-height));
     min-height: 0;
     display: flex;
     flex-direction: column;
@@ -114,7 +114,7 @@ html[data-layout-mode="mobile"] #dashboardPage #camStatsPanel .live-stat-item st
 }
 
 html[data-layout-mode="mobile"] #dashboardPage #camList {
-    padding: 9px 8px calc(9px + var(--mobile-safe-bottom)) !important;
+    padding: 9px 8px !important;
     min-height: 0;
 }
 
@@ -299,7 +299,7 @@ html[data-layout-mode="mobile"] #dashboardPage #recordList {
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
-    padding-bottom: calc(10px + var(--mobile-safe-bottom));
+    padding-bottom: 10px;
     -webkit-overflow-scrolling: touch;
 }
 
@@ -689,12 +689,12 @@ html[data-layout-mode="mobile"] .user-editor-panel {
 
 /* Mobile full-width pass: keep controls readable while removing outer cards. */
 html[data-layout-mode="mobile"] body.bg-gray-100 {
-    padding: 0 0 calc(var(--mobile-tabbar-height) + var(--mobile-safe-bottom) + 8px) !important;
+    padding: 0 0 var(--mobile-tabbar-height) !important;
 }
 
 html[data-layout-mode="mobile"][data-mobile-page="config"] body.bg-gray-100,
 html[data-layout-mode="mobile"][data-mobile-page="users"] body.bg-gray-100 {
-    padding-bottom: calc(var(--mobile-tabbar-height) + var(--mobile-safe-bottom) + 8px) !important;
+    padding-bottom: var(--mobile-tabbar-height) !important;
 }
 
 html[data-layout-mode="mobile"] .app-shell {
@@ -896,7 +896,7 @@ html[data-layout-mode="mobile"] .config-page {
 }
 
 html[data-layout-mode="mobile"] #dashboardPage {
-    height: calc(100svh - var(--mobile-appbar-height) - var(--mobile-tabbar-height) - var(--mobile-safe-bottom) - 8px);
+    height: calc(100svh - var(--mobile-appbar-height) - var(--mobile-tabbar-height));
     width: 100%;
 }
 
@@ -1055,7 +1055,7 @@ html[data-layout-mode="mobile"] #dashboardPage #camStatsPanel .live-stat-item st
 
 html[data-layout-mode="mobile"] #dashboardPage #camList,
 html[data-layout-mode="mobile"] #dashboardPage #recordList {
-    padding: 0 0 calc(8px + var(--mobile-safe-bottom)) !important;
+    padding: 0 0 8px !important;
 }
 
 html[data-layout-mode="mobile"] #dashboardPage .camera-node-search {
@@ -1161,18 +1161,24 @@ html[data-skin="neu"][data-layout-mode="mobile"] #dashboardPage .camera-node-sea
     height: 30px;
     flex: 0 0 30px;
     border-radius: 12px;
+    overflow: hidden;
     background:
         linear-gradient(145deg, rgba(255, 255, 255, 0.38), rgba(15, 23, 42, 0.018)),
         var(--nm-surface);
     padding: 7px;
     color: var(--nm-accent);
     box-shadow: var(--nm-raise-sm), var(--nm-edge);
+    background-clip: padding-box;
+    -webkit-mask-image: -webkit-radial-gradient(white, black);
 }
 
 html.dark[data-skin="neu"][data-layout-mode="mobile"] #dashboardPage .camera-node-search svg {
-    background:
-        linear-gradient(145deg, rgba(45, 53, 73, 0.96), rgba(27, 31, 43, 0.96)),
-        var(--nm-surface);
+    background: var(--nm-well);
+    color: var(--nm-accent);
+    box-shadow:
+        inset 1px 1px 3px rgba(0, 0, 0, 0.42),
+        inset -1px -1px 2px rgba(255, 255, 255, 0.035),
+        var(--nm-edge);
 }
 
 html[data-skin="neu"][data-layout-mode="mobile"] #dashboardPage .camera-node-search input {
@@ -1223,7 +1229,7 @@ html[data-skin="neu"][data-layout-mode="mobile"] #dashboardPage #camStatsPanel .
 }
 
 html[data-skin="neu"][data-layout-mode="mobile"] #dashboardPage #camList {
-    padding: 4px 4px calc(14px + var(--mobile-safe-bottom)) !important;
+    padding: 4px 4px 2px !important;
 }
 
 html[data-skin="neu"][data-layout-mode="mobile"] #dashboardPage #camList > :not([hidden]) ~ :not([hidden]) {
@@ -2061,7 +2067,7 @@ html[data-skin="neu"][data-layout-mode="mobile"] #recordList > :not([hidden]) ~ 
 }
 
 html[data-skin="neu"][data-layout-mode="mobile"] #dashboardPage #recordList {
-    padding: 2px 4px calc(12px + var(--mobile-safe-bottom)) !important;
+    padding: 2px 4px 1px !important;
 }
 
 html[data-skin="neu"][data-layout-mode="mobile"] #dashboardPage #recordList > .record-archive-group + .record-archive-group {
@@ -2641,7 +2647,7 @@ html[data-layout-mode="mobile"] .mobile-subpage-appbar {
     border-width: 0 0 1px !important;
     border-radius: 0 !important;
     background: rgba(248, 250, 252, 0.88) !important;
-    padding: max(7px, var(--mobile-safe-top)) 8px 7px !important;
+    padding: 7px 8px !important;
     box-shadow: none !important;
     z-index: 80;
 }
