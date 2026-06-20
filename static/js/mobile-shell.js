@@ -142,8 +142,27 @@
         }
     }
 
+    function commitTab(next, options = {}) {
+        if (next !== 'monitor') {
+            closeTopMostOverlay({skipHistory: true});
+        }
+        document.documentElement.dataset.mobileTab = next;
+        try {
+            localStorage.setItem('camkeep-mobile-tab', next);
+        } catch (e) {
+        }
+        syncTabUI();
+        if (!options.preserveScroll) {
+            window.scrollTo({top: 0, behavior: options.instant ? 'auto' : 'smooth'});
+        }
+    }
+
     function setTab(tab, options = {}) {
         const next = normalizeTab(tab);
+        const yamlEditorRoot = document.getElementById('mobileYamlEditorRoot');
+        if (!yamlEditorRoot?.classList.contains('hidden')) {
+            window.closeMobileYamlEditor?.(false);
+        }
         const page = currentPage();
         if (page === 'config' && typeof window.confirmLeaveConfigIfDirty === 'function') {
             const blocked = window.confirmLeaveConfigIfDirty(() => {
@@ -164,18 +183,7 @@
                 document.documentElement.dataset.mobileUserView = 'list';
             }
         }
-        if (next !== 'monitor') {
-            closeTopMostOverlay({skipHistory: true});
-        }
-        document.documentElement.dataset.mobileTab = next;
-        try {
-            localStorage.setItem('camkeep-mobile-tab', next);
-        } catch (e) {
-        }
-        syncTabUI();
-        if (!options.preserveScroll) {
-            window.scrollTo({top: 0, behavior: options.instant ? 'auto' : 'smooth'});
-        }
+        commitTab(next, options);
     }
 
     function isMobileMode() {
@@ -259,75 +267,20 @@
         return false;
     }
 
-    let lastYamlNavBypassAt = 0;
-
-    function eventPoint(event) {
-        const touch = event.changedTouches?.[0] || event.touches?.[0];
-        if (touch) return {x: touch.clientX, y: touch.clientY};
-        if (Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
-            return {x: event.clientX, y: event.clientY};
-        }
-        return null;
-    }
-
-    function pointInRect(point, rect, pad = 0) {
-        return point.x >= rect.left - pad
-            && point.x <= rect.right + pad
-            && point.y >= rect.top - pad
-            && point.y <= rect.bottom + pad;
-    }
-
-    function runAfterYamlTouch(action) {
-        document.activeElement?.blur?.();
-        window.setTimeout(action, 0);
-    }
-
-    function handleConfigYamlNavBypass(event) {
-        const configPage = document.getElementById('configPage');
-        if (!isMobileMode() || currentPage() !== 'config' || !configPage?.classList.contains('is-config-mode-yaml')) return;
-
-        const now = Date.now();
-        if (now - lastYamlNavBypassAt < 450) {
-            event.preventDefault();
-            event.stopImmediatePropagation?.();
-            return;
-        }
-
-        const point = eventPoint(event);
-        if (!point) return;
-
-        const backButton = document.querySelector('.mobile-subpage-appbar--config .mobile-subpage-back');
-        if (backButton && pointInRect(point, backButton.getBoundingClientRect(), 12)) {
-            lastYamlNavBypassAt = now;
-            event.preventDefault();
-            event.stopImmediatePropagation?.();
-            runAfterYamlTouch(() => window.closeConfig?.());
-            return;
-        }
-
-        const tabbar = document.getElementById('mobileTabbar');
-        if (!tabbar || !pointInRect(point, tabbar.getBoundingClientRect())) return;
-        const targetButton = Array.from(tabbar.querySelectorAll('[data-mobile-tab-target]'))
-            .find(button => pointInRect(point, button.getBoundingClientRect()));
-        const targetTab = targetButton?.dataset.mobileTabTarget;
-        if (!targetTab) return;
-
-        lastYamlNavBypassAt = now;
-        event.preventDefault();
-        event.stopImmediatePropagation?.();
-        runAfterYamlTouch(() => setTab(targetTab, {instant: true}));
-    }
-
-    function handleConfigYamlNavStart(event) {
-        if (event.type === 'mousedown' && event.button !== 0) return;
-        handleConfigYamlNavBypass(event);
-    }
-
     function formatDateKey(date) {
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const day = String(date.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
+    }
+
+    function escapeHtmlValue(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     function syncPageState() {
@@ -372,6 +325,76 @@
         return openSheet('主题设置', '选择风格与明暗模式', body);
     }
 
+    function openAbout() {
+        if (!isMobileMode()) return false;
+        const version = document.getElementById('appVersionText')?.textContent?.trim() || 'dev';
+        const body = document.createElement('div');
+        body.className = 'mobile-about-sheet';
+        body.innerHTML = `
+            <div class="mobile-about-hero">
+                <img src="/static/image/camkeep_w80.png" alt="CamKeep">
+                <div>
+                    <strong>CamKeep NVR</strong>
+                    <span>全面兼容 go2rtc 的自托管 NVR</span>
+                </div>
+            </div>
+            <div class="mobile-about-copy">
+                面向家庭 NAS、低功耗小主机和边缘设备，基于 Go、go2rtc 与 FFmpeg，提供本地优先的视频接入、录制、回放和设备管理能力。
+            </div>
+            <div class="mobile-about-points" aria-label="CamKeep 功能亮点">
+                <span>go2rtc-native 接入</span>
+                <span>ONVIF 控制与事件诊断</span>
+                <span>24H 时间轴回放</span>
+                <span>本地用户与权限</span>
+            </div>
+            <div class="mobile-about-meta">
+                <div>
+                    <span>当前版本</span>
+                    <strong>${escapeHtmlValue(version)}</strong>
+                </div>
+                <div>
+                    <span>开源协议</span>
+                    <strong>MIT License</strong>
+                </div>
+                <div>
+                    <span>部署场景</span>
+                    <strong>NAS / 边缘设备</strong>
+                </div>
+                <div>
+                    <span>隐私模式</span>
+                    <strong>本地优先</strong>
+                </div>
+            </div>
+            <div class="mobile-about-actions">
+                <a href="https://github.com/r0n9/camkeep" target="_blank" rel="noopener" class="mobile-about-link">
+                    <span>GitHub 项目</span>
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M7 17L17 7M9 7h8v8"></path>
+                    </svg>
+                </a>
+                <a href="https://hub.docker.com/r/r0n9/camkeep" target="_blank" rel="noopener" class="mobile-about-link">
+                    <span>Docker 镜像</span>
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M7 17L17 7M9 7h8v8"></path>
+                    </svg>
+                </a>
+                <a href="https://github.com/r0n9/camkeep/releases/latest" target="_blank" rel="noopener" class="mobile-about-link">
+                    <span>查看最新版本</span>
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M7 17L17 7M9 7h8v8"></path>
+                    </svg>
+                </a>
+                <a href="https://github.com/AlexxIT/go2rtc" target="_blank" rel="noopener" class="mobile-about-link">
+                    <span>go2rtc 项目</span>
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M7 17L17 7M9 7h8v8"></path>
+                    </svg>
+                </a>
+            </div>
+        `;
+        return openSheet('关于', 'CamKeep NVR', body);
+    }
+
     window.CamKeepMobile = {
         applyRecordQuickRange: window.applyRecordQuickRange,
         closeSheet,
@@ -379,6 +402,7 @@
         getLayoutMode,
         isMobileMode,
         openCameraPicker: window.openCameraPicker,
+        openAbout,
         openRecordActionSheet: window.openRecordActionSheet,
         openThemeSettings,
         openSheet,
@@ -403,14 +427,12 @@
         }
     });
     document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && !document.getElementById('mobileYamlEditorRoot')?.classList.contains('hidden')) {
+            window.closeMobileYamlEditor?.(false);
+            return;
+        }
         if (event.key === 'Escape') closeTopMostOverlay();
     });
-    document.addEventListener('pointerdown', handleConfigYamlNavStart, true);
-    document.addEventListener('touchstart', handleConfigYamlNavStart, true);
-    document.addEventListener('mousedown', handleConfigYamlNavStart, true);
-    document.addEventListener('pointerup', handleConfigYamlNavBypass, true);
-    document.addEventListener('touchend', handleConfigYamlNavBypass, true);
-    document.addEventListener('click', handleConfigYamlNavBypass, true);
 
     document.addEventListener('DOMContentLoaded', () => {
         const saved = normalizeTab(document.documentElement.dataset.mobileTab || localStorage.getItem('camkeep-mobile-tab') || 'devices');

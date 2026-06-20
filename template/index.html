@@ -12,7 +12,7 @@
                 var root = document.documentElement;
                 var savedTheme = localStorage.getItem('camkeep-theme');
                 var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-                if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+                if (savedTheme === 'dark' || ((savedTheme === 'system' || !savedTheme) && prefersDark)) {
                     root.classList.add('dark');
                 }
                 // skin: neu(默认,新拟态) / classic(原始)。预绘制阶段写入，避免切换闪烁。
@@ -92,7 +92,7 @@
         <div class="flex w-full items-center justify-end sm:w-auto">
             <div class="nm-toolbar flex items-center gap-0.5 rounded-xl border border-gray-200 bg-white p-0.5 shadow-sm">
                 <div id="themeMenu" class="theme-menu">
-                    <button id="themeMenuButton" onclick="toggleThemeMenu(event)" type="button" class="group flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-500 transition-all hover:bg-gray-50 hover:text-gray-900 active:scale-95" title="主题" aria-label="主题设置" aria-haspopup="menu" aria-expanded="false" aria-controls="themeMenuPanel">
+                    <button id="themeMenuButton" onclick="toggleThemeMenu(event, 'themeMenu')" type="button" class="theme-menu-button group flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-500 transition-all hover:bg-gray-50 hover:text-gray-900 active:scale-95" title="主题" aria-label="主题设置" aria-haspopup="menu" aria-expanded="false" aria-controls="themeMenuPanel">
                         <svg class="h-4 w-4 transition-transform duration-500 group-hover:rotate-12 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <circle cx="13.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"></circle>
                             <circle cx="17.5" cy="10.5" r="1.2" fill="currentColor" stroke="none"></circle>
@@ -174,7 +174,7 @@
                             <span>用户名</span>
                             <strong>{{ .CurrentUser.Username }}</strong>
                         </div>
-                        <form method="post" action="/logout" class="m-0">
+                        <form method="post" action="/logout" class="m-0" onsubmit="return confirmLogout(event)">
                             <button type="submit" class="account-menu-logout" role="menuitem">
                                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12H3m0 0l4-4m-4 4l4 4M21 4v16a2 2 0 01-2 2h-6a2 2 0 01-2-2v-3m0-10V4a2 2 0 012-2h6a2 2 0 012 2z"></path>
@@ -194,6 +194,44 @@
             <img src="/static/image/camkeep_w80.png" alt="CamKeep">
             <span>CamKeep NVR</span>
         </a>
+        <div class="mobile-appbar-actions">
+        <div id="mobileThemeMenu" class="theme-menu mobile-theme-menu">
+            <button id="mobileThemeMenuButton" onclick="toggleThemeMenu(event, 'mobileThemeMenu')" type="button" class="theme-menu-button mobile-theme-menu-button" title="主题" aria-label="主题设置" aria-haspopup="menu" aria-expanded="false" aria-controls="mobileThemeMenuPanel">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="13.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"></circle>
+                    <circle cx="17.5" cy="10.5" r="1.2" fill="currentColor" stroke="none"></circle>
+                    <circle cx="8.5" cy="7.5" r="1.2" fill="currentColor" stroke="none"></circle>
+                    <circle cx="6.5" cy="12.5" r="1.2" fill="currentColor" stroke="none"></circle>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3a9 9 0 100 18c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.39-.62-.39-1 0-.83.67-1.5 1.5-1.5H16a5 5 0 005-5c0-4.42-4.03-8-9-8z"></path>
+                </svg>
+            </button>
+            <div id="mobileThemeMenuPanel" class="theme-menu-panel mobile-theme-menu-panel hidden" role="menu" aria-labelledby="mobileThemeMenuButton">
+                <div class="theme-menu-group">
+                    <span class="theme-menu-label">风格</span>
+                    <div class="theme-seg" role="radiogroup" aria-label="界面风格">
+                        <button type="button" class="theme-seg-btn" data-skin="classic" onclick="setSkin('classic')" role="radio" aria-checked="false">原始</button>
+                        <button type="button" class="theme-seg-btn" data-skin="neu" onclick="setSkin('neu')" role="radio" aria-checked="false">拟态</button>
+                    </div>
+                </div>
+                <div class="theme-menu-group">
+                    <span class="theme-menu-label">模式</span>
+                    <div class="theme-seg" role="radiogroup" aria-label="明暗模式">
+                        <button type="button" class="theme-seg-btn theme-seg-btn--icon" data-mode="light" onclick="setMode('light')" role="radio" aria-checked="false" title="浅色">
+                            <svg class="theme-seg-ico" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m8.66-13.66l-.7.7M4.04 19.96l-.7.7M21 12h-1M4 12H3m16.96 7.96l-.7-.7M4.04 4.04l-.7-.7"></path></svg>
+                            <span>浅色</span>
+                        </button>
+                        <button type="button" class="theme-seg-btn theme-seg-btn--icon" data-mode="dark" onclick="setMode('dark')" role="radio" aria-checked="false" title="深色">
+                            <svg class="theme-seg-ico" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A8.5 8.5 0 1111.21 3 6.5 6.5 0 0021 12.79z"></path></svg>
+                            <span>深色</span>
+                        </button>
+                        <button type="button" class="theme-seg-btn theme-seg-btn--icon" data-mode="system" onclick="setMode('system')" role="radio" aria-checked="false" title="跟随系统">
+                            <svg class="theme-seg-ico" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="12" rx="2"></rect><path stroke-linecap="round" stroke-linejoin="round" d="M8.5 20h7M12 16.5V20"></path></svg>
+                            <span>系统</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
         {{ if .AuthEnabled }}
         <div id="mobileAccountMenu" class="account-menu mobile-account-menu">
             <button id="mobileAccountMenuButton" onclick="toggleAccountMenu(event)" class="account-menu-button mobile-account-menu-button" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="mobileAccountMenuPanel" title="账号菜单">
@@ -211,7 +249,7 @@
                     <span>用户名</span>
                     <strong>{{ .CurrentUser.Username }}</strong>
                 </div>
-                <form method="post" action="/logout" class="m-0">
+                <form method="post" action="/logout" class="m-0" onsubmit="return confirmLogout(event)">
                     <button type="submit" class="account-menu-logout" role="menuitem">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12H3m0 0l4-4m-4 4l4 4M21 4v16a2 2 0 01-2 2h-6a2 2 0 01-2-2v-3m0-10V4a2 2 0 012-2h6a2 2 0 012 2z"></path>
@@ -222,6 +260,7 @@
             </div>
         </div>
         {{ end }}
+        </div>
     </header>
 
     <section id="configPage" class="config-page hidden">
@@ -793,8 +832,19 @@
                 </svg>
             </button>
             {{ end }}
+            <button type="button" class="mobile-settings-row mobile-settings-row--nav" onclick="window.CamKeepMobile?.openAbout()">
+                <span class="mobile-settings-icon mobile-settings-icon--indigo">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1" d="M12 17h.01M12 13v-3m0 11a9 9 0 100-18 9 9 0 000 18z"></path>
+                    </svg>
+                </span>
+                <span class="mobile-settings-row-copy"><strong>关于</strong><em>版本信息、项目链接和软件说明</em></span>
+                <svg class="mobile-settings-row-caret" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9 5l7 7-7 7"></path>
+                </svg>
+            </button>
             {{ if .AuthEnabled }}
-            <form method="post" action="/logout" class="m-0">
+            <form method="post" action="/logout" class="m-0" onsubmit="return confirmLogout(event)">
                 <button type="submit" class="mobile-settings-row mobile-settings-row--danger">
                     <span class="mobile-settings-icon mobile-settings-icon--rose">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -808,6 +858,22 @@
         </div>
     </section>
     </main>
+</div>
+
+<div id="mobileYamlEditorRoot" class="mobile-yaml-editor-root hidden" aria-hidden="true">
+    <section class="mobile-yaml-editor" role="dialog" aria-modal="true" aria-labelledby="mobileYamlEditorTitle">
+        <header class="mobile-yaml-editor-header">
+            <button type="button" class="mobile-yaml-editor-secondary" onclick="closeMobileYamlEditor(false)">取消</button>
+            <div class="mobile-yaml-editor-title">
+                <h2 id="mobileYamlEditorTitle">YAML 高级</h2>
+                <p>conf.yaml</p>
+            </div>
+            <button type="button" class="mobile-yaml-editor-primary" onclick="closeMobileYamlEditor(true)">完成</button>
+        </header>
+        <div class="mobile-yaml-editor-body">
+            <textarea id="mobileConfigYaml" class="mobile-yaml-editor-input" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+        </div>
+    </section>
 </div>
 
 <div id="mobileSheetRoot" class="mobile-sheet-root hidden" aria-hidden="true">
@@ -850,8 +916,8 @@
     </button>
     <button type="button" class="mobile-tabbar-item" data-mobile-tab-target="settings" onclick="window.CamKeepMobile?.setTab('settings')">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1" d="M12 6.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11z"></path>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1" d="M12 2.5v2m0 15v2m9.5-9.5h-2m-15 0h-2"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.05" d="M10.3 4.32c.42-1.76 2.98-1.76 3.4 0a1.75 1.75 0 002.62 1.08c1.52-.92 3.32.88 2.4 2.4a1.75 1.75 0 001.08 2.62c1.76.42 1.76 2.98 0 3.4a1.75 1.75 0 00-1.08 2.62c.92 1.52-.88 3.32-2.4 2.4a1.75 1.75 0 00-2.62 1.08c-.42 1.76-2.98 1.76-3.4 0a1.75 1.75 0 00-2.62-1.08c-1.52.92-3.32-.88-2.4-2.4a1.75 1.75 0 00-1.08-2.62c-1.76-.42-1.76-2.98 0-3.4A1.75 1.75 0 005.28 7.8c-.92-1.52.88-3.32 2.4-2.4a1.75 1.75 0 002.62-1.08z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.05" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
         </svg>
         <span>设置</span>
     </button>
@@ -860,6 +926,7 @@
 <script src="/static/js/record-timeline.js"></script>
 <script src="/static/js/record-timeline-24h.js"></script>
 <script src="/static/js/ptz.js"></script>
+<script src="/static/js/theme-controls.js"></script>
 <script src="/static/js/index.js"></script>
 <script src="/static/js/camera-nodes.js"></script>
 <script src="/static/js/mobile-actions.js"></script>

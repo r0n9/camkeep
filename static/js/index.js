@@ -117,99 +117,36 @@ function setAccountMenuOpen(open, targetMenu = null) {
     });
 }
 
-// 主题有两条独立的轴：
-//   模式 mode  -> html.dark 类，取值 light / dark / system(跟随系统)
-//   风格 skin  -> html[data-skin] 属性，取值 neu(新拟态) / classic(原始)，
-//                classic 时整张禁用 neumorphism.css。
-// 预绘制脚本（模板 <head>）已在首帧前应用初始值，这里只负责运行时切换与控件同步。
-function getStoredMode() {
-    const saved = localStorage.getItem('camkeep-theme');
-    return saved === 'dark' || saved === 'light' ? saved : 'system';
-}
-
-function getStoredSkin() {
-    return document.documentElement.dataset.skin === 'classic' ? 'classic' : 'neu';
-}
-
-function applyMode(mode) {
-    const root = document.documentElement;
-    if (mode === 'system') {
-        localStorage.removeItem('camkeep-theme');
-        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        root.classList.toggle('dark', !!prefersDark);
-    } else {
-        const isDark = mode === 'dark';
-        root.classList.toggle('dark', isDark);
-        localStorage.setItem('camkeep-theme', isDark ? 'dark' : 'light');
-    }
-}
-
-function applySkin(skin) {
-    const normalized = skin === 'classic' ? 'classic' : 'neu';
-    document.documentElement.dataset.skin = normalized;
-    const link = document.getElementById('neuStyle');
-    if (link) link.disabled = normalized === 'classic';
-    localStorage.setItem('camkeep-skin', normalized);
-}
-
-function setMode(mode) {
-    applyMode(mode);
-    syncThemeSegments();
-}
-
-function setSkin(skin) {
-    applySkin(skin);
-    syncThemeSegments();
-}
-
-function syncThemeSegments() {
-    const mode = getStoredMode();
-    const skin = getStoredSkin();
-    document.querySelectorAll('#themeMenuPanel .theme-seg-btn').forEach(btn => {
-        const active = btn.dataset.mode === mode || btn.dataset.skin === skin;
-        btn.classList.toggle('is-active', active);
-        btn.setAttribute('aria-checked', active ? 'true' : 'false');
-    });
-}
-
-function toggleThemeMenu(event) {
-    event?.stopPropagation();
-    const panel = document.getElementById('themeMenuPanel');
-    const willOpen = panel ? panel.classList.contains('hidden') : false;
-    setThemeMenuOpen(willOpen);
-}
-
-function setThemeMenuOpen(open) {
-    const button = document.getElementById('themeMenuButton');
-    const panel = document.getElementById('themeMenuPanel');
-    if (!button || !panel) return;
-    panel.classList.toggle('hidden', !open);
-    button.classList.toggle('is-open', open);
-    button.setAttribute('aria-expanded', open ? 'true' : 'false');
-}
-
-function initThemeControls() {
-    syncThemeSegments();
-
-    const menu = document.getElementById('themeMenu');
-    if (menu) {
-        document.addEventListener('click', event => {
-            if (!menu.contains(event.target)) setThemeMenuOpen(false);
-        });
-        document.addEventListener('keydown', event => {
-            if (event.key === 'Escape') setThemeMenuOpen(false);
-        });
+function confirmLogout(event) {
+    const form = event?.currentTarget;
+    if (!form || form.dataset.logoutConfirmed === 'true') return true;
+    event.preventDefault();
+    setAccountMenuOpen(false);
+    const modal = document.getElementById('confirmModal');
+    const titleEl = document.getElementById('confirmTitle');
+    const descEl = document.getElementById('confirmDesc');
+    const btnEl = document.getElementById('confirmBtn');
+    const iconEl = document.getElementById('confirmIcon');
+    if (!modal || !titleEl || !descEl || !btnEl || !iconEl) {
+        if (window.confirm('确定要退出当前账号吗？')) {
+            form.dataset.logoutConfirmed = 'true';
+            form.submit();
+        }
+        return false;
     }
 
-    // 仅在「跟随系统」时响应系统配色变化。
-    if (window.matchMedia) {
-        const media = window.matchMedia('(prefers-color-scheme: dark)');
-        media.addEventListener('change', () => {
-            if (getStoredMode() === 'system') {
-                document.documentElement.classList.toggle('dark', media.matches);
-            }
-        });
-    }
+    pendingAction = {type: 'logout', form};
+    titleEl.innerText = '退出登录？';
+    descEl.innerHTML = `
+        <p class="mb-2">将结束当前登录会话，并返回登录页面。</p>
+        <p class="text-xs text-red-500 font-bold mt-3 border-t pt-2">确认后需要重新登录才能继续访问控制台。</p>`;
+    btnEl.className = 'px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold shadow transition-all';
+    btnEl.innerText = '确认退出';
+    btnEl.disabled = false;
+    iconEl.className = 'w-10 h-10 rounded-full flex items-center justify-center mr-3 text-white bg-red-500 shadow-lg shadow-red-200';
+    iconEl.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M15 12H3m0 0l4-4m-4 4l4 4M21 4v16a2 2 0 01-2 2h-6a2 2 0 01-2-2v-3m0-10V4a2 2 0 012-2h6a2 2 0 012 2z"></path></svg>`;
+    modal.classList.remove('hidden');
+    return false;
 }
 
 async function initUpdateBadge() {
@@ -364,6 +301,15 @@ async function executeConfirmAction() {
         const onConfirm = pendingAction.onConfirm;
         closeConfirm();
         if (typeof onConfirm === 'function') onConfirm();
+        return;
+    }
+    if (pendingAction.type === 'logout') {
+        const form = pendingAction.form;
+        closeConfirm();
+        if (form) {
+            form.dataset.logoutConfirmed = 'true';
+            form.submit();
+        }
         return;
     }
 
@@ -626,14 +572,112 @@ async function saveConfig() {
     }
 }
 
+function applyConfigModeView(mode) {
+    configEditMode = mode;
+    const configPage = document.getElementById('configPage');
+    const yamlPanel = document.getElementById('configYamlPanel');
+    const yamlEditor = document.getElementById('configYaml');
+    if (configPage) {
+        configPage.classList.toggle('is-config-mode-form', mode === 'form');
+        configPage.classList.toggle('is-config-mode-yaml', mode === 'yaml');
+    }
+    if (mode !== 'yaml' && document.activeElement === yamlEditor) {
+        yamlEditor.blur();
+    }
+    document.getElementById('configFormPanel').classList.toggle('hidden', mode !== 'form');
+    yamlPanel.classList.toggle('hidden', mode !== 'yaml');
+    document.getElementById('configFormTab').className = mode === 'form'
+        ? 'config-tab-btn is-active'
+        : 'config-tab-btn';
+    document.getElementById('configYamlTab').className = mode === 'yaml'
+        ? 'config-tab-btn is-active'
+        : 'config-tab-btn';
+}
+
+function isMobileConfigMode() {
+    return window.CamKeepMobile?.isMobileMode?.()
+        || document.documentElement.dataset.layoutMode === 'mobile'
+        || window.matchMedia?.('(max-width: 900px)').matches === true;
+}
+
+function openMobileYamlEditor() {
+    const root = document.getElementById('mobileYamlEditorRoot');
+    const mobileYaml = document.getElementById('mobileConfigYaml');
+    const desktopYaml = document.getElementById('configYaml');
+    if (!root || !mobileYaml || !desktopYaml) return false;
+    try {
+        desktopYaml.value = configToYaml(collectConfigForm());
+    } catch (e) {
+        alert('表单内容还不完整，已保留当前 YAML 内容: ' + e.message);
+    }
+    mobileYaml.value = desktopYaml.value;
+    root.classList.remove('hidden');
+    root.setAttribute('aria-hidden', 'false');
+    document.documentElement.classList.add('mobile-yaml-editor-lock');
+    document.body.classList.add('mobile-yaml-editor-lock');
+    requestAnimationFrame(() => {
+        root.classList.add('is-open');
+        mobileYaml.focus({preventScroll: true});
+    });
+    return true;
+}
+
+async function closeMobileYamlEditor(applyChanges = false) {
+    const root = document.getElementById('mobileYamlEditorRoot');
+    const mobileYaml = document.getElementById('mobileConfigYaml');
+    const desktopYaml = document.getElementById('configYaml');
+    if (!root || !mobileYaml || !desktopYaml) return;
+
+    mobileYaml.blur();
+    if (applyChanges) {
+        const previousYaml = desktopYaml.value;
+        const parsed = await parseConfigYamlToForm(mobileYaml.value);
+        if (!parsed.ok) {
+            alert('YAML 无法转换为表单: ' + parsed.error);
+            return;
+        }
+        desktopYaml.value = mobileYaml.value;
+        if (normalizeConfigSnapshot(previousYaml) !== normalizeConfigSnapshot(mobileYaml.value)) {
+            markConfigUserEdited();
+        }
+        configFormState = normalizeConfigForm(parsed.config);
+        configCameraExpandedKeys = new Set();
+        configOnvifDiagnosticsOpenKeys = new Set();
+        renderConfigForm();
+        if (configDirtyTrackingReady && !configUserEdited) {
+            markConfigClean(currentConfigSnapshot() || configCleanSnapshot);
+        }
+    }
+
+    root.classList.remove('is-open');
+    root.setAttribute('aria-hidden', 'true');
+    document.documentElement.classList.remove('mobile-yaml-editor-lock');
+    document.body.classList.remove('mobile-yaml-editor-lock');
+    window.setTimeout(() => {
+        if (!root.classList.contains('is-open')) root.classList.add('hidden');
+    }, 180);
+    applyConfigModeView('form');
+}
+
+window.closeMobileYamlEditor = closeMobileYamlEditor;
+
 async function switchConfigMode(mode, options = {}) {
     if (mode !== 'form' && mode !== 'yaml') return;
     const wasCleanBeforeModeSwitch = configDirtyTrackingReady && !hasUnsavedConfigChanges();
     const previousMode = configEditMode;
 
+    if (mode === 'yaml' && isMobileConfigMode()) {
+        openMobileYamlEditor();
+        applyConfigModeView('form');
+        return;
+    }
+
     if (mode === 'form' && previousMode !== 'form' && !options.skipSync) {
-        const parsed = await parseConfigYamlToForm(document.getElementById('configYaml').value);
+        const yamlText = document.getElementById('configYaml').value;
+        applyConfigModeView('form');
+        const parsed = await parseConfigYamlToForm(yamlText);
         if (!parsed.ok) {
+            applyConfigModeView('yaml');
             alert('YAML 无法转换为表单: ' + parsed.error);
             return;
         }
@@ -641,22 +685,9 @@ async function switchConfigMode(mode, options = {}) {
         configCameraExpandedKeys = new Set();
         configOnvifDiagnosticsOpenKeys = new Set();
         renderConfigForm();
+    } else {
+        applyConfigModeView(mode);
     }
-
-    configEditMode = mode;
-    const configPage = document.getElementById('configPage');
-    if (configPage) {
-        configPage.classList.toggle('is-config-mode-form', mode === 'form');
-        configPage.classList.toggle('is-config-mode-yaml', mode === 'yaml');
-    }
-    document.getElementById('configFormPanel').classList.toggle('hidden', mode !== 'form');
-    document.getElementById('configYamlPanel').classList.toggle('hidden', mode !== 'yaml');
-    document.getElementById('configFormTab').className = mode === 'form'
-        ? 'config-tab-btn is-active'
-        : 'config-tab-btn';
-    document.getElementById('configYamlTab').className = mode === 'yaml'
-        ? 'config-tab-btn is-active'
-        : 'config-tab-btn';
 
     if (mode === 'yaml' && previousMode !== 'yaml' && !options.skipSync) {
         try {

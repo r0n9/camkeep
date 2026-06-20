@@ -12,7 +12,7 @@
                 var root = document.documentElement;
                 var savedTheme = localStorage.getItem('camkeep-theme');
                 var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-                if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+                if (savedTheme === 'dark' || ((savedTheme === 'system' || !savedTheme) && prefersDark)) {
                     root.classList.add('dark');
                 }
                 root.dataset.skin = localStorage.getItem('camkeep-skin') || 'neu';
@@ -36,39 +36,83 @@
         })();
     </script>
     <link rel="stylesheet" href="/static/css/login.css">
+    <script src="/static/js/theme-controls.js" defer></script>
 </head>
-<body class="login-body min-h-screen bg-slate-100 p-4 transition-colors duration-200">
-<main class="login-shell mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-md items-center justify-center">
-    <section class="login-panel nm-login-card w-full rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div class="login-brand mb-6 flex items-center gap-3">
-            <img src="/static/image/camkeep_w80.png" alt="CamKeep" class="login-brand-logo h-10 w-10 object-contain">
-            <div>
-                <h1 class="text-lg font-extrabold tracking-tight text-slate-900">CamKeep NVR</h1>
-                <p class="mt-0.5 text-xs font-medium text-slate-500">{{ .Version }}</p>
+<body class="login-body min-h-screen bg-slate-100 transition-colors duration-200">
+<main class="login-shell">
+    <header class="login-brand" aria-label="CamKeep">
+        <img src="/static/image/camkeep_w80.png" alt="CamKeep" class="login-brand-logo">
+        <div class="login-brand-copy">
+            <h1>CamKeep NVR</h1>
+            <p>{{ .Version }}</p>
+        </div>
+    </header>
+    <div id="loginThemeMenu" class="theme-menu login-theme-menu">
+        <button id="loginThemeMenuButton" onclick="toggleThemeMenu(event, 'loginThemeMenu')" type="button" class="theme-menu-button login-theme-menu-button" title="主题" aria-label="主题设置" aria-haspopup="menu" aria-expanded="false" aria-controls="loginThemeMenuPanel">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="13.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"></circle>
+                <circle cx="17.5" cy="10.5" r="1.2" fill="currentColor" stroke="none"></circle>
+                <circle cx="8.5" cy="7.5" r="1.2" fill="currentColor" stroke="none"></circle>
+                <circle cx="6.5" cy="12.5" r="1.2" fill="currentColor" stroke="none"></circle>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3a9 9 0 100 18c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.39-.62-.39-1 0-.83.67-1.5 1.5-1.5H16a5 5 0 005-5c0-4.42-4.03-8-9-8z"></path>
+            </svg>
+        </button>
+        <div id="loginThemeMenuPanel" class="theme-menu-panel login-theme-menu-panel hidden" role="menu" aria-labelledby="loginThemeMenuButton">
+            <div class="theme-menu-group">
+                <span class="theme-menu-label">风格</span>
+                <div class="theme-seg" role="radiogroup" aria-label="界面风格">
+                    <button type="button" class="theme-seg-btn" data-skin="classic" onclick="setSkin('classic')" role="radio" aria-checked="false">原始</button>
+                    <button type="button" class="theme-seg-btn" data-skin="neu" onclick="setSkin('neu')" role="radio" aria-checked="false">拟态</button>
+                </div>
+            </div>
+            <div class="theme-menu-group">
+                <span class="theme-menu-label">模式</span>
+                <div class="theme-seg" role="radiogroup" aria-label="明暗模式">
+                    <button type="button" class="theme-seg-btn theme-seg-btn--icon" data-mode="light" onclick="setMode('light')" role="radio" aria-checked="false" title="浅色">
+                        <svg class="theme-seg-ico" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m8.66-13.66l-.7.7M4.04 19.96l-.7.7M21 12h-1M4 12H3m16.96 7.96l-.7-.7M4.04 4.04l-.7-.7"></path></svg>
+                        <span>浅色</span>
+                    </button>
+                    <button type="button" class="theme-seg-btn theme-seg-btn--icon" data-mode="dark" onclick="setMode('dark')" role="radio" aria-checked="false" title="深色">
+                        <svg class="theme-seg-ico" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A8.5 8.5 0 1111.21 3 6.5 6.5 0 0021 12.79z"></path></svg>
+                        <span>深色</span>
+                    </button>
+                    <button type="button" class="theme-seg-btn theme-seg-btn--icon" data-mode="system" onclick="setMode('system')" role="radio" aria-checked="false" title="跟随系统">
+                        <svg class="theme-seg-ico" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="12" rx="2"></rect><path stroke-linecap="round" stroke-linejoin="round" d="M8.5 20h7M12 16.5V20"></path></svg>
+                        <span>系统</span>
+                    </button>
+                </div>
             </div>
         </div>
+    </div>
 
-        <div class="login-content">
+    <section class="login-stage" aria-label="登录">
+        <div class="login-panel nm-login-card">
+            <div class="login-heading">
+                <h2>登录</h2>
+            </div>
+
+            <div class="login-content">
         {{ if .Error }}
-        <div class="login-error mb-4 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm font-bold text-red-600">
+        <div class="login-error">
             {{ .Error }}
         </div>
         {{ end }}
 
-        <form method="post" action="/login" class="login-form space-y-4">
+        <form method="post" action="/login" class="login-form">
             <input type="hidden" name="next" value="{{ .Next }}">
-            <label class="login-field block">
-                <span class="mb-1 block text-xs font-extrabold text-slate-500">用户名</span>
-                <input name="username" value="{{ .User }}" autocomplete="username" autofocus class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10">
+            <label class="login-field">
+                <span>用户名</span>
+                <input name="username" value="{{ .User }}" autocomplete="username" autofocus>
             </label>
-            <label class="login-field block">
-                <span class="mb-1 block text-xs font-extrabold text-slate-500">密码</span>
-                <input name="password" type="password" autocomplete="current-password" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10">
+            <label class="login-field">
+                <span>密码</span>
+                <input name="password" type="password" autocomplete="current-password">
             </label>
-            <button type="submit" class="login-submit nm-btn--accent flex h-10 w-full items-center justify-center rounded-lg bg-blue-600 px-4 text-sm font-extrabold text-white shadow-[0_4px_12px_rgba(37,99,235,0.25)] transition-all hover:bg-blue-700 active:scale-[0.99]">
+            <button type="submit" class="login-submit nm-btn--accent">
                 登录
             </button>
         </form>
+            </div>
         </div>
     </section>
 </main>
