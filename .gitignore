@@ -63,5 +63,6 @@ todo.md
 .claude
 .codex
 /AGENTS.md
-/onvif_pullpoint_motion.md
 .cache
+.document
+*fpk.zip
