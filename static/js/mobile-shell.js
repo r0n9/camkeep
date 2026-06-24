@@ -1,5 +1,6 @@
 (function () {
     const MOBILE_MAX_WIDTH = 900;
+    const MOBILE_MEDIA_QUERY = `(max-width: ${MOBILE_MAX_WIDTH}px)`;
     const MOBILE_TABS = new Set(['monitor', 'devices', 'records', 'settings']);
 
     let resizeFrame = 0;
@@ -13,7 +14,8 @@
     }
 
     function getLayoutMode() {
-        const width = viewportWidth();
+        if (window.matchMedia?.(MOBILE_MEDIA_QUERY).matches) return 'mobile';
+        const width = window.innerWidth || document.documentElement.clientWidth || viewportWidth();
         if (width <= MOBILE_MAX_WIDTH) return 'mobile';
         return 'desktop';
     }

@@ -17,8 +17,10 @@
                 }
                 // skin: neu(默认,新拟态) / classic(原始)。预绘制阶段写入，避免切换闪烁。
                 root.dataset.skin = localStorage.getItem('camkeep-skin') || 'neu';
-                var width = (window.visualViewport && window.visualViewport.width) || window.innerWidth || document.documentElement.clientWidth || 1024;
-                root.dataset.layoutMode = width <= 900 ? 'mobile' : 'desktop';
+                var isMobileLayout = window.matchMedia
+                    ? window.matchMedia('(max-width: 900px)').matches
+                    : ((window.innerWidth || document.documentElement.clientWidth || 1024) <= 900);
+                root.dataset.layoutMode = isMobileLayout ? 'mobile' : 'desktop';
                 root.dataset.mobileTab = localStorage.getItem('camkeep-mobile-tab') || 'devices';
                 root.dataset.mobilePage = 'dashboard';
                 root.dataset.mobileSubpage = '';
