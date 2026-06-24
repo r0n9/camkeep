@@ -1538,7 +1538,7 @@ html.dark {
     }
 }
 
-@media (min-width: 641px) {
+@media (min-width: 901px) {
     .mobile-tabbar {
         display: none !important;
     }
