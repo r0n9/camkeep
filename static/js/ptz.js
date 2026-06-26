@@ -12,6 +12,7 @@
         stopTimer: null,
         activeMove: null,
         actionInFlight: false,
+        lightEnabledByCamera: new Map(),
         speedValue: 0.55,
         speedDragging: false,
         lastRenderKey: '',
@@ -213,11 +214,21 @@
         slider.setAttribute('aria-valuetext', speedText);
     }
 
+    function getLightEnabled(camId) {
+        return Boolean(state.lightEnabledByCamera.get(camId));
+    }
+
+    function setLightEnabled(camId, enabled) {
+        if (!camId) return;
+        state.lightEnabledByCamera.set(camId, Boolean(enabled));
+    }
+
     function panelRenderKey(camId, status) {
         return JSON.stringify({
             camId,
             mode: currentPanelMode(),
             collapsed: state.panelCollapsed,
+            light_enabled: getLightEnabled(camId),
             capability_state: status?.capability_state || '',
             ptz_state: status?.ptz_state || '',
             imaging_state: status?.imaging_state || '',
@@ -333,12 +344,20 @@
         const imagingDisabledClass = imagingAvailable ? '' : ' opacity-45 pointer-events-none';
         const speedDisabled = ptzAvailable || imagingAvailable ? '' : 'disabled';
         const speedDisabledClass = ptzAvailable || imagingAvailable ? '' : ' opacity-45 pointer-events-none';
+        const lightDisabled = status ? '' : 'disabled';
+        const lightEnabled = getLightEnabled(camId);
+        const lightButtonClass = lightEnabled ? 'ptz-light is-active' : 'ptz-light';
+        const lightButtonTitle = lightEnabled ? '灯光关' : '灯光开';
         panel.innerHTML = `
         <div class="custom-scrollbar flex h-full flex-col overflow-y-auto p-3 sm:p-3.5">
-            <div class="mb-3 flex items-center justify-between gap-2">
-                <div class="min-w-0">
+            <div class="ptz-panel-header mb-3 flex items-center gap-2">
+                <div class="ptz-panel-heading min-w-0">
                     <div class="ptz-panel-title text-[15px] font-extrabold tracking-normal text-slate-100">云台</div>
                     <div id="ptz-feedback" class="ptz-panel-feedback mt-0.5 truncate text-[10px] font-bold text-slate-500">${escapeHtmlValue(text)}</div>
+                </div>
+                <div class="ptz-header-speed-panel${speedDisabledClass}">
+                    <input id="ptz-speed" type="range" min="0.15" max="1" step="0.05" value="${state.speedValue}" oninput="window.PTZ.updateSpeedLabel()" onpointerdown="window.PTZ.beginSpeedInteraction(event)" onpointerup="window.PTZ.endSpeedInteraction(event)" onpointercancel="window.PTZ.endSpeedInteraction(event)" onlostpointercapture="window.PTZ.endSpeedInteraction(event)" onfocus="window.PTZ.beginSpeedInteraction()" onblur="window.PTZ.endSpeedInteraction()" aria-label="控制速度" class="block min-w-0 flex-1 accent-blue-500" ${speedDisabled}>
+                    <span id="ptz-speed-label" class="ptz-speed-label shrink-0 text-right font-mono text-[10px] font-black text-slate-300">55%</span>
                 </div>
                 <button onclick="window.PTZ.togglePanel(event)" class="ptz-panel-collapse-btn flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-800 bg-slate-900 text-slate-400 shadow-[0_6px_16px_-12px_rgba(2,6,23,0.9)] transition-colors hover:border-slate-700 hover:text-white" title="折叠云台" aria-label="折叠云台">
                     <svg class="h-[17px] w-[17px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9 5l7 7-7 7"></path></svg>
@@ -359,30 +378,17 @@
                 ${moveButton('右下', 1, -1, 0, '<path d="M17 7v10H7m10 0L7 7" />', disabled)}
             </div>
 
-            <div class="ptz-tool-panel mt-2 p-1.5 sm:p-1.5${disabledClass}">
+            <div class="ptz-tool-panel ptz-combined-tool-panel mt-2 p-1.5 sm:p-1.5">
                 <div class="ptz-control-grid">
                     ${controlButton('拉近', 'ptz-zoom', '', disabled, 'window.PTZ.startMove(event, 0, 0, 1)', 'window.PTZ.stopMove(event)', null, 'ptz-icon-zoom-in')}
                     ${controlButton('拉远', 'ptz-zoom', '', disabled, 'window.PTZ.startMove(event, 0, 0, -1)', 'window.PTZ.stopMove(event)', null, 'ptz-icon-zoom-out')}
-                </div>
-            </div>
-
-            <div class="ptz-tool-panel mt-1.5 p-1.5 sm:p-1.5${imagingDisabledClass}">
-                <div class="ptz-control-grid">
                     ${controlButton('近焦', 'ptz-focus', '', imagingDisabled, null, null, 'window.PTZ.adjustFocus(event, -1)', 'ptz-icon-focus-near')}
                     ${controlButton('远焦', 'ptz-focus', '', imagingDisabled, null, null, 'window.PTZ.adjustFocus(event, 1)', 'ptz-icon-focus-far')}
-                </div>
-            </div>
-
-            <div class="ptz-tool-panel mt-1.5 p-1.5 sm:p-1.5${imagingDisabledClass}">
-                <div class="ptz-control-grid">
                     ${controlButton('开大', 'ptz-iris', '', imagingDisabled, null, null, 'window.PTZ.adjustIris(event, 1)', 'ptz-icon-iris-open')}
                     ${controlButton('收小', 'ptz-iris', '', imagingDisabled, null, null, 'window.PTZ.adjustIris(event, -1)', 'ptz-icon-iris-close')}
+                    ${controlButton('自动聚焦', 'ptz-autofocus', '', imagingDisabled, null, null, 'window.PTZ.autoFocus(event)', 'ptz-icon-autofocus')}
+                    ${controlButton(lightButtonTitle, lightButtonClass, '', lightDisabled, null, null, 'window.PTZ.toggleLight(event)', 'ptz-icon-light')}
                 </div>
-            </div>
-
-            <div class="ptz-speed-panel mt-2 flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-2${speedDisabledClass}">
-                <input id="ptz-speed" type="range" min="0.15" max="1" step="0.05" value="${state.speedValue}" oninput="window.PTZ.updateSpeedLabel()" onpointerdown="window.PTZ.beginSpeedInteraction(event)" onpointerup="window.PTZ.endSpeedInteraction(event)" onpointercancel="window.PTZ.endSpeedInteraction(event)" onlostpointercapture="window.PTZ.endSpeedInteraction(event)" onfocus="window.PTZ.beginSpeedInteraction()" onblur="window.PTZ.endSpeedInteraction()" aria-label="控制速度" class="block min-w-0 flex-1 accent-blue-500" ${speedDisabled}>
-                <span id="ptz-speed-label" class="ptz-speed-label w-8 shrink-0 text-right font-mono text-[10px] font-black text-slate-300">55%</span>
             </div>
         </div>
     `;
@@ -643,6 +649,77 @@
         await adjustImaging(event, 'iris', direction, '光圈', '光圈已调整');
     }
 
+    async function autoFocus(event) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        const camId = getActiveCamId();
+        if (!camId || state.actionInFlight || !canSendPTZCommand(camId)) return;
+
+        state.actionInFlight = true;
+        setFeedback('自动对焦中');
+        try {
+            const resp = await fetch(`/api/camera/${encodeURIComponent(camId)}/ptz/autofocus`, {
+                method: 'POST'
+            });
+            if (!resp.ok) {
+                const detail = await readError(resp);
+                console.error('[PTZ] 自动对焦接口调用失败', {
+                    camera_id: camId,
+                    status: resp.status,
+                    error: detail
+                });
+                setFeedback('自动对焦调用失败，可能不支持', true);
+                return;
+            }
+            setFeedback('自动对焦已下发');
+        } catch (e) {
+            console.error('[PTZ] 自动对焦接口调用失败', e);
+            setFeedback('自动对焦调用失败，可能不支持', true);
+        } finally {
+            state.actionInFlight = false;
+        }
+    }
+
+    async function toggleLight(event) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        const camId = getActiveCamId();
+        if (!camId || state.actionInFlight || !canSendPTZCommand(camId)) return;
+
+        const nextEnabled = !getLightEnabled(camId);
+        state.actionInFlight = true;
+        setFeedback(nextEnabled ? '灯光开启中' : '灯光关闭中');
+        try {
+            const resp = await fetch(`/api/camera/${encodeURIComponent(camId)}/ptz/light`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({enabled: nextEnabled})
+            });
+            if (!resp.ok) {
+                const detail = await readError(resp);
+                console.error('[PTZ] 灯光控制接口调用失败', {
+                    camera_id: camId,
+                    status: resp.status,
+                    error: detail
+                });
+                setFeedback('灯光控制失败，可能不支持', true);
+                return;
+            }
+            setLightEnabled(camId, nextEnabled);
+            renderPanelIfNeeded(camId, state.onvifStatusCache.get(camId), {force: true});
+            setFeedback(nextEnabled ? '灯光已开启' : '灯光已关闭');
+        } catch (e) {
+            console.error('[PTZ] 灯光控制接口调用失败', e);
+            setFeedback('灯光控制失败，可能不支持', true);
+        } finally {
+            state.actionInFlight = false;
+        }
+    }
+
     function beginSpeedInteraction(event) {
         if (event && !shouldHandlePointer(event)) return;
         state.speedDragging = true;
@@ -662,6 +739,7 @@
     window.PTZ = {
         adjustFocus,
         adjustIris,
+        autoFocus,
         beginSpeedInteraction,
         endSpeedInteraction,
         getActiveCamId,
@@ -671,6 +749,7 @@
         stopMove,
         suppressGesture,
         togglePanel,
+        toggleLight,
         updateSpeedLabel
     };
 

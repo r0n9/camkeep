@@ -133,6 +133,10 @@ type imagingAdjustRequest struct {
 	Step      float64 `json:"step"`
 }
 
+type ptzLightRequest struct {
+	Enabled bool `json:"enabled"`
+}
+
 const (
 	recordDateLayout    = "2006-01-02"
 	maxRecordRangeDays  = 7
@@ -753,6 +757,24 @@ func handlePTZFocus(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"msg": "聚焦指令已下发"})
 }
 
+func handlePTZAutoFocus(c *gin.Context) {
+	id := c.Param("id")
+	candidate, status, ok := getImagingReadyTarget(c, id)
+	if !ok {
+		return
+	}
+
+	client := onvif.NewClient(candidate)
+	ctx, cancel := contextWithHTTPTimeout(c.Request.Context(), 3*time.Second)
+	defer cancel()
+
+	if err := client.AutoFocus(ctx, status.ImagingXAddr, status.VideoSourceToken); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "自动对焦失败: " + err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"msg": "自动对焦指令已下发"})
+}
+
 func handlePTZIris(c *gin.Context) {
 	id := c.Param("id")
 	candidate, status, ok := getImagingReadyTarget(c, id)
@@ -781,6 +803,41 @@ func handlePTZIris(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"msg": "光圈指令已下发"})
+}
+
+func handlePTZLight(c *gin.Context) {
+	id := c.Param("id")
+	candidate, ok := getOnvifTarget(c, id)
+	if !ok {
+		return
+	}
+
+	var req ptzLightRequest
+	if err := json.NewDecoder(c.Request.Body).Decode(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "灯光控制参数有误"})
+		return
+	}
+
+	command := "tt:IRLamp|Off"
+	if req.Enabled {
+		command = "tt:IRLamp|On"
+	}
+
+	client := onvif.NewClient(candidate)
+	ctx, cancel := contextWithHTTPTimeout(c.Request.Context(), 3*time.Second)
+	defer cancel()
+
+	response, err := client.SendAuxiliaryCommand(ctx, command)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "灯光控制失败: " + err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"msg":      "灯光控制指令已下发",
+		"enabled":  req.Enabled,
+		"command":  command,
+		"response": response,
+	})
 }
 
 func cameraExists(camID string) bool {
@@ -849,6 +906,25 @@ func getImagingReadyTarget(c *gin.Context, camID string) (onvif.Candidate, servi
 		return onvif.Candidate{}, service.OnvifStatus{}, false
 	}
 	return candidate, status, true
+}
+
+func getOnvifTarget(c *gin.Context, camID string) (onvif.Candidate, bool) {
+	if !cameraExists(camID) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "找不到该摄像头"})
+		return onvif.Candidate{}, false
+	}
+
+	if _, ok := service.GetOnvifStatus(camID); !ok {
+		c.JSON(http.StatusNotFound, gin.H{"error": "该摄像头不是 ONVIF 接入设备"})
+		return onvif.Candidate{}, false
+	}
+
+	candidate, ok := currentOnvifCandidate(camID)
+	if !ok {
+		c.JSON(http.StatusConflict, gin.H{"error": "无法解析该摄像头的 ONVIF 连接信息"})
+		return onvif.Candidate{}, false
+	}
+	return candidate, true
 }
 
 func currentOnvifCandidate(camID string) (onvif.Candidate, bool) {

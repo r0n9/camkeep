@@ -459,6 +459,76 @@ func TestAdjustFocusFallsBackToContinuousWhenRelativeFails(t *testing.T) {
 	}
 }
 
+func TestAutoFocusSetsFocusModeAuto(t *testing.T) {
+	var gotBodies []string
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		bodyText := string(body)
+		gotBodies = append(gotBodies, bodyText)
+		w.Header().Set("Content-Type", "application/soap+xml")
+		switch {
+		case strings.Contains(bodyText, "GetCapabilities"):
+			_, _ = w.Write([]byte(capabilitiesSOAPResponseWithImaging(server.URL)))
+		case strings.Contains(bodyText, "SetImagingSettings"):
+			_, _ = w.Write([]byte(`<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"><s:Body><timg:SetImagingSettingsResponse xmlns:timg="http://www.onvif.org/ver20/imaging/wsdl"/></s:Body></s:Envelope>`))
+		default:
+			t.Fatalf("unexpected ONVIF request: %s", bodyText)
+		}
+	}))
+	defer server.Close()
+
+	client := &Client{Endpoint: server.URL, HTTPClient: server.Client()}
+	if err := client.AutoFocus(context.Background(), server.URL, "video_1"); err != nil {
+		t.Fatalf("expected autofocus to pass, got %v", err)
+	}
+
+	joined := strings.Join(gotBodies, "\n")
+	for _, want := range []string{"GetCapabilities", "SetImagingSettings", "video_1", "AutoFocusMode>AUTO<", "ForcePersistence>false<"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("expected autofocus flow to contain %q, got %s", want, joined)
+		}
+	}
+}
+
+func TestSendAuxiliaryCommandSendsIRLampCommand(t *testing.T) {
+	var gotBody string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		gotBody = string(body)
+		w.Header().Set("Content-Type", "application/soap+xml")
+		_, _ = w.Write([]byte(`
+<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:tds="http://www.onvif.org/ver10/device/wsdl">
+  <s:Body>
+    <tds:SendAuxiliaryCommandResponse>
+      <tds:AuxiliaryCommandResponse>tt:IRLamp|On</tds:AuxiliaryCommandResponse>
+    </tds:SendAuxiliaryCommandResponse>
+  </s:Body>
+</s:Envelope>`))
+	}))
+	defer server.Close()
+
+	client := &Client{Endpoint: server.URL, HTTPClient: server.Client()}
+	response, err := client.SendAuxiliaryCommand(context.Background(), "tt:IRLamp|On")
+	if err != nil {
+		t.Fatalf("expected auxiliary command to pass, got %v", err)
+	}
+	if response != "tt:IRLamp|On" {
+		t.Fatalf("unexpected auxiliary response: %q", response)
+	}
+	for _, want := range []string{"SendAuxiliaryCommand", "AuxiliaryCommand", "tt:IRLamp|On"} {
+		if !strings.Contains(gotBody, want) {
+			t.Fatalf("expected auxiliary command request to contain %q, got %s", want, gotBody)
+		}
+	}
+}
+
 func TestAdjustIrisUpdatesExposureValue(t *testing.T) {
 	var gotBodies []string
 	var requestCount int

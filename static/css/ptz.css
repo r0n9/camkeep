@@ -17,8 +17,8 @@
     background: var(--player-ptz-panel-bg);
     color: var(--player-ptz-text);
     box-shadow: var(--player-ptz-shadow);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(20px) saturate(0.82);
+    -webkit-backdrop-filter: blur(20px) saturate(0.82);
     transform-origin: bottom right;
     transform: translate3d(0, 0, 0) scale(1);
     transition:
@@ -92,6 +92,35 @@
 .player-ptz-panel.is-expanded > .custom-scrollbar {
     max-height: inherit;
     overflow-y: auto;
+}
+
+.ptz-panel-header {
+    min-width: 0;
+}
+
+.ptz-panel-heading {
+    flex: 1 1 auto;
+}
+
+.ptz-header-speed-panel {
+    display: flex;
+    flex: 0 0 102px;
+    min-width: 96px;
+    max-width: 112px;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+}
+
+.ptz-header-speed-panel input[type="range"] {
+    width: 100%;
+    height: 18px;
+    min-width: 0;
+    margin: 0;
+}
+
+.ptz-header-speed-panel .ptz-speed-label {
+    width: 26px;
 }
 
 @keyframes ptz-panel-expand {
@@ -220,6 +249,10 @@
     gap: 5px;
 }
 
+.ptz-combined-tool-panel .ptz-control-grid {
+    grid-template-rows: repeat(4, 30px);
+}
+
 .ptz-action-btn {
     position: relative;
     display: flex;
@@ -260,6 +293,14 @@
 
 .ptz-icon-zoom-in {
     background-position: -126px 0;
+}
+
+.ptz-icon-light {
+    background-position: -162px 0;
+}
+
+.ptz-icon-autofocus {
+    background-position: -198px 0;
 }
 
 .ptz-icon-zoom-out {
@@ -314,9 +355,13 @@
     box-shadow: none;
 }
 
-.ptz-speed-panel input[type="range"] {
-    height: 20px;
-    margin: 0;
+.ptz-action-btn.ptz-light.is-active {
+    border-color: rgba(250, 204, 21, 0.72);
+    background: linear-gradient(180deg, rgba(113, 63, 18, 0.72), rgba(30, 41, 59, 0.82));
+    color: #fef3c7;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        0 10px 22px -16px rgba(250, 204, 21, 0.8);
 }
 
 .ptz-dial {
@@ -348,11 +393,6 @@
     background: var(--ptz-collapse-hover-bg);
     color: var(--player-ptz-text);
     transform: translateY(-1px);
-}
-
-.ptz-speed-panel {
-    background: var(--ptz-speed-bg) !important;
-    border-color: var(--ptz-btn-border) !important;
 }
 
 .vertical-rl {
@@ -411,9 +451,10 @@
         transform-origin: center;
     }
 
-    .ptz-speed-panel {
-        padding-top: 6px !important;
-        padding-bottom: 6px !important;
+    .ptz-header-speed-panel {
+        flex-basis: 128px;
+        min-width: 118px;
+        max-width: 148px;
     }
 
     .player-ptz-panel.is-expanded > .custom-scrollbar {

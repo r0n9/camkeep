@@ -1,9 +1,9 @@
 appname               = camkeep
-version               = 1.6.0
+version               = 1.7.1
 display_name          = CamKeep
 desc                  = <p><strong>CamKeep</strong> 是专为家庭 NAS 打造的轻量级私有化监控录像机（NVR），支持RTSP、ONVIF等多协议接入摄像头，实现本地直播预览、录像切片与历史回放。</p><p>应用内置 go2rtc 与 FFmpeg，默认采用低资源占用的流代理与直拷录制方案，适用于飞牛 NAS、群晖、威联通及各类低功耗主机。</p><p>安装时请正确配置：</p><ul><li><code>/config</code>：应用配置目录（保存 conf.yaml）</li><li><code>/recordings</code>：监控录像存储目录</li></ul><p>建议使用独立存储路径，以便后续备份与迁移录像数据。</p>
 arch                  = all
-platform              = x86
+platform              = arm
 source                = https://github.com/r0n9/camkeep
 maintainer            = r0n9
 maintainer_url        = https://github.com/r0n9/camkeep

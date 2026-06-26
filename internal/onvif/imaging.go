@@ -228,6 +228,33 @@ func (c *Client) RelativeFocus(ctx context.Context, imagingXAddr, videoSourceTok
 	return c.relativeFocus(ctx, imagingXAddr, videoSourceToken, distance, speedPtr)
 }
 
+// AutoFocus switches the camera focus mode to ONVIF AUTO.
+func (c *Client) AutoFocus(ctx context.Context, imagingXAddr, videoSourceToken string) error {
+	imagingXAddr = strings.TrimSpace(imagingXAddr)
+	videoSourceToken = strings.TrimSpace(videoSourceToken)
+	if imagingXAddr == "" {
+		return fmt.Errorf("ONVIF Imaging xaddr 为空")
+	}
+	if videoSourceToken == "" {
+		return fmt.Errorf("ONVIF video source token 为空")
+	}
+
+	backend, err := c.initializedBackend(ctx, imagingXAddr)
+	if err != nil {
+		return err
+	}
+
+	settings := &onvifgo.ImagingSettings{
+		Focus: &onvifgo.FocusConfiguration{
+			AutoFocusMode: "AUTO",
+		},
+	}
+	if err := backend.SetImagingSettings(ctx, videoSourceToken, settings, false); err != nil {
+		return fmt.Errorf("ONVIF 自动对焦失败: %w", err)
+	}
+	return nil
+}
+
 func (c *Client) relativeFocus(ctx context.Context, imagingXAddr, videoSourceToken string, distance float64, speed *float64) error {
 	req := imagingMoveRequest{
 		Xmlns:            imagingNamespace,

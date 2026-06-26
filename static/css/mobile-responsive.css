@@ -1939,8 +1939,7 @@ html[data-skin="neu"][data-layout-mode="mobile"] #dashboardPage #mobilePtzDock >
     color: var(--nm-text-faint) !important;
 }
 
-html[data-skin="neu"][data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel .ptz-panel-collapse-btn,
-html[data-skin="neu"][data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel .ptz-speed-panel {
+html[data-skin="neu"][data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel .ptz-panel-collapse-btn {
     border: 0 !important;
     background: var(--nm-well) !important;
     color: var(--nm-text-soft) !important;
@@ -3890,10 +3889,15 @@ html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz
     display: flex;
     width: 100%;
     max-width: none;
-    flex: 0.58 1 52px;
+    flex: 0 1 auto;
     min-height: 42px;
     margin-top: 0 !important;
     padding: 5px !important;
+}
+
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-combined-tool-panel {
+    flex-basis: 176px;
+    min-height: 168px;
 }
 
 html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-tool-panel .ptz-control-grid {
@@ -3921,13 +3925,9 @@ html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz
     height: 28px;
 }
 
-html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-speed-panel {
-    width: 100%;
-    flex: 0 0 auto;
-    min-height: 38px;
-    margin-top: 0 !important;
-    padding-top: 8px !important;
-    padding-bottom: 8px !important;
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-header-speed-panel {
+    flex: 0 0 140px;
+    min-height: 24px;
 }
 
 @media (max-height: 700px) {
@@ -3960,9 +3960,14 @@ html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz
         padding: 4px !important;
     }
 
+    html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-combined-tool-panel {
+        flex-basis: 136px;
+        min-height: 128px;
+    }
+
     html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-tool-panel .ptz-control-grid {
         gap: 4px;
-        grid-template-rows: minmax(30px, 1fr);
+        grid-template-rows: repeat(4, minmax(30px, 1fr));
     }
 
     html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-action-icon {
@@ -3970,10 +3975,9 @@ html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz
         height: 28px;
     }
 
-    html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-speed-panel {
-        min-height: 34px;
-        padding-top: 5px !important;
-        padding-bottom: 5px !important;
+    html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-header-speed-panel {
+        flex-basis: 132px;
+        min-height: 22px;
     }
 }
 
@@ -4011,6 +4015,10 @@ html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz
     html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-tool-panel .ptz-control-grid {
         grid-template-rows: minmax(28px, 1fr);
     }
+
+    html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock.is-expanded > #ptz-panel .ptz-combined-tool-panel .ptz-control-grid {
+        grid-template-rows: repeat(4, minmax(28px, 1fr));
+    }
 }
 
 html[data-layout-mode="mobile"] #dashboardPage #playback-column {
@@ -4043,8 +4051,7 @@ html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel.is-ex
 }
 
 html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel.is-expanded .ptz-dial,
-html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel.is-expanded .ptz-tool-panel,
-html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel.is-expanded .ptz-speed-panel {
+html[data-layout-mode="mobile"] #dashboardPage #mobilePtzDock > #ptz-panel.is-expanded .ptz-tool-panel {
     width: 100% !important;
     min-width: 0;
     max-width: none !important;

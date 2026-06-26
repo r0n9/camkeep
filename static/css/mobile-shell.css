@@ -455,12 +455,11 @@ html.dark {
         text-align: center;
     }
 
-    html[data-layout-mode="mobile"] #mobilePtzDock > #ptz-panel .ptz-speed-panel {
-        width: 100%;
-        max-width: none;
+    html[data-layout-mode="mobile"] #mobilePtzDock > #ptz-panel .ptz-header-speed-panel {
+        flex: 0 0 140px;
+        min-width: 128px;
+        max-width: 152px;
         margin-inline: 0;
-        padding-top: 5px !important;
-        padding-bottom: 5px !important;
     }
 
     html[data-layout-mode="mobile"] .config-page {
