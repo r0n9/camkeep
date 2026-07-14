@@ -165,10 +165,12 @@ This project uses:
 
 ---
 
+## Star History
+
 <a href="https://www.star-history.com/?repos=r0n9%2Fcamkeep&type=date&legend=top-left">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=r0n9/camkeep&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=r0n9/camkeep&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=r0n9/camkeep&type=date&legend=top-left" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=r0n9/camkeep&type=date&theme=dark&legend=top-left&sealed_token=6z3e7SK7DNTtCkDRnRIPn9KTa7HbWtFvs-Em2H1qb3jxZ-VXVZJo-XvaztRt6ySfDxbVDz6xcqIn43eklgD16ncQturrFyOQ4ca5ZRxqpJyZeL8l-Du8Pw" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=r0n9/camkeep&type=date&legend=top-left&sealed_token=6z3e7SK7DNTtCkDRnRIPn9KTa7HbWtFvs-Em2H1qb3jxZ-VXVZJo-XvaztRt6ySfDxbVDz6xcqIn43eklgD16ncQturrFyOQ4ca5ZRxqpJyZeL8l-Du8Pw" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=r0n9/camkeep&type=date&legend=top-left&sealed_token=6z3e7SK7DNTtCkDRnRIPn9KTa7HbWtFvs-Em2H1qb3jxZ-VXVZJo-XvaztRt6ySfDxbVDz6xcqIn43eklgD16ncQturrFyOQ4ca5ZRxqpJyZeL8l-Du8Pw" />
  </picture>
 </a>
