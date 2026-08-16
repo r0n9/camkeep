@@ -1,6 +1,7 @@
 package onvif
 
 import (
+	"bytes"
 	"context"
 	"crypto/md5"
 	"crypto/rand"
@@ -305,6 +306,34 @@ type httpAuthTransport struct {
 }
 
 func (t *httpAuthTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := t.roundTripOnce(req)
+	if err != nil || resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusUnauthorized {
+		return resp, err
+	}
+
+	// 部分摄像头(如海康)URL 中使用的别名路径(如 /onvif/device)存在但不实现标准 ONVIF
+	// 操作，会返回 ter:ActionNotSupported SOAP Fault。此时回退到默认设备服务路径
+	// /onvif/device_service 重试一次，让能力探测、Initialize、PTZ/成像等操作都能工作。
+	body, isFault := readActionNotSupportedFault(resp)
+	if isFault && !isDefaultDeviceServicePath(req.URL.Path) {
+		retryReq, cloneErr := cloneRequestWithBody(req)
+		if cloneErr == nil {
+			urlCopy := *req.URL
+			urlCopy.Path = defaultDeviceServicePath
+			urlCopy.RawPath = ""
+			retryReq.URL = &urlCopy
+			if retried, retryErr := t.roundTripOnce(retryReq); retryErr == nil {
+				return retried, nil
+			}
+		}
+	}
+	// 恢复原始响应体(可能已被 Fault 检查消费)，按原样返回
+	resp.Body = io.NopCloser(bytes.NewReader(body))
+	return resp, nil
+}
+
+// roundTripOnce 发送一次请求：先带 HTTP Basic 认证，若收到 Digest 挑战则用 Digest 重试。
+func (t *httpAuthTransport) roundTripOnce(req *http.Request) (*http.Response, error) {
 	firstReq, err := cloneRequestWithBody(req)
 	if err != nil {
 		return nil, err
@@ -332,6 +361,23 @@ func (t *httpAuthTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	}
 	retryReq.Header.Set("Authorization", t.digestAuthorization(retryReq, challenge))
 	return t.base.RoundTrip(retryReq)
+}
+
+// readActionNotSupportedFault 读取非 2xx 响应体，判断是否为 "服务路径存在但未实现该操作" 的
+// SOAP Fault(ter:ActionNotSupported / ter:InvalidOperation 子码)。
+func readActionNotSupportedFault(resp *http.Response) ([]byte, bool) {
+	body, err := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if err != nil {
+		return body, false
+	}
+	isFault := bytes.Contains(body, []byte("ActionNotSupported")) || bytes.Contains(body, []byte("InvalidOperation"))
+	return body, isFault
+}
+
+// isDefaultDeviceServicePath 判断请求路径是否为标准 ONVIF 设备服务路径。
+func isDefaultDeviceServicePath(path string) bool {
+	return strings.TrimSpace(path) == defaultDeviceServicePath
 }
 
 func cloneRequestWithBody(req *http.Request) (*http.Request, error) {

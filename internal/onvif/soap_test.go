@@ -159,6 +159,101 @@ func TestGetCapabilitiesReportsSOAPFaultHTTPError(t *testing.T) {
 	}
 }
 
+func TestGetCapabilitiesFallsBackToDefaultDeviceServicePath(t *testing.T) {
+	// 模拟海康摄像头：URL 中的别名路径 /onvif/device 存在但不实现 GetCapabilities，
+	// 标准路径 /onvif/device_service 返回正常能力响应。
+	var defaultPathHits int
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/soap+xml")
+		if r.URL.Path == "/onvif/device_service" {
+			defaultPathHits++
+			_, _ = w.Write([]byte(capabilitiesSOAPResponseForURL(server.URL)))
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(actionNotSupportedSOAPFault))
+	}))
+	defer server.Close()
+
+	client := &Client{
+		Endpoint:   server.URL + "/onvif/device",
+		Username:   "admin",
+		Password:   "secret",
+		HTTPClient: server.Client(),
+	}
+	caps, err := client.GetCapabilities(context.Background())
+	if err != nil {
+		t.Fatalf("expected fallback probe to pass, got %v", err)
+	}
+	if defaultPathHits != 1 {
+		t.Fatalf("expected one request to /onvif/device_service after fallback, got %d", defaultPathHits)
+	}
+	if caps.MediaXAddr == "" || caps.PTZXAddr == "" {
+		t.Fatalf("expected capabilities after fallback, got %+v", caps)
+	}
+}
+
+func TestGetCapabilitiesDoesNotRetryOnDefaultPath(t *testing.T) {
+	// 已使用默认路径仍返回 Fault 时，不应再次重试，避免无限循环。
+	var requestCount int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		w.Header().Set("Content-Type", "application/soap+xml")
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(actionNotSupportedSOAPFault))
+	}))
+	defer server.Close()
+
+	client := &Client{
+		Endpoint:   server.URL + "/onvif/device_service",
+		Username:   "admin",
+		Password:   "secret",
+		HTTPClient: server.Client(),
+	}
+	_, err := client.GetCapabilities(context.Background())
+	if err == nil {
+		t.Fatal("expected SOAP fault to fail")
+	}
+	if requestCount != 1 {
+		t.Fatalf("expected no retry on default path, got %d requests", requestCount)
+	}
+}
+
+func TestGetCapabilitiesDoesNotFallbackOnUnrelatedFault(t *testing.T) {
+	// 非 ActionNotSupported 的 Fault(如认证失败)不应触发路径回退。
+	var requestCount int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		w.Header().Set("Content-Type", "application/soap+xml")
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`
+<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope">
+  <s:Body>
+    <s:Fault>
+      <s:Code><s:Value>s:Sender</s:Value></s:Code>
+      <s:Reason><s:Text>bad credentials</s:Text></s:Reason>
+    </s:Fault>
+  </s:Body>
+</s:Envelope>`))
+	}))
+	defer server.Close()
+
+	client := &Client{
+		Endpoint:   server.URL + "/onvif/device",
+		Username:   "admin",
+		Password:   "secret",
+		HTTPClient: server.Client(),
+	}
+	_, err := client.GetCapabilities(context.Background())
+	if err == nil {
+		t.Fatal("expected SOAP fault to fail")
+	}
+	if requestCount != 1 {
+		t.Fatalf("expected no fallback on unrelated fault, got %d requests", requestCount)
+	}
+}
+
 func TestGetProfilesSelectsPTZProfile(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
@@ -597,6 +692,24 @@ func capabilitiesSOAPResponseForURL(serviceURL string) string {
   </s:Body>
 </s:Envelope>`, serviceURL)
 }
+
+// actionNotSupportedSOAPFault 模拟海康等摄像头在别名路径(如 /onvif/device)上返回的
+// "路径存在但未实现该操作" SOAP Fault。
+const actionNotSupportedSOAPFault = `
+<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope">
+  <s:Body>
+    <s:Fault>
+      <s:Code>
+        <s:Value>env:Receiver</s:Value>
+        <s:Subcode><s:Value>ter:ActionNotSupported</s:Value>
+        <s:Subcode><s:Value>ter:InvalidOperation</s:Value>
+        </s:Subcode>
+        </s:Subcode>
+      </s:Code>
+      <s:Reason><s:Text xml:lang="en">Optional Action Not Implemented</s:Text></s:Reason>
+    </s:Fault>
+  </s:Body>
+</s:Envelope>`
 
 const capabilitiesSOAPResponse = `
 <s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:tds="http://www.onvif.org/ver10/device/wsdl" xmlns:tt="http://www.onvif.org/ver10/schema">
