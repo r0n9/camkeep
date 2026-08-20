@@ -150,6 +150,18 @@ docker-compose up -d
 
 CamKeep 默认不包含遥测，不上传视频、设备列表或使用行为。版本检查只请求 GitHub Releases 元数据，用于判断是否有新版本。
 
+## 支持本项目
+
+如果这个项目帮到了你，欢迎请我喝杯咖啡 ☕
+
+| 微信赞赏 | 支付宝 |
+|---|---|
+| <img src="./sponsor/wechat.jpeg" width="220" alt="微信赞赏码"> | <img src="./sponsor/alipay.jpeg" width="220" alt="支付宝收款码"> |
+
+- 打赏是纯粹的感谢，**不会带来任何功能特权**——本项目永久免费、无广告、无会员。
+
+---
+
 ## 📄 开源协议
 
 本项目基于 **MIT License** 开源。欢迎提交 Issue 和 PR。

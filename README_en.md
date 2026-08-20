@@ -150,6 +150,18 @@ Visit `http://<Your-NAS-IP>:9110` in your browser. If the example environment va
 
 CamKeep does not include telemetry by default and does not upload video, device lists, or usage behavior. The update checker only requests GitHub Releases metadata to determine whether a new version exists.
 
+## Support This Project
+
+If this project helps you, feel free to buy me a coffee ☕
+
+| WeChat | Alipay |
+|---|---|
+| <img src="./sponsor/wechat.jpeg" width="220" alt="WeChat QR code"> | <img src="./sponsor/alipay.jpeg" width="220" alt="Alipay QR code"> |
+
+- Donations are purely a gesture of thanks and **come with no feature privileges** — this project is free forever, with no ads and no premium tiers.
+
+---
+
 ## 📄 License
 
 This project is licensed under the **MIT License**. Issues and PRs are welcome.
