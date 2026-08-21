@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"net"
@@ -20,6 +21,8 @@ import (
 )
 
 const defaultProbeTimeout = 5 * time.Second
+
+const ptzNamespace = "http://www.onvif.org/ver20/ptz/wsdl"
 
 type Capabilities struct {
 	DeviceXAddr       string
@@ -200,6 +203,41 @@ type PTZMove struct {
 	TimeoutMS int
 }
 
+// ONVIF 规定 Velocity 下的 PanTilt/Zoom 必须属于 ver10/schema 命名空间（惯例前缀 tt/onvif）。
+// 这里手写请求体而不是走 onvif-go：该库把这两个元素序列化成无前缀的 <PanTilt>，
+// 会被 SOAP 信封的默认命名空间吞掉，大华等严格设备解析出空 Velocity，
+// 于是照常回 200 却不转动。
+type ptzContinuousMoveRequest struct {
+	XMLName      xml.Name     `xml:"tptz:ContinuousMove"`
+	Xmlns        string       `xml:"xmlns:tptz,attr"`
+	XmlnsONVIF   string       `xml:"xmlns:onvif,attr"`
+	ProfileToken string       `xml:"tptz:ProfileToken"`
+	Velocity     *ptzVelocity `xml:"tptz:Velocity"`
+	Timeout      string       `xml:"tptz:Timeout,omitempty"`
+}
+
+type ptzVelocity struct {
+	PanTilt *ptzVector2D `xml:"onvif:PanTilt,omitempty"`
+	Zoom    *ptzVector1D `xml:"onvif:Zoom,omitempty"`
+}
+
+type ptzVector2D struct {
+	X float64 `xml:"x,attr"`
+	Y float64 `xml:"y,attr"`
+}
+
+type ptzVector1D struct {
+	X float64 `xml:"x,attr"`
+}
+
+type ptzStopRequest struct {
+	XMLName      xml.Name `xml:"tptz:Stop"`
+	Xmlns        string   `xml:"xmlns:tptz,attr"`
+	ProfileToken string   `xml:"tptz:ProfileToken"`
+	PanTilt      *bool    `xml:"tptz:PanTilt,omitempty"`
+	Zoom         *bool    `xml:"tptz:Zoom,omitempty"`
+}
+
 func (c *Client) ContinuousMove(ctx context.Context, ptzXAddr, profileToken string, move PTZMove) error {
 	ptzXAddr = strings.TrimSpace(ptzXAddr)
 	profileToken = strings.TrimSpace(profileToken)
@@ -210,15 +248,15 @@ func (c *Client) ContinuousMove(ctx context.Context, ptzXAddr, profileToken stri
 		return fmt.Errorf("ONVIF PTZ profile token 为空")
 	}
 
-	velocity := &onvifgo.PTZSpeed{}
+	velocity := &ptzVelocity{}
 	if move.PanTiltX != 0 || move.PanTiltY != 0 {
-		velocity.PanTilt = &onvifgo.Vector2D{
+		velocity.PanTilt = &ptzVector2D{
 			X: clampUnit(move.PanTiltX),
 			Y: clampUnit(move.PanTiltY),
 		}
 	}
 	if move.ZoomX != 0 {
-		velocity.Zoom = &onvifgo.Vector1D{
+		velocity.Zoom = &ptzVector1D{
 			X: clampUnit(move.ZoomX),
 		}
 	}
@@ -226,13 +264,14 @@ func (c *Client) ContinuousMove(ctx context.Context, ptzXAddr, profileToken stri
 		return fmt.Errorf("ONVIF PTZ 移动速度不能全为 0")
 	}
 
-	backend, err := c.initializedBackend(ctx, ptzXAddr)
-	if err != nil {
-		return err
+	req := ptzContinuousMoveRequest{
+		Xmlns:        ptzNamespace,
+		XmlnsONVIF:   onvifSchemaNamespace,
+		ProfileToken: profileToken,
+		Velocity:     velocity,
+		Timeout:      formatPTZTimeout(move.TimeoutMS),
 	}
-
-	timeout := formatPTZTimeout(move.TimeoutMS)
-	return backend.ContinuousMove(ctx, profileToken, velocity, &timeout)
+	return c.soapCall(ctx, ptzXAddr, "ContinuousMove", req, nil)
 }
 
 func (c *Client) Stop(ctx context.Context, ptzXAddr, profileToken string, panTilt, zoom bool) error {
@@ -245,11 +284,17 @@ func (c *Client) Stop(ctx context.Context, ptzXAddr, profileToken string, panTil
 		return fmt.Errorf("ONVIF PTZ profile token 为空")
 	}
 
-	backend, err := c.initializedBackend(ctx, ptzXAddr)
-	if err != nil {
-		return err
+	req := ptzStopRequest{
+		Xmlns:        ptzNamespace,
+		ProfileToken: profileToken,
 	}
-	return backend.Stop(ctx, profileToken, panTilt, zoom)
+	if panTilt {
+		req.PanTilt = &panTilt
+	}
+	if zoom {
+		req.Zoom = &zoom
+	}
+	return c.soapCall(ctx, ptzXAddr, "Stop", req, nil)
 }
 
 func (c *Client) newBackend(endpoint string) (*onvifgo.Client, error) {
@@ -551,5 +596,9 @@ func formatPTZTimeout(timeoutMS int) string {
 	if timeoutMS < 100 {
 		timeoutMS = 100
 	}
-	return fmt.Sprintf("PT%.1fS", float64(timeoutMS)/1000)
+	// Timeout 是 xs:duration。小数秒虽然合法，但部分设备（大华在内）会把 PT0.8S
+	// 截断成 0 而立刻停转，这里统一向上取整到整秒。前端按 MOVE_RENEW_MS 续期、
+	// 松手时显式 Stop，取整只影响这个兜底上限，不影响实际手感。
+	seconds := (timeoutMS + 999) / 1000
+	return fmt.Sprintf("PT%dS", seconds)
 }

@@ -401,9 +401,67 @@ func TestContinuousMoveSendsPTZVelocity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected PTZ move to pass, got %v", err)
 	}
-	for _, want := range []string{"ContinuousMove", "profile_1", `x="0.5"`, `y="-0.25"`, `x="0.75"`, "PT0.9S"} {
+	// PanTilt/Zoom 必须带 ver10/schema 命名空间前缀：无前缀会落进 SOAP 信封的
+	// 默认命名空间，大华等严格设备会解析成空 Velocity 而静默不动。
+	for _, want := range []string{
+		"ContinuousMove",
+		"profile_1",
+		`xmlns:onvif="` + onvifSchemaNamespace + `"`,
+		`<onvif:PanTilt x="0.5" y="-0.25">`,
+		`<onvif:Zoom x="0.75">`,
+		"PT1S",
+	} {
 		if !strings.Contains(gotBody, want) {
 			t.Fatalf("expected PTZ request to contain %q, got %s", want, gotBody)
+		}
+	}
+	if strings.Contains(gotBody, "<PanTilt") || strings.Contains(gotBody, "<Zoom") {
+		t.Fatalf("PTZ 速度元素缺少命名空间前缀, got %s", gotBody)
+	}
+}
+
+func TestStopSendsNamespacedPTZStop(t *testing.T) {
+	var gotBody string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		gotBody = string(body)
+		w.Header().Set("Content-Type", "application/soap+xml")
+		_, _ = w.Write([]byte(`<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"><s:Body><StopResponse/></s:Body></s:Envelope>`))
+	}))
+	defer server.Close()
+
+	client := &Client{Endpoint: server.URL, HTTPClient: server.Client()}
+	if err := client.Stop(context.Background(), server.URL, "profile_1", true, true); err != nil {
+		t.Fatalf("expected PTZ stop to pass, got %v", err)
+	}
+	for _, want := range []string{
+		`<tptz:Stop xmlns:tptz="` + ptzNamespace + `">`,
+		"<tptz:ProfileToken>profile_1</tptz:ProfileToken>",
+		"<tptz:PanTilt>true</tptz:PanTilt>",
+		"<tptz:Zoom>true</tptz:Zoom>",
+	} {
+		if !strings.Contains(gotBody, want) {
+			t.Fatalf("expected PTZ stop request to contain %q, got %s", want, gotBody)
+		}
+	}
+}
+
+func TestFormatPTZTimeoutUsesWholeSeconds(t *testing.T) {
+	cases := map[int]string{
+		0:    "PT1S",
+		50:   "PT1S",
+		700:  "PT1S",
+		800:  "PT1S",
+		1000: "PT1S",
+		1200: "PT2S",
+		3000: "PT3S",
+	}
+	for input, want := range cases {
+		if got := formatPTZTimeout(input); got != want {
+			t.Fatalf("formatPTZTimeout(%d) = %q, want %q", input, got, want)
 		}
 	}
 }
