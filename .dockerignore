@@ -1,0 +1,36 @@
+# 构建镜像只需要 Go 源码、static/、template/ 和 conf_usage.md，
+# 其余内容既拖慢上下文传输，也不应进入构建环境。
+
+# 版本控制与编辑器/工具目录
+.git
+.github
+.gitignore
+.idea
+.claude
+.ai
+.cache
+.document
+.DS_Store
+**/.DS_Store
+
+# 本地运行数据：录像、配置（含摄像头凭据）、日志
+records/
+config/
+log/
+conf.yaml
+
+# 本地构建产物（镜像内的 go2rtc 由 Dockerfile 按目标架构单独下载）
+go2rtc
+camkeep
+
+# 打包、文档与站点资源
+fnnas.camkeep/
+sponsor/
+*.fpk
+*.png
+README.md
+README_en.md
+CLAUDE.md
+AGENTS.md
+NOTICE
+docker-compose.yaml
