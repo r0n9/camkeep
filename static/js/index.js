@@ -1,8 +1,8 @@
 // === 播放矩阵状态管理 ===
 let currentLayout = 1;
 let activeCell = 0;
-let dpInstances = new Array(6).fill(null);
-let cellData = new Array(6).fill(null);
+let dpInstances = new Array(9).fill(null);
+let cellData = new Array(9).fill(null);
 let currentSelectedCam = null;
 let pendingAction = null;
 let compactGrid = window.innerWidth <= 900;
@@ -2273,7 +2273,7 @@ function setLayout(layoutCount) {
     if (activeCell >= layoutCount) activeCell = 0;
     syncSelectedRecordFromActiveCell();
 
-    [1, 4, 6].forEach(num => {
+    [1, 4, 6, 9].forEach(num => {
         const btn = document.getElementById(`btn-layout-${num}`);
         if (num === layoutCount) {
             btn.classList.add('is-active');
@@ -2292,8 +2292,17 @@ function setLayout(layoutCount) {
 function matrixGridMetrics() {
     if (currentLayout === 1) return {cols: 1, rows: 1};
     if (currentLayout === 4) return {cols: 2, rows: 2};
+    if (currentLayout === 9) return {cols: 3, rows: 3};
     if (compactGrid) return {cols: 2, rows: 3};
     return {cols: 3, rows: 2};
+}
+
+// 用字面量映射而不是拼接类名，保证 Tailwind 能识别这些 class。
+function matrixGridClasses() {
+    const {cols, rows} = matrixGridMetrics();
+    const colClass = {1: 'grid-cols-1', 2: 'grid-cols-2', 3: 'grid-cols-3'}[cols];
+    const rowClass = {1: 'grid-rows-1', 2: 'grid-rows-2', 3: 'grid-rows-3'}[rows];
+    return `${colClass} ${rowClass}`;
 }
 
 function matrixCellPositionClasses(index) {
@@ -2314,7 +2323,7 @@ function matrixCellPositionClasses(index) {
 
 function renderGrid() {
     const grid = document.getElementById('video-grid');
-    grid.className = 'player-grid min-w-0 flex-1 h-full p-0.5 bg-black grid gap-0.5 transition-all duration-300 ' + (currentLayout === 1 ? 'grid-cols-1 grid-rows-1' : currentLayout === 4 ? 'grid-cols-2 grid-rows-2' : compactGrid ? 'grid-cols-2 grid-rows-3' : 'grid-cols-3 grid-rows-2');
+    grid.className = 'player-grid min-w-0 flex-1 h-full p-0.5 bg-black grid gap-0.5 transition-all duration-300 ' + matrixGridClasses();
 
     stopAllCellPlayback();
     grid.innerHTML = '';
