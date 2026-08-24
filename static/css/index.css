@@ -187,6 +187,19 @@ html.dark {
     background: var(--player-grid-bg) !important;
 }
 
+/* 九宫格(3x3)时舞台自动加高：按宽度保持 16:9，并在视口高度内封顶，避免小屏溢出。
+   3x3 网格中每个格子与舞台同比例，16:9 舞台 = 16:9 格子，正好铺满摄像机画面。 */
+@media (min-width: 1024px) {
+    #video-wrapper.is-layout-9:not(:fullscreen):not(:-webkit-full-screen) {
+        height: auto;
+    }
+    #video-wrapper.is-layout-9:not(:fullscreen):not(:-webkit-full-screen) #video-stage {
+        flex: none;
+        aspect-ratio: 16 / 9;
+        max-height: calc(100vh - 150px);
+    }
+}
+
 .matrix-cell {
     background: var(--player-cell-bg) !important;
     border-color: var(--player-cell-border) !important;
