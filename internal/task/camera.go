@@ -572,7 +572,7 @@ const segmentStartLayout = "20060102_150405"
 // 重命名为 CamID_YYYYMMDD_HHMMSS_HHMMSS.ext
 // 同时扫描今天和昨天目录，解决跨天时最后一个 segment 漏处理的问题
 func renameCompletedSegments(ctx context.Context, cam constant.Camera, camDir string, now time.Time) {
-	if cam.Mode == "timelapse" {
+	if isTimelapseMode(cam) {
 		return
 	}
 	segDur := time.Duration(cam.SegmentDuration) * time.Second
@@ -655,7 +655,7 @@ func startFFmpeg(ctx context.Context, cam constant.Camera, camDir string) (*exec
 	safeRTSPUrl := fmt.Sprintf("rtsp://%s:8554/%s", constant.DefaultGo2rtcHost, cam.ID)
 
 	// 如果未设置模式，默认按 normal 处理
-	if cam.Mode == "" || cam.Mode == "normal" {
+	if isNormalMode(cam) {
 		args = []string{
 			"-loglevel", "error",
 			"-rtsp_transport", "tcp",
@@ -682,7 +682,7 @@ func startFFmpeg(ctx context.Context, cam constant.Camera, camDir string) (*exec
 
 		// 最后统一追加文件名
 		args = append(args, fileNamePattern)
-	} else if cam.Mode == "timelapse" {
+	} else if isTimelapseMode(cam) {
 		plan := newTimelapsePlan(cam.CaptureInterval, cam.SegmentDuration)
 		if plan.SegmentDegraded {
 			log.Printf("[%s] capture_interval=%ds 远大于 segment_duration=%ds，单个分片装不下一帧，已按 %d 帧兜底",

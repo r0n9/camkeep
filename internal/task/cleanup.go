@@ -20,6 +20,22 @@ type FileItem struct {
 	Info fs.FileInfo
 }
 
+// isRecordVideoFile 判断是否为录像视频文件。camDir 下还混有 cover.jpg 等非录像文件，
+// 清理规则只应作用在录像上。
+func isRecordVideoFile(path string) bool {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".ts", ".mp4":
+		return true
+	default:
+		return false
+	}
+}
+
+// isTimelapseMode 判断这路摄像头是否为延时摄影模式。
+func isTimelapseMode(cam constant.Camera) bool {
+	return strings.EqualFold(strings.TrimSpace(cam.Mode), "timelapse")
+}
+
 // CleanupTask 定期清理过期和过小的文件
 func CleanupTask(ctx context.Context, wg *sync.WaitGroup, cameras []constant.Camera) {
 	defer wg.Done()
@@ -82,7 +98,14 @@ func cleanCameraFiles(cam constant.Camera) {
 		}
 
 		// 2. 校验文件大小 (必须排除全局最后一个正在写入的文件)
-		if cam.MinSizeKb > 0 && i < len(items)-1 {
+		//
+		// 只对录像视频文件生效：camDir 下还放着 cover.jpg 等非录像文件，封面通常只有几十 KB，
+		// 会被默认 1MB 的阈值当成碎片删掉。
+		//
+		// 延时录像同样跳过：min_size_kb 的默认值是按普通录像的流拷贝片段定的，而延时片是重
+		// 编码的小文件，体积随 capture_interval 和 segment_duration 大幅变化，用固定 KB 阈值
+		// 判断会误删正常成片。延时片仍然受保留天数约束。
+		if cam.MinSizeKb > 0 && i < len(items)-1 && isRecordVideoFile(item.Path) && !isTimelapseMode(cam) {
 			if item.Info.Size() < cam.MinSizeKb*1024 {
 				os.Remove(item.Path)
 				log.Printf("[%s] 删除过小碎片文件: %s", cam.ID, item.Path)

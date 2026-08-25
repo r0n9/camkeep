@@ -495,7 +495,7 @@ func validateMergedDurationWithProbe(ctx context.Context, fragments []string, me
 }
 
 func skipDailyMerge(cam constant.Camera) bool {
-	return strings.EqualFold(strings.TrimSpace(cam.Mode), "timelapse")
+	return isTimelapseMode(cam)
 }
 
 func mergeFragments(dateDir string) ([]string, error) {

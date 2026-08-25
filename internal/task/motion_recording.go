@@ -117,7 +117,7 @@ func motionMarkerFrameDiffDetectionEnabled(cam constant.Camera) bool {
 
 func statusModeForCamera(cam constant.Camera) string {
 	switch {
-	case cam.Mode == "timelapse":
+	case isTimelapseMode(cam):
 		return service.ModeTimelapse
 	case motionRecordingEnabled(cam):
 		return service.ModeMotion
