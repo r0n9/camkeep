@@ -568,33 +568,81 @@ func gcd(a, b int) int {
 // segmentStartLayout 是 ffmpeg -strftime 生成的文件名中开始时间部分格式
 const segmentStartLayout = "20060102_150405"
 
-// renameCompletedSegments 将已完成的 normal 模式 segment 从 CamID_YYYYMMDD_HHMMSS_unknown.ext
-// 重命名为 CamID_YYYYMMDD_HHMMSS_HHMMSS.ext
-// 同时扫描今天和昨天目录，解决跨天时最后一个 segment 漏处理的问题
-func renameCompletedSegments(ctx context.Context, cam constant.Camera, camDir string, now time.Time) {
-	if isTimelapseMode(cam) {
-		return
-	}
-	segDur := time.Duration(cam.SegmentDuration) * time.Second
-	renameSegmentsInDir(ctx, cam.ID, filepath.Join(camDir, now.Format("2006-01-02")), segDur, now)
-	renameSegmentsInDir(ctx, cam.ID, filepath.Join(camDir, now.AddDate(0, 0, -1).Format("2006-01-02")), segDur, now)
+const (
+	// unknownSegmentMarker 是普通/动检录像分片写入期间的结束时间占位。
+	unknownSegmentMarker = "unknown"
+	// timelapseSegmentMarker 是延时录像分片的标记，补完结束时间后仍需保留，
+	// 前端靠 _timelapse 后缀识别录像类型。
+	timelapseSegmentMarker = "timelapse"
+	// segmentRenameGuard 是判断分片是否已写完的额外宽限，避免重命名正在写入的文件。
+	segmentRenameGuard = 10 * time.Second
+)
+
+// segmentRenameRule 描述一类待补结束时间的分片命名规则。
+type segmentRenameRule struct {
+	// marker 是文件名末段的占位标记。
+	marker string
+	// keepMarker 决定补完结束时间后是否保留标记。
+	keepMarker bool
+	// wallClockSpeedup 把探测到的播放时长换算成该分片覆盖的现实时间跨度。
+	// 普通录像播放时长就等于现实跨度，取 1；延时录像等于加速倍率。
+	wallClockSpeedup int
 }
 
-func renameSegmentsInDir(ctx context.Context, camID, dateDir string, segDur time.Duration, now time.Time) {
+var normalSegmentRenameRule = segmentRenameRule{marker: unknownSegmentMarker, wallClockSpeedup: 1}
+
+// renameCompletedSegments 给已写完的分片补上结束时间：
+// 普通录像 CamID_YYYYMMDD_HHMMSS_unknown.ext -> CamID_YYYYMMDD_HHMMSS_HHMMSS.ext
+// 延时录像 CamID_YYYYMMDD_HHMMSS_timelapse.ext -> CamID_YYYYMMDD_HHMMSS_HHMMSS_timelapse.ext
+//
+// 延时录像的结束时间指的是这一片覆盖的现实时间终点（而不是播放时长终点），前端 24H 时间轴
+// 需要它才能把分片摆到正确的时间跨度上；缺少它只能按固定 5 分钟估算，segment_duration
+// 越大偏差越离谱。
+//
+// 同时扫描今天和昨天目录，解决跨天时最后一个 segment 漏处理的问题。
+func renameCompletedSegments(ctx context.Context, cam constant.Camera, camDir string, now time.Time) {
+	rule := normalSegmentRenameRule
+	segDur := time.Duration(cam.SegmentDuration) * time.Second
+
+	if isTimelapseMode(cam) {
+		plan := newTimelapsePlan(cam.CaptureInterval, cam.SegmentDuration)
+		rule = segmentRenameRule{
+			marker:           timelapseSegmentMarker,
+			keepMarker:       true,
+			wallClockSpeedup: plan.SpeedupFactor,
+		}
+		// 写满一个延时分片需要的现实时间 = 播放时长 × 加速倍率。矛盾配置(capture_interval
+		// 远大于 segment_duration)下它会大于 segment_duration，用它判断才不会提前重命名。
+		segDur = time.Duration(plan.SegmentSeconds * float64(plan.SpeedupFactor) * float64(time.Second))
+	}
+
+	renameSegmentsInDir(ctx, cam.ID, filepath.Join(camDir, now.Format("2006-01-02")), segDur, now, rule)
+	renameSegmentsInDir(ctx, cam.ID, filepath.Join(camDir, now.AddDate(0, 0, -1).Format("2006-01-02")), segDur, now, rule)
+}
+
+func renameSegmentsInDir(ctx context.Context, camID, dateDir string, segDur time.Duration, now time.Time, rule segmentRenameRule) {
 	entries, err := os.ReadDir(dateDir)
 	if err != nil {
 		return
+	}
+	speedup := rule.wallClockSpeedup
+	if speedup <= 0 {
+		speedup = 1
+	}
+	suffix := ""
+	if rule.keepMarker {
+		suffix = "_" + rule.marker
 	}
 	for _, e := range entries {
 		if e.IsDir() {
 			continue
 		}
 		name := e.Name()
-		startTime, ok := parseUnknownSegmentStart(camID, name)
+		startTime, ok := parseMarkedSegmentStart(camID, name, rule.marker)
 		if !ok {
 			continue
 		}
-		if now.Before(startTime.Add(segDur).Add(10 * time.Second)) {
+		if now.Before(startTime.Add(segDur).Add(segmentRenameGuard)) {
 			continue
 		}
 		path := filepath.Join(dateDir, name)
@@ -602,18 +650,26 @@ func renameSegmentsInDir(ctx context.Context, camID, dateDir string, segDur time
 		if err != nil {
 			continue
 		}
-		endTime := startTime.Add(dur)
-		newName := fmt.Sprintf("%s_%s_%s%s", camID, startTime.Format(segmentStartLayout), endTime.Format("150405"), filepath.Ext(name))
+		// 用探测到的播放时长换算，中途异常退出的残片也能得到正确的现实时间跨度。
+		endTime := startTime.Add(dur * time.Duration(speedup))
+		newName := fmt.Sprintf("%s_%s_%s%s%s", camID, startTime.Format(segmentStartLayout), endTime.Format("150405"), suffix, filepath.Ext(name))
 		os.Rename(path, filepath.Join(dateDir, newName))
 	}
 }
 
 // parseUnknownSegmentStart 从 CamID_YYYYMMDD_HHMMSS_unknown.ext 文件名中解析段开始时间。
-// CamID 自身可能含下划线，因此从尾部定位时间与 unknown 标记，并校验前缀与 camID 一致。
 func parseUnknownSegmentStart(camID, name string) (time.Time, bool) {
+	return parseMarkedSegmentStart(camID, name, unknownSegmentMarker)
+}
+
+// parseMarkedSegmentStart 从 CamID_YYYYMMDD_HHMMSS_<marker>.ext 文件名中解析段开始时间。
+// CamID 自身可能含下划线，因此从尾部定位时间与标记，并校验前缀与 camID 一致。
+// 已经补过结束时间的文件（CamID_YYYYMMDD_HHMMSS_HHMMSS_<marker>.ext）会因为前缀校验
+// 失败而被跳过，重命名因此是幂等的。
+func parseMarkedSegmentStart(camID, name, marker string) (time.Time, bool) {
 	base := strings.TrimSuffix(name, filepath.Ext(name))
 	parts := strings.Split(base, "_")
-	if len(parts) < 4 || parts[len(parts)-1] != "unknown" {
+	if len(parts) < 4 || parts[len(parts)-1] != marker {
 		return time.Time{}, false
 	}
 	if strings.Join(parts[:len(parts)-3], "_") != camID {

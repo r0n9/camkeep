@@ -4,9 +4,12 @@ import (
 	"context"
 	"math"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/r0n9/camkeep/constant"
 )
 
 func TestParseUnknownSegmentStart(t *testing.T) {
@@ -50,11 +53,93 @@ func TestRenameSegmentsInDirSkipsRecentSegments(t *testing.T) {
 	}
 
 	now := time.Date(2026, 5, 12, 10, 0, 0, 0, time.Local)
-	renameSegmentsInDir(context.Background(), "front_door", dir, 600*time.Second, now)
+	renameSegmentsInDir(context.Background(), "front_door", dir, 600*time.Second, now, normalSegmentRenameRule)
 
 	if _, err := os.Stat(filepath.Join(dir, fileName)); err != nil {
 		t.Fatalf("expected recent unknown segment to be left untouched: %v", err)
 	}
+}
+
+func TestParseMarkedSegmentStartTimelapse(t *testing.T) {
+	wantStart := time.Date(2026, 5, 12, 9, 0, 0, 0, time.Local)
+
+	cases := []struct {
+		name     string
+		camID    string
+		fileName string
+		ok       bool
+	}{
+		{name: "待补结束时间", camID: "cam1", fileName: "cam1_20260512_090000_timelapse.mp4", ok: true},
+		{name: "含下划线的 ID", camID: "front_door", fileName: "front_door_20260512_090000_timelapse.mp4", ok: true},
+		// 已补过结束时间的文件必须跳过，否则每轮巡检都会重命名一次
+		{name: "已补结束时间", camID: "cam1", fileName: "cam1_20260512_090000_100000_timelapse.mp4", ok: false},
+		{name: "普通录像片段", camID: "cam1", fileName: "cam1_20260512_090000_unknown.mp4", ok: false},
+		{name: "前缀不匹配", camID: "cam1", fileName: "cam2_20260512_090000_timelapse.mp4", ok: false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			start, ok := parseMarkedSegmentStart(tc.camID, tc.fileName, timelapseSegmentMarker)
+			if ok != tc.ok {
+				t.Fatalf("parseMarkedSegmentStart(%q, %q) ok=%v, want %v", tc.camID, tc.fileName, ok, tc.ok)
+			}
+			if ok && !start.Equal(wantStart) {
+				t.Fatalf("start=%s, want %s", start, wantStart)
+			}
+		})
+	}
+}
+
+// TestRenameSegmentsInDirTimelapseWritesWallClockEnd 锁住延时片补的是"覆盖的现实时间终点"，
+// 而不是播放时长终点。24H 时间轴靠它把分片摆到正确跨度上。
+func TestRenameSegmentsInDirTimelapseWritesWallClockEnd(t *testing.T) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("需要 ffmpeg 生成可探测时长的样本文件")
+	}
+	dir := t.TempDir()
+
+	// 造一个 12 秒播放时长的样本，模拟 capture_interval=5(倍率 25) 下覆盖 300 秒现实时间的分片
+	fileName := "cam1_20260512_090000_timelapse.mp4"
+	path := filepath.Join(dir, fileName)
+	cmd := exec.Command("ffmpeg", "-loglevel", "error", "-y",
+		"-f", "lavfi", "-i", "testsrc=size=64x48:rate=25:duration=12",
+		"-c:v", "libx264", "-preset", "ultrafast", path)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("生成样本失败: %v: %s", err, out)
+	}
+
+	rule := segmentRenameRule{marker: timelapseSegmentMarker, keepMarker: true, wallClockSpeedup: 25}
+	// 分片起点 09:00，覆盖 300 秒现实时间，巡检时间取足够晚以通过写入中判断
+	start := time.Date(2026, 5, 12, 9, 0, 0, 0, time.Local)
+	renameSegmentsInDir(context.Background(), "cam1", dir, 300*time.Second, start.Add(10*time.Minute), rule)
+
+	// 12s 播放 × 25 倍 = 300s 现实时间 -> 09:00:00 + 5min = 09:05:00
+	want := "cam1_20260512_090000_090500_timelapse.mp4"
+	if _, err := os.Stat(filepath.Join(dir, want)); err != nil {
+		entries, _ := os.ReadDir(dir)
+		var got []string
+		for _, e := range entries {
+			got = append(got, e.Name())
+		}
+		t.Fatalf("期望重命名为 %s，实际目录内容: %v", want, got)
+	}
+
+	// 再跑一次必须是幂等的，不能把已补完的文件再改一遍
+	renameSegmentsInDir(context.Background(), "cam1", dir, 300*time.Second, start.Add(20*time.Minute), rule)
+	if _, err := os.Stat(filepath.Join(dir, want)); err != nil {
+		t.Fatalf("重命名不是幂等的: %v", err)
+	}
+}
+
+func TestRenameCompletedSegmentsUsesTimelapseRule(t *testing.T) {
+	// 延时摄像头不能再走普通录像的 unknown 规则，否则文件名永远补不上结束时间
+	cam := constant.Camera{ID: "cam1", Mode: "timelapse", CaptureInterval: 5, SegmentDuration: 300}
+	plan := newTimelapsePlan(cam.CaptureInterval, cam.SegmentDuration)
+	if plan.SpeedupFactor != 25 {
+		t.Fatalf("前置条件变了: SpeedupFactor=%d, want 25", plan.SpeedupFactor)
+	}
+	// 空目录下只验证不panic、不误动普通录像规则；换算细节由上面的用例覆盖
+	renameCompletedSegments(context.Background(), cam, t.TempDir(), time.Now())
 }
 
 func TestNewTimelapsePlan(t *testing.T) {

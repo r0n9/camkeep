@@ -4324,8 +4324,13 @@ function createRecordItem(camId, file, meta, options = {}) {
     const actionVisibilityClass = explicitActions
         ? 'opacity-100'
         : 'record-list-actions opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100';
+    // 延时片的起止时间是它覆盖的现实时间跨度，不是播放时长（一小时的延时片可能只播两分钟），
+    // 所以标签用“覆盖”而不是“时长”，避免误读。
+    const isTimelapseSpan = meta.kindKey === 'timelapse';
+    const durationLabel = isTimelapseSpan ? '覆盖 ' : '时长 ';
+    const durationTitle = isTimelapseSpan ? '覆盖的现实时间跨度' : '录像时长';
     const durationBadge = meta.durationDisplay
-        ? `<span class="${timeline ? 'record-timeline-card-detail' : 'font-mono text-[9px] font-bold leading-none text-emerald-600'}" title="录像时长">${timeline ? '' : '时长 '}${escapeHtml(meta.durationDisplay)}</span>`
+        ? `<span class="${timeline ? 'record-timeline-card-detail' : 'font-mono text-[9px] font-bold leading-none text-emerald-600'}" title="${durationTitle}">${timeline ? '' : durationLabel}${escapeHtml(meta.durationDisplay)}</span>`
         : '';
     item.className = timeline
         ? `group record-timeline-card ${cursorClass} rounded-lg border border-slate-200 bg-white shadow-sm transition-all hover:border-blue-300 hover:shadow active:scale-[0.99]`
