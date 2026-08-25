@@ -1428,7 +1428,7 @@ function renderConfigCameraCard(cam, index, expanded = false) {
     const motionSectionTitle = normalMode ? '动检录制' : '延时摄影';
     const motionSectionDesc = normalMode
         ? '启用后仅事件片段会触发录像，阈值越低越敏感。'
-        : '仅在延时模式下生效，动检项会被忽略。';
+        : '数值越大压缩越狠、越省空间；抓帧密度由程序自动推导以保证播放顺滑。动检项会被忽略。';
     const motionRecordingNeedsFrameDiffTuning = motionEnabled && motionEventSourceValue !== 'onvif';
     const motionMarkNeedsFrameDiffTuning = motionMarkEnabled && motionMarkEventSourceValue !== 'onvif';
     const pendingMotionFrameDiffTuning = !motionEnabled && !motionMarkEnabled && motionEventSourceValue !== 'onvif';
@@ -1501,7 +1501,7 @@ function renderConfigCameraCard(cam, index, expanded = false) {
                     ${motionEventSourceNote}
                     ${motionMarkEventSourceNote}
                 ` : `
-                    ${configNumberInput('延时抓拍间隔', 'capture_interval', cam.capture_interval, '仅延时生效', '1', 'config-field-wide', captureIntervalAttrs)}
+                    ${configNumberInput('延时压缩强度', 'capture_interval', cam.capture_interval, '约 5×N 倍速', '1', 'config-field-wide', captureIntervalAttrs)}
                     ${configHiddenInput('motion_url', cam.motion_url)}
                     ${configHiddenInput('motion_event_source', motionEventSourceValue)}
                     ${configHiddenInput('motion_mark_event_source', motionMarkEventSourceValue)}

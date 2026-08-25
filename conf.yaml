@@ -53,7 +53,7 @@ cameras:
     min_size_kb: 1024
     record_time: "07:00-19:00"
     mode: "timelapse"
-    capture_interval: 5   # 每 5 秒抓 1 帧
+    capture_interval: 5   # 时间压缩强度，约 5×N 倍速（5 -> 约 25 倍速）；抓帧密度由程序自动推导
 
 # go2rtc 托管流：通常由 Web 配置页“从 go2rtc 导入”自动生成
 #  - id: "existing-go2rtc-stream"

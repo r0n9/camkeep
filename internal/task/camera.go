@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -464,6 +465,106 @@ func runMotionCameraTask(ctx context.Context, cam constant.Camera, camDir string
 	}
 }
 
+// 延时录像参数推导
+//
+// 用户只需要配置 capture_interval，其余参数全部由代码推导，核心约束是：
+//
+//	加速倍率 = 采样间隔 × 逻辑播放帧率 = 5 × capture_interval
+//
+// 这与历史行为完全一致，所以成片的播放速度、分片播放时长都不会因为这套推导而改变。
+//
+// 顺滑度只由"相邻画面相隔多少现实时间"（即采样间隔）决定。历史实现取采样间隔 =
+// capture_interval、逻辑播放帧率 = 5，每张抓拍要在屏幕上停留 0.2 秒，观感是一跳一跳的
+// 幻灯片。现在把逻辑播放帧率提到与输出帧率相同的 25，并把采样间隔缩到
+// capture_interval/5 来守住倍率：这等价于把连续录像用播放器按同样倍数快放，落盘的每
+// 一帧都是真实抓拍，不再有复制帧。代价只有存储变大，CPU 几乎不变（延时模式的开销
+// 八成在解码完整码流，抽帧滤镜本身免费，编码只占一小部分）。
+const (
+	// timelapseOutputFPS 同时是输出物理帧率和逻辑播放帧率。两者相等，FFmpeg 就不需要
+	// 复帧补齐，写进文件的每一帧都是真实抓拍。
+	timelapseOutputFPS = 25
+	// timelapseDensityFactor 是抓帧密度相对 capture_interval 的提升倍数，也是逻辑播放
+	// 帧率相对历史值(5)的提升倍数。两者相乘保持加速倍率不变。
+	timelapseDensityFactor = 5
+	// timelapseFilterTimebase 固定滤镜时基。fps 滤镜会把时基设成采样间隔（可能长达数十
+	// 秒），此时 setpts 的运算结果会被截断成整数，导致大量抓帧挤在同一个时间戳上、成片
+	// 时长和倍率都对不上。固定成 1/1000 后 PTS 落在整数刻度上。
+	timelapseFilterTimebase = "1/1000"
+	// timelapseFallbackFramesPerSegment 是 capture_interval 远大于 segment_duration
+	// （单个分片装不下一帧）这种矛盾配置的兜底帧数，对应 5 秒播放时长。
+	timelapseFallbackFramesPerSegment = 125
+)
+
+// timelapsePlan 是一路延时摄影摄像头推导出的全部 FFmpeg 参数。
+type timelapsePlan struct {
+	CaptureInterval  int     // 归一化后的 capture_interval
+	SamplingFPS      string  // fps 滤镜参数，约分后的有理数，如 "1/12"
+	SamplingInterval float64 // 相邻画面相隔的现实秒数，越小越顺滑
+	SpeedupFactor    int     // 加速倍率
+	FramesPerSegment int
+	SegmentSeconds   float64 // 单个分片的播放时长
+	GopSize          int
+	VideoFilter      string
+	SegmentDegraded  bool // 是否触发了分片帧数兜底
+}
+
+func newTimelapsePlan(captureInterval, segmentDuration int) timelapsePlan {
+	if captureInterval <= 0 {
+		captureInterval = 1
+	}
+
+	// 采样帧率 = densityFactor / capture_interval。用约分后的有理数表达，既避免浮点字符串
+	// 的精度问题，也让日志和滤镜串更易读（capture_interval=60 -> "1/12"）。
+	num, den := reduceFraction(timelapseDensityFactor, captureInterval)
+	samplingInterval := float64(captureInterval) / float64(timelapseDensityFactor)
+
+	// 用四舍五入而非整除，避免 capture_interval 不能整除时分片覆盖的现实时间偏短。
+	framesPerSegment := 0
+	if segmentDuration > 0 {
+		framesPerSegment = int(math.Round(float64(segmentDuration) / samplingInterval))
+	}
+	degraded := false
+	if framesPerSegment <= 0 {
+		framesPerSegment = timelapseFallbackFramesPerSegment
+		degraded = true
+	}
+
+	samplingFPS := fmt.Sprintf("%d/%d", num, den)
+	return timelapsePlan{
+		CaptureInterval:  captureInterval,
+		SamplingFPS:      samplingFPS,
+		SamplingInterval: samplingInterval,
+		SpeedupFactor:    captureInterval * timelapseOutputFPS / timelapseDensityFactor,
+		FramesPerSegment: framesPerSegment,
+		SegmentSeconds:   float64(framesPerSegment) / float64(timelapseOutputFPS),
+		// 逻辑播放帧率等于输出帧率，所以 GOP 帧数正好等于分片帧数，关键帧对齐分片边界。
+		GopSize: framesPerSegment,
+		VideoFilter: fmt.Sprintf("fps=%s,settb=%s,setpts=N/(%d*TB)",
+			samplingFPS, timelapseFilterTimebase, timelapseOutputFPS),
+		SegmentDegraded: degraded,
+	}
+}
+
+func reduceFraction(num, den int) (int, int) {
+	if g := gcd(num, den); g > 0 {
+		return num / g, den / g
+	}
+	return num, den
+}
+
+func gcd(a, b int) int {
+	if a < 0 {
+		a = -a
+	}
+	if b < 0 {
+		b = -b
+	}
+	for b != 0 {
+		a, b = b, a%b
+	}
+	return a
+}
+
 // segmentStartLayout 是 ffmpeg -strftime 生成的文件名中开始时间部分格式
 const segmentStartLayout = "20060102_150405"
 
@@ -582,35 +683,13 @@ func startFFmpeg(ctx context.Context, cam constant.Camera, camDir string) (*exec
 		// 最后统一追加文件名
 		args = append(args, fileNamePattern)
 	} else if cam.Mode == "timelapse" {
-		if cam.CaptureInterval <= 0 {
-			cam.CaptureInterval = 1
+		plan := newTimelapsePlan(cam.CaptureInterval, cam.SegmentDuration)
+		if plan.SegmentDegraded {
+			log.Printf("[%s] capture_interval=%ds 远大于 segment_duration=%ds，单个分片装不下一帧，已按 %d 帧兜底",
+				cam.ID, plan.CaptureInterval, cam.SegmentDuration, plan.FramesPerSegment)
 		}
-
-		// 定义"逻辑播放帧率"（即一秒钟你想看几张抓拍的图片）
-		// 之前等效于 25，导致画面狂闪。
-		// 推荐值：5 (每张停留 0.2秒，适合非常慢的变化) 或 10 (每张停留 0.1秒，适合常规监控快放)
-		// 建议后续可将此参数暴露到 conf.yaml 中，这里先设为 10
-		logicalPlaybackFPS := 5.0
-
-		// 组装延时录像的视频滤镜：
-		// fps=1/N : 每 N 秒截取一帧
-		// setpts=N/(逻辑帧率*TB) : 告诉 FFmpeg 这些帧应该以多快的速度播放
-		vfFilter := fmt.Sprintf("fps=1/%d,setpts=N/(%.1f*TB)", cam.CaptureInterval, logicalPlaybackFPS)
-
-		// 先通过整数除法，确定这段视频绝对包含的原始抓拍帧数
-		framesPerSegment := cam.SegmentDuration / cam.CaptureInterval
-		if framesPerSegment <= 0 {
-			framesPerSegment = 25
-		}
-
-		// 用逻辑播放帧率反推 FFmpeg 内部的实际切片时间
-		actualFFmpegSegmentTime := float64(framesPerSegment) / logicalPlaybackFPS
-
-		// 输出物理帧率强制保持 25，确保浏览器 DPlayer/WebRTC 的完美兼容
-		outputFPS := 25
-
-		// GOP 大小 = 切片总秒数 * 物理输出帧率
-		gopSize := int(actualFFmpegSegmentTime * float64(outputFPS))
+		log.Printf("[%s] 延时录像参数: 采样间隔=%.2fs 加速=%dx 每片=%.1fs(%d 帧)",
+			cam.ID, plan.SamplingInterval, plan.SpeedupFactor, plan.SegmentSeconds, plan.FramesPerSegment)
 
 		args = []string{
 			"-loglevel", "error",
@@ -618,15 +697,15 @@ func startFFmpeg(ctx context.Context, cam constant.Camera, camDir string) (*exec
 			"-timeout", "5000000",
 			"-i", safeRTSPUrl,
 			"-an",
-			"-vf", vfFilter,
+			"-vf", plan.VideoFilter,
 			"-c:v", "libx264",
 			"-preset", "veryfast",
 			"-crf", "28",
-			"-r", fmt.Sprintf("%d", outputFPS), // 强制输出物理帧率为 25，FFmpeg 会自动复制帧补齐
-			"-g", fmt.Sprintf("%d", gopSize), // 强制关键帧间隔对齐
+			"-r", fmt.Sprintf("%d", timelapseOutputFPS), // 输出帧率与逻辑播放帧率相同，无需复帧
+			"-g", fmt.Sprintf("%d", plan.GopSize), // 强制关键帧间隔对齐分片边界
 			"-sc_threshold", "0",
 			"-f", "segment",
-			"-segment_time", fmt.Sprintf("%.3f", actualFFmpegSegmentTime),
+			"-segment_time", fmt.Sprintf("%.3f", plan.SegmentSeconds),
 			"-segment_format", cam.Format,
 			"-reset_timestamps", "1",
 			"-strftime", "1",
