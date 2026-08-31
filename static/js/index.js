@@ -2273,6 +2273,10 @@ function setLayout(layoutCount) {
     if (activeCell >= layoutCount) activeCell = 0;
     syncSelectedRecordFromActiveCell();
 
+    // 九宫格(3x3)时舞台自动加高：让 3x3 网格接近 16:9，格子比例正好适配摄像机画面
+    const wrapper = document.getElementById('video-wrapper');
+    if (wrapper) wrapper.classList.toggle('is-layout-9', layoutCount === 9);
+
     [1, 4, 6, 9].forEach(num => {
         const btn = document.getElementById(`btn-layout-${num}`);
         if (num === layoutCount) {
