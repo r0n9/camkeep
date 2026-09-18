@@ -18,7 +18,6 @@ import (
 const (
 	motionDetectFrameWidth       = 32
 	motionDetectFrameHeight      = 24
-	motionDetectFPS              = 2
 	motionDetectPixelThreshold   = 15
 	motionDetectRatioThreshold   = 0.01
 	motionDetectStateCheckDelay  = 1 * time.Second
@@ -136,11 +135,12 @@ func runMotionDetector(ctx context.Context, cam constant.Camera) error {
 	inputURL := motionDetectInputURL(cam)
 	args := []string{
 		"-loglevel", "error",
+		"-skip_frame", "nokey",
 		"-rtsp_transport", "tcp",
 		"-timeout", "5000000",
 		"-i", inputURL,
 		"-an",
-		"-vf", fmt.Sprintf("fps=%d,scale=%d:%d", motionDetectFPS, motionDetectFrameWidth, motionDetectFrameHeight),
+		"-vf", fmt.Sprintf("scale=%d:%d", motionDetectFrameWidth, motionDetectFrameHeight),
 		"-pix_fmt", "gray",
 		"-f", "rawvideo",
 		"-",
@@ -158,8 +158,8 @@ func runMotionDetector(ctx context.Context, cam constant.Camera) error {
 		return err
 	}
 
-	log.Printf("[%s] 动态检测已启动: %dx%d gray @ %dfps, ratioThreshold=%.4f",
-		cam.ID, motionDetectFrameWidth, motionDetectFrameHeight, motionDetectFPS, ratioThreshold)
+	log.Printf("[%s] 动态检测已启动: %dx%d gray (keyframe only), ratioThreshold=%.4f",
+		cam.ID, motionDetectFrameWidth, motionDetectFrameHeight, ratioThreshold)
 
 	readErr := readMotionFrames(ctx, cam.ID, stdoutPipe, ratioThreshold)
 	waitErr := cmd.Wait()
