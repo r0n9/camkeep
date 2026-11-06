@@ -8,7 +8,7 @@ ARG TARGETARCH
 ARG VERSION="dev"
 
 # go2rtc 版本
-ARG Go2rtcVersion="v1.9.14"
+ARG Go2rtcVersion="v1.9.15"
 
 RUN apk add --no-cache wget
 

@@ -47,7 +47,7 @@ Three event sources (`motion_event_source`): `frame_diff` (local low-res frame d
 ### Build / release
 
 - Version injected at build: `-ldflags "-X main.Version=<tag>"`; `main.Version` defaults to `dev`.
-- Release: push a `v*` tag → GitHub Actions (`release.yml`) builds linux/amd64+arm64 binaries bundling a pinned go2rtc release, then pushes multi-arch Docker images to GHCR and Docker Hub. `Dockerfile` downloads go2rtc per `TARGETARCH` (note: the release workflow pins go2rtc v1.9.2, the Dockerfile v1.9.14).
+- Release: push a `v*` tag → GitHub Actions (`release.yml`) builds linux/amd64+arm64 binaries bundling a pinned go2rtc release, then pushes multi-arch Docker images to GHCR and Docker Hub. `Dockerfile` downloads go2rtc per `TARGETARCH`; both default to go2rtc v1.9.15, and the release workflow passes `GO2RTC_VERSION` to the Docker build.
 - `fnnas.camkeep/` holds fnOS (FNOS NAS) app packaging (`manifest`, `wizard`, `.fpk` bundles) — update these when release packaging changes.
 
 ## Conventions & Guardrails

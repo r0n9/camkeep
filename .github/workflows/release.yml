@@ -10,6 +10,9 @@ permissions:
   contents: write
   packages: write
 
+env:
+  GO2RTC_VERSION: v1.9.15
+
 jobs:
   # ==========================================
   # 任务 1：编译并打包完整运行环境 (CamKeep + go2rtc) 发布到 GitHub Release
@@ -62,7 +65,7 @@ jobs:
           
           # 3. 下载对应架构的底层流媒体引擎 (go2rtc)
           echo "正在下载 go2rtc: $GO2RTC_DL_NAME"
-          wget -qO dist/$PACKAGE_DIR/$GO2RTC_BIN_NAME https://github.com/AlexxIT/go2rtc/releases/download/v1.9.2/$GO2RTC_DL_NAME
+          wget -qO dist/$PACKAGE_DIR/$GO2RTC_BIN_NAME https://github.com/AlexxIT/go2rtc/releases/download/${GO2RTC_VERSION}/$GO2RTC_DL_NAME
           
           # 赋权 (非 Windows 系统)
           if [ "${{ matrix.os }}" != "windows" ]; then
@@ -143,3 +146,4 @@ jobs:
           # 将 tag 作为 VERSION 变量传递给 Dockerfile
           build-args: |
             VERSION=${{ github.ref_name }}
+            Go2rtcVersion=${{ env.GO2RTC_VERSION }}
