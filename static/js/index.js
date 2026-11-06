@@ -3,6 +3,8 @@ let currentLayout = 1;
 let activeCell = 0;
 let dpInstances = new Array(9).fill(null);
 let cellData = new Array(9).fill(null);
+let liveMatrixCameraIds = new Array(9).fill(null);
+let liveMatrixRestorePending = false;
 let currentSelectedCam = null;
 let pendingAction = null;
 let compactGrid = window.innerWidth <= 900;
@@ -61,7 +63,8 @@ window.onload = function () {
     }
     initRecordRangeControls();
     renderRecordSelectionPrompt();
-    setLayout(1);
+    restoreLiveMatrixState();
+    setLayout(currentLayout);
     loadStatus();
     setInterval(loadStatus, 5000);
     window.addEventListener('pagehide', stopAllCellPlayback);
@@ -2267,7 +2270,63 @@ function syncMobileStageDevicePicker() {
 window.syncMobileStageDevicePicker = syncMobileStageDevicePicker;
 
 // --- 宫格矩阵与播放逻辑 ---
+function liveMatrixStorageKey() {
+    const user = authState.user || {};
+    return `camkeep-live-matrix:${JSON.stringify([user.source || '', user.username || 'anonymous'])}`;
+}
+
+function restoreLiveMatrixState() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(liveMatrixStorageKey()));
+        if (!saved || saved.version !== 1) return;
+        currentLayout = [1, 4, 6, 9].includes(saved.layout) ? saved.layout : 1;
+        activeCell = Number.isInteger(saved.activeCell) && saved.activeCell >= 0 && saved.activeCell < currentLayout
+            ? saved.activeCell : 0;
+        const cameras = Array.isArray(saved.cameras) ? saved.cameras : [];
+        liveMatrixCameraIds = Array.from({length: 9}, (_, index) => {
+            const camId = cameras[index];
+            return typeof camId === 'string' && camId.trim() ? camId : null;
+        });
+        liveMatrixRestorePending = true;
+    } catch (e) {
+        // 本地存储不可用或数据损坏时，继续使用默认布局。
+    }
+}
+
+function saveLiveMatrixState() {
+    try {
+        localStorage.setItem(liveMatrixStorageKey(), JSON.stringify({
+            version: 1,
+            layout: currentLayout,
+            activeCell,
+            cameras: liveMatrixCameraIds
+        }));
+    } catch (e) {
+        // 浏览器禁用存储时，不影响正常播放和窗口操作。
+    }
+}
+
+function restoreLiveMatrixPlayback(availableCameraIds) {
+    if (!liveMatrixRestorePending) return;
+    liveMatrixRestorePending = false;
+    liveMatrixCameraIds.forEach((camId, index) => {
+        if (!camId) return;
+        if (!availableCameraIds.has(camId)) {
+            liveMatrixCameraIds[index] = null;
+            return;
+        }
+        // 保留状态请求完成前用户已选择的直播或录像。
+        if (cellData[index]) return;
+        const title = `🟢 直播: ${camId}`;
+        cellData[index] = {source: camId, isLive: true, title, camId};
+        if (index < currentLayout) executePlayInCell(index, camId, true, title);
+    });
+    saveLiveMatrixState();
+    updateFocusUI();
+}
+
 function setLayout(layoutCount) {
+    if (![1, 4, 6, 9].includes(layoutCount)) return;
     currentLayout = layoutCount;
     window.currentLayout = currentLayout;
     if (activeCell >= layoutCount) activeCell = 0;
@@ -2291,6 +2350,7 @@ function setLayout(layoutCount) {
     });
     renderGrid();
     refreshPTZPanel(true);
+    saveLiveMatrixState();
 }
 
 function matrixGridMetrics() {
@@ -2413,6 +2473,8 @@ function closeActiveCell() {
 function clearCell(index) {
     stopCellPlayback(index);
     cellData[index] = null;
+    liveMatrixCameraIds[index] = null;
+    saveLiveMatrixState();
     if (index === activeCell) {
         syncSelectedRecordFromActiveCell();
     }
@@ -2504,6 +2566,7 @@ function closeLiveIframe(liveIframe) {
 
 function setActiveCell(index) {
     activeCell = index;
+    saveLiveMatrixState();
     syncSelectedRecordFromActiveCell();
     updateFocusUI();
     refreshOnvifEventOverlay();
@@ -2540,6 +2603,8 @@ function lockRecordListHeightDuringRender(list) {
 function playVideo(source, isLive, title) {
     cellData[activeCell] = {source, isLive, title, camId: isLive ? source : ''};
     if (isLive) {
+        liveMatrixCameraIds[activeCell] = source;
+        saveLiveMatrixState();
         setSelectedRecordPath('');
     }
     executePlayInCell(activeCell, source, isLive, title);

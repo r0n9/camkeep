@@ -621,6 +621,7 @@ async function loadStatus() {
             });
         });
 
+        restoreLiveMatrixPlayback(visibleCamIds);
         renderCameraListFromState();
         if (cameras.length === 0 && !currentSelectedCam) renderRecordSelectionPrompt('当前账号暂无可访问摄像头');
 
