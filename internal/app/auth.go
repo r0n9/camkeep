@@ -214,6 +214,17 @@ func handleLogout(auth authConfig) gin.HandlerFunc {
 
 func authRequired(auth authConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// 1. 优先放行来自飞牛统一网关的可信请求（SSO 免密）
+		if viaGateway, _ := c.Get(CtxKeyViaGateway); viaGateway == true {
+			username, _ := c.Get(CtxKeyTrimUser)
+			uStr, _ := username.(string)
+			isAdmin, _ := c.Get(CtxKeyIsAdmin)
+			adminBool, _ := isAdmin.(bool)
+			setCurrentUser(c, gatewayUser(uStr, adminBool))
+			c.Next()
+			return
+		}
+
 		if !auth.isEnabled() {
 			setCurrentUser(c, disabledAdminUser())
 			c.Next()
@@ -293,6 +304,9 @@ func (auth authConfig) authenticateUser(username, password string) (currentUser,
 }
 
 func (auth authConfig) isRequestAuthenticated(c *gin.Context) bool {
+	if viaGateway, _ := c.Get(CtxKeyViaGateway); viaGateway == true {
+		return true
+	}
 	_, ok := auth.currentUserFromRequest(c)
 	return ok
 }
@@ -412,6 +426,25 @@ func (auth authConfig) clearSessionCookie(c *gin.Context) {
 		SameSite: http.SameSiteLaxMode,
 		Secure:   auth.CookieSecure || c.Request.TLS != nil,
 	})
+}
+
+func gatewayUser(username string, isAdmin bool) currentUser {
+	if username == "" {
+		username = "fnos-user"
+	}
+	role := userRoleViewer
+	if isAdmin {
+		role = userRoleAdmin
+	}
+	return currentUser{
+		ID:             "fnos:" + username,
+		Username:       username,
+		DisplayName:    username,
+		Role:           role,
+		Source:         "fnos_gateway",
+		SessionVersion: 1,
+		CameraIDs:      nil,
+	}
 }
 
 func disabledAdminUser() currentUser {

@@ -1,5 +1,8 @@
 const CACHE_VERSION = 'v5';
 const STATIC_CACHE = `camkeep-static-${CACHE_VERSION}`;
+const SCOPE_PATH = (self.registration && self.registration.scope)
+    ? new URL(self.registration.scope).pathname.replace(/\/$/, '')
+    : '';
 
 const CORE_STATIC_ASSETS = [
     '/static/css/DPlayer.min.css',
@@ -28,7 +31,7 @@ const CORE_STATIC_ASSETS = [
     '/static/js/record-timeline.js',
     '/static/js/tailwindcss.min.js',
     '/static/js/user-management.js'
-];
+].map(p => SCOPE_PATH + p);
 
 const BYPASS_PREFIXES = [
     '/api/',
@@ -80,7 +83,8 @@ self.addEventListener('fetch', event => {
         return;
     }
 
-    if (url.pathname.startsWith('/static/')) {
+    const isStatic = SCOPE_PATH ? url.pathname.startsWith(SCOPE_PATH + '/static/') : url.pathname.startsWith('/static/');
+    if (isStatic) {
         event.respondWith(shouldNetworkFirstStatic(url.pathname)
             ? networkFirstStatic(request)
             : cacheFirstStatic(request));
@@ -88,7 +92,8 @@ self.addEventListener('fetch', event => {
 });
 
 function shouldBypass(pathname) {
-    return BYPASS_PREFIXES.some(prefix => pathname === prefix || pathname.startsWith(prefix));
+    const relPath = SCOPE_PATH && pathname.startsWith(SCOPE_PATH) ? pathname.slice(SCOPE_PATH.length) : pathname;
+    return BYPASS_PREFIXES.some(prefix => relPath === prefix || relPath.startsWith(prefix));
 }
 
 function shouldNetworkFirstStatic(pathname) {

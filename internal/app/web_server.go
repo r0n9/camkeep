@@ -1,19 +1,39 @@
 package app
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log"
+	"net"
+	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/r0n9/camkeep/constant"
 )
 
+func resolveWebPort() string {
+	if p := strings.TrimSpace(os.Getenv("CAMKEEP_PORT")); p != "" {
+		return p
+	}
+	if p := strings.TrimSpace(os.Getenv("PORT")); p != "" {
+		return p
+	}
+	return "9110"
+}
+
 func startWebServer() {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 	ensureWebAuthInitialized()
+
+	// 注册网关上下文中间件
+	r.Use(gatewayContextMiddleware())
 
 	r.Static("/static", "./static")
 	r.StaticFile("/manifest.json", "./static/manifest.json")
@@ -101,8 +121,64 @@ func startWebServer() {
 	} else {
 		log.Println("Web 登录鉴权未启用；创建本地用户后启用")
 	}
-	log.Println("Web 管理后台已启动: http://localhost:9110")
-	r.Run(":9110")
+
+	handler := stripPrefixHandler(DefaultGatewayPrefix, r)
+
+	port := resolveWebPort()
+	tcpAddr := ":" + port
+	tcpListener, err := net.Listen("tcp", tcpAddr)
+	if err != nil {
+		log.Fatalf("致命错误: 无法监听 Web TCP 端口 %s: %v", tcpAddr, err)
+	}
+	defer tcpListener.Close()
+
+	tcpServer := &http.Server{Handler: handler}
+	go func() {
+		log.Printf("Web 管理后台已启动 (TCP 模式): http://localhost%s", tcpAddr)
+		if err := tcpServer.Serve(tcpListener); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Printf("TCP Server 退出异常: %v", err)
+		}
+	}()
+
+	sockPath := resolveSocketPath()
+	var unixServer *http.Server
+	if sockPath != "" {
+		_ = os.Remove(sockPath)
+		unixListener, err := net.Listen("unix", sockPath)
+		if err != nil {
+			log.Printf("警告: 无法监听 Unix Socket %s: %v", sockPath, err)
+		} else {
+			defer unixListener.Close()
+			defer os.Remove(sockPath)
+			_ = os.Chmod(sockPath, 0666) // 赋予 0666 权限，允许 fnOS 统一网关进程访问
+
+			unixServer = &http.Server{
+				Handler:     handler,
+				ConnContext: unixConnContext,
+			}
+			go func() {
+				log.Printf("fnOS 统一网关已接入 (Unix Socket): %s (前缀: %s)", sockPath, DefaultGatewayPrefix)
+				if err := unixServer.Serve(unixListener); err != nil && !errors.Is(err, http.ErrServerClosed) {
+					log.Printf("Unix Socket Server 退出异常: %v", err)
+				}
+			}()
+		}
+	}
+
+	if ctxGlobal != nil {
+		taskWg.Add(1)
+		defer taskWg.Done()
+		<-ctxGlobal.Done()
+		log.Println("正在优雅关闭 Web 服务...")
+		ctxTimeout, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		_ = tcpServer.Shutdown(ctxTimeout)
+		if unixServer != nil {
+			_ = unixServer.Shutdown(ctxTimeout)
+		}
+	} else {
+		select {}
+	}
 }
 
 func ensureWebAuthInitialized() {

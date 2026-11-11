@@ -2,6 +2,31 @@
 <html lang="zh-CN">
 <head>
     <meta charset="utf-8">
+    <script>
+        (function () {
+            var path = window.location.pathname;
+            var prefix = path.startsWith('/app/camkeep') ? '/app/camkeep' : '';
+            window.__BASE_PATH__ = prefix;
+            if (prefix) {
+                var origFetch = window.fetch;
+                window.fetch = function (input, init) {
+                    if (typeof input === 'string') {
+                        if (input.startsWith('/') && !input.startsWith(prefix + '/')) {
+                            input = prefix + input;
+                        }
+                    } else if (input instanceof Request) {
+                        try {
+                            var u = new URL(input.url);
+                            if (u.origin === window.location.origin && u.pathname.startsWith('/') && !u.pathname.startsWith(prefix + '/')) {
+                                input = new Request(prefix + u.pathname + u.search, input);
+                            }
+                        } catch (e) {}
+                    }
+                    return origFetch.call(this, input, init);
+                };
+            }
+        })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>CamKeep NVR</title>
     <script>
@@ -29,23 +54,23 @@
             }
         })();
     </script>
-    <script src="/static/js/tailwindcss.min.js"></script>
-    <link rel="stylesheet" href="/static/css/DPlayer.min.css">
-    <script src="/static/js/mpegts.min.js"></script>
-    <script src="/static/js/DPlayer.min.js"></script>
-    <link rel="manifest" href="/manifest.json">
+    <script src="static/js/tailwindcss.min.js"></script>
+    <link rel="stylesheet" href="static/css/DPlayer.min.css">
+    <script src="static/js/mpegts.min.js"></script>
+    <script src="static/js/DPlayer.min.js"></script>
+    <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#eef3f8" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="CamKeep">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="icon" href="/static/image/camkeep_w200.png">
-    <link rel="apple-touch-icon" href="/static/image/camkeep_w200_bak.png">
-    <link rel="stylesheet" href="/static/css/index.css">
-    <link rel="stylesheet" href="/static/css/user-management.css">
-    <link rel="stylesheet" href="/static/css/record-timeline-24h.css">
-    <link rel="stylesheet" href="/static/css/ptz.css">
-    <link id="neuStyle" rel="stylesheet" href="/static/css/neumorphism.css">
+    <link rel="icon" href="static/image/camkeep_w200.png">
+    <link rel="apple-touch-icon" href="static/image/camkeep_w200_bak.png">
+    <link rel="stylesheet" href="static/css/index.css">
+    <link rel="stylesheet" href="static/css/user-management.css">
+    <link rel="stylesheet" href="static/css/record-timeline-24h.css">
+    <link rel="stylesheet" href="static/css/ptz.css">
+    <link id="neuStyle" rel="stylesheet" href="static/css/neumorphism.css">
     <script>
         // 原始皮肤(classic)下整张禁用新拟态样式；脚本紧随 link 之后，首帧前生效，无闪烁。
         (function () {
@@ -58,9 +83,9 @@
             }
         })();
     </script>
-    <link rel="stylesheet" href="/static/css/camera-nodes.css">
-    <link rel="stylesheet" href="/static/css/mobile-shell.css">
-    <link rel="stylesheet" href="/static/css/mobile-responsive.css">
+    <link rel="stylesheet" href="static/css/camera-nodes.css">
+    <link rel="stylesheet" href="static/css/mobile-shell.css">
+    <link rel="stylesheet" href="static/css/mobile-responsive.css">
     <script>
         window.CAMKEEP_AUTH = {{ .AuthJSON }};
     </script>
@@ -70,8 +95,8 @@
 
     <div class="desktop-header flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-3 md:mb-4">
         <h1 class="text-xl md:text-2xl font-bold text-gray-800 flex flex-wrap items-center gap-y-1 tracking-tight">
-            <a href="/" class="group inline-flex items-center rounded-lg text-gray-800 transition-colors hover:text-blue-700" title="返回首页" aria-label="返回首页">
-                <img src="/static/image/camkeep_w80.png" alt="CamKeep" class="w-7 h-7 mr-2 object-contain drop-shadow-sm transition-transform group-hover:scale-105">
+            <a href="./" class="group inline-flex items-center rounded-lg text-gray-800 transition-colors hover:text-blue-700" title="返回首页" aria-label="返回首页">
+                <img src="static/image/camkeep_w80.png" alt="CamKeep" class="w-7 h-7 mr-2 object-contain drop-shadow-sm transition-transform group-hover:scale-105">
                 <span>CamKeep NVR</span>
             </a>
             <div class="brand-meta ml-0 sm:ml-3 flex items-center space-x-2">
@@ -192,8 +217,8 @@
     </div>
 
     <header id="mobileAppBar" class="mobile-appbar" aria-label="移动端顶部导航">
-        <a href="/" class="mobile-appbar-brand" title="返回首页" aria-label="返回首页">
-            <img src="/static/image/camkeep_w80.png" alt="CamKeep">
+        <a href="./" class="mobile-appbar-brand" title="返回首页" aria-label="返回首页">
+            <img src="static/image/camkeep_w80.png" alt="CamKeep">
             <span>CamKeep NVR</span>
         </a>
         <div class="mobile-appbar-actions">
@@ -298,7 +323,7 @@
                     </div>
                 </div>
                 <div class="config-page-hero-actions">
-                    <a href="/config-usage" target="_blank" rel="noopener" class="config-page-secondary-btn" title="查看配置字段说明">
+                    <a href="config-usage" target="_blank" rel="noopener" class="config-page-secondary-btn" title="查看配置字段说明">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5S19.832 5.477 21 6.253v13C19.832 18.477 18.246 18 16.5 18s-3.332.477-4.5 1.253"></path></svg>
                         <span>配置说明</span>
                     </a>
@@ -314,7 +339,7 @@
                     <span class="config-discovery-summary">
                         <span class="config-discovery-main">
                             <span class="config-discovery-icon">
-                                <img src="/static/image/go2rtc-icon-180x180.png" alt="go2rtc">
+                                <img src="static/image/go2rtc-icon-180x180.png" alt="go2rtc">
                             </span>
                             <span class="config-discovery-copy">
                                 <span class="config-discovery-title-row">
@@ -337,7 +362,7 @@
                         <header class="config-import-modal-head">
                             <div class="config-import-modal-title">
                                 <span class="config-discovery-icon">
-                                    <img src="/static/image/go2rtc-icon-180x180.png" alt="go2rtc">
+                                    <img src="static/image/go2rtc-icon-180x180.png" alt="go2rtc">
                                 </span>
                                 <div>
                                     <h3 id="go2rtcImportModalTitle">从 go2rtc 导入摄像头</h3>
@@ -934,15 +959,15 @@
     </button>
 </nav>
 
-<script src="/static/js/record-timeline.js"></script>
-<script src="/static/js/record-timeline-24h.js"></script>
-<script src="/static/js/ptz.js"></script>
-<script src="/static/js/theme-controls.js"></script>
-<script src="/static/js/index.js"></script>
-<script src="/static/js/camera-nodes.js"></script>
-<script src="/static/js/mobile-actions.js"></script>
-<script src="/static/js/user-management.js"></script>
-<script src="/static/js/mobile-shell.js"></script>
-<script src="/static/js/pwa.js"></script>
+<script src="static/js/record-timeline.js"></script>
+<script src="static/js/record-timeline-24h.js"></script>
+<script src="static/js/ptz.js"></script>
+<script src="static/js/theme-controls.js"></script>
+<script src="static/js/index.js"></script>
+<script src="static/js/camera-nodes.js"></script>
+<script src="static/js/mobile-actions.js"></script>
+<script src="static/js/user-management.js"></script>
+<script src="static/js/mobile-shell.js"></script>
+<script src="static/js/pwa.js"></script>
 </body>
 </html>

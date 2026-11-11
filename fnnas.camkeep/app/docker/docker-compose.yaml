@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   camkeep:
-    image: ghcr.io/r0n9/camkeep:latest
+    image: ghcr.io/r0n9/camkeep:test
     container_name: camkeep
     restart: unless-stopped
     network_mode: "host"
@@ -10,6 +10,8 @@ services:
     environment:
       - TZ=Asia/Shanghai
       - CAMKEEP_AUTH_PASSWORD=admin
+      - CAMKEEP_SOCK=/app/run/app.sock
     volumes:
       - "${wizard_config_dir:-/vol1/1000/camkeep/config}:/app/config"
       - "${wizard_records_dir:-/vol1/1000/camkeep/records}:/app/records"
+      - "${TRIM_APPDEST:-/var/apps/camkeep/target}:/app/run"

@@ -8,7 +8,10 @@
     function registerServiceWorker() {
         if (!canRegisterServiceWorker()) return;
         window.addEventListener('load', function () {
-            navigator.serviceWorker.register('/sw.js', {scope: '/'})
+            var base = window.__BASE_PATH__ || '';
+            var swUrl = base ? base + '/sw.js' : '/sw.js';
+            var scope = base ? base + '/' : '/';
+            navigator.serviceWorker.register(swUrl, {scope: scope})
                 .catch(function (error) {
                     console.debug('CamKeep service worker registration failed:', error);
                 });

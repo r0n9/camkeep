@@ -3,10 +3,11 @@
         "camkeep.Application": {
             "title": "CamKeep",
             "icon": "images/icon_{0}.png",
-            "type": "url",
-            "protocol": "http",
-            "port": "9110",
-            "url": "/",
+            "type": "iframe",
+            "protocol": "",
+            "gatewayPrefix": "/app/camkeep",
+            "gatewaySocket": "app.sock",
+            "url": "/app/camkeep",
             "allUsers": false
         }
     }

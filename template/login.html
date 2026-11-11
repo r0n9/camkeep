@@ -22,10 +22,10 @@
             }
         })();
     </script>
-    <script src="/static/js/tailwindcss.min.js"></script>
-    <link rel="icon" href="/static/image/camkeep_w200.png">
-    <link rel="stylesheet" href="/static/css/index.css">
-    <link id="neuStyle" rel="stylesheet" href="/static/css/neumorphism.css">
+    <script src="static/js/tailwindcss.min.js"></script>
+    <link rel="icon" href="static/image/camkeep_w200.png">
+    <link rel="stylesheet" href="static/css/index.css">
+    <link id="neuStyle" rel="stylesheet" href="static/css/neumorphism.css">
     <script>
         (function () {
             try {
@@ -37,13 +37,13 @@
             }
         })();
     </script>
-    <link rel="stylesheet" href="/static/css/login.css">
-    <script src="/static/js/theme-controls.js" defer></script>
+    <link rel="stylesheet" href="static/css/login.css">
+    <script src="static/js/theme-controls.js" defer></script>
 </head>
 <body class="login-body min-h-screen bg-slate-100 transition-colors duration-200">
 <main class="login-shell">
     <header class="login-brand" aria-label="CamKeep">
-        <img src="/static/image/camkeep_w80.png" alt="CamKeep" class="login-brand-logo">
+        <img src="static/image/camkeep_w80.png" alt="CamKeep" class="login-brand-logo">
         <div class="login-brand-copy">
             <h1>CamKeep NVR</h1>
             <p>{{ .Version }}</p>
@@ -100,7 +100,7 @@
         </div>
         {{ end }}
 
-        <form method="post" action="/login" class="login-form">
+        <form method="post" action="login" class="login-form">
             <input type="hidden" name="next" value="{{ .Next }}">
             <label class="login-field">
                 <span>用户名</span>

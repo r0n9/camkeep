@@ -55,6 +55,7 @@
 /config/go2rtc.yaml
 fnnas.camkeep/**/.DS_Store
 fnnas.camkeep/*.fpk
+*.fpk
 
 ### local notes ###
 todo.md

@@ -3472,14 +3472,20 @@ function executePlayInCell(index, source, isLive, title, forceNative = false, wa
         closeBtn.classList.add('flex');
     }
 
+    const basePath = window.__BASE_PATH__ || '';
     if (isLive) {
         dplayerContainer.classList.add('hidden');
         nativePlayer.classList.add('hidden');
         liveIframe.classList.remove('hidden');
-        liveIframe.src = `/stream.html?src=${encodeURIComponent(source)}`;
+        liveIframe.src = `${basePath}/stream.html?src=${encodeURIComponent(source)}`;
     } else {
         liveIframe.classList.add('hidden');
         liveIframe.src = '';
+
+        let playSource = source;
+        if (playSource && playSource.startsWith('/') && basePath && !playSource.startsWith(basePath + '/')) {
+            playSource = basePath + playSource;
+        }
 
         const isAppleNative = isAppleNativePlayback();
         const isTranscodedStream = source.startsWith('/play_transcode/');
@@ -3489,10 +3495,10 @@ function executePlayInCell(index, source, isLive, title, forceNative = false, wa
         if (forceNative || isRemuxStream || (isAppleNative && !isTranscodedStream)) {
             dplayerContainer.classList.add('hidden');
             nativePlayer.classList.remove('hidden');
-            let playUrl = source;
+            let playUrl = playSource;
             // 只有原始的 TS 文件才去走 HLS，转码和重封装的流绝对不能改前缀
             if (source.endsWith('.ts') && !isRemuxStream && !isTranscodedStream) {
-                playUrl = source.replace('/play/', '/play_hls/');
+                playUrl = playSource.replace('/play/', '/play_hls/');
             }
             nativePlayer.src = playUrl;
             if (seekSeconds > 0) {
@@ -3516,7 +3522,7 @@ function executePlayInCell(index, source, isLive, title, forceNative = false, wa
 
             dpInstances[index] = new DPlayer({
                 container: dplayerContainer, video: {
-                    url: source, type: videoType, customType: {
+                    url: playSource, type: videoType, customType: {
                         customTs: function (video, player) {
                             const tsPlayer = mpegts.createPlayer({type: 'm2ts', isLive: false, url: video.src});
                             tsPlayer.attachMediaElement(video);
@@ -4583,7 +4589,8 @@ function formatRecordSize(bytes) {
 function downloadRecord(e, filePath) {
     e.stopPropagation();
     const link = document.createElement('a');
-    link.href = `/api/record/download?path=${encodeURIComponent(filePath)}`;
+    const basePath = window.__BASE_PATH__ || '';
+    link.href = `${basePath}/api/record/download?path=${encodeURIComponent(filePath)}`;
     link.download = filePath.split('/').pop() || 'record';
     document.body.appendChild(link);
     link.click();
