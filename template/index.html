@@ -8,6 +8,7 @@
             var prefix = path.startsWith('/app/camkeep') ? '/app/camkeep' : '';
             window.__BASE_PATH__ = prefix;
             if (prefix) {
+                document.write('<base href="' + prefix + '/">');
                 var origFetch = window.fetch;
                 window.fetch = function (input, init) {
                     if (typeof input === 'string') {

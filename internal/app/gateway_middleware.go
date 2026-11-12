@@ -56,18 +56,21 @@ func stripPrefixHandler(prefix string, next http.Handler) http.Handler {
 
 		if prefix != "" {
 			p := r.URL.Path
-			if p == prefix {
-				target := prefix + "/"
-				if r.URL.RawQuery != "" {
-					target += "?" + r.URL.RawQuery
+			if p == prefix || p == prefix+"/" {
+				r.URL.Path = "/"
+				if r.URL.RawPath != "" {
+					r.URL.RawPath = "/"
 				}
-				http.Redirect(w, r, target, http.StatusMovedPermanently)
-				return
-			}
-			if strings.HasPrefix(p, prefix+"/") {
+			} else if strings.HasPrefix(p, prefix+"/") {
 				r.URL.Path = strings.TrimPrefix(p, prefix)
 				if r.URL.Path == "" {
 					r.URL.Path = "/"
+				}
+				if r.URL.RawPath != "" && strings.HasPrefix(r.URL.RawPath, prefix+"/") {
+					r.URL.RawPath = strings.TrimPrefix(r.URL.RawPath, prefix)
+					if r.URL.RawPath == "" {
+						r.URL.RawPath = "/"
+					}
 				}
 			}
 		}

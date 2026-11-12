@@ -2,6 +2,16 @@
 <html lang="zh-CN">
 <head>
     <meta charset="utf-8">
+    <script>
+        (function () {
+            var path = window.location.pathname;
+            var prefix = path.startsWith('/app/camkeep') ? '/app/camkeep' : '';
+            window.__BASE_PATH__ = prefix;
+            if (prefix) {
+                document.write('<base href="' + prefix + '/">');
+            }
+        })();
+    </script>
     <title>CamKeep 配置说明</title>
     <script>
         window.tailwind = window.tailwind || {};

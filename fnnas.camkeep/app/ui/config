@@ -7,7 +7,7 @@
             "protocol": "",
             "gatewayPrefix": "/app/camkeep",
             "gatewaySocket": "app.sock",
-            "url": "/app/camkeep",
+            "url": "/app/camkeep/",
             "allUsers": false
         }
     }

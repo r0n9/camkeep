@@ -23,29 +23,42 @@ func TestStripPrefixHandler(t *testing.T) {
 
 	handler := stripPrefixHandler("/app/camkeep", nextHandler)
 
-	t.Run("Redirect prefix without trailing slash", func(t *testing.T) {
+	t.Run("Rewrite prefix without trailing slash directly to root", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/app/camkeep", nil)
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)
 
-		if rec.Code != http.StatusMovedPermanently {
-			t.Fatalf("expected 301, got %d", rec.Code)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", rec.Code)
 		}
-		if loc := rec.Header().Get("Location"); loc != "/app/camkeep/" {
-			t.Fatalf("expected location /app/camkeep/, got %s", loc)
+		if recordedPath != "/" {
+			t.Fatalf("expected path /, got %s", recordedPath)
 		}
 	})
 
-	t.Run("Redirect prefix with query params", func(t *testing.T) {
+	t.Run("Rewrite prefix with trailing slash directly to root", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/app/camkeep/", nil)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", rec.Code)
+		}
+		if recordedPath != "/" {
+			t.Fatalf("expected path /, got %s", recordedPath)
+		}
+	})
+
+	t.Run("Rewrite prefix with query params without redirect", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/app/camkeep?foo=bar", nil)
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)
 
-		if rec.Code != http.StatusMovedPermanently {
-			t.Fatalf("expected 301, got %d", rec.Code)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", rec.Code)
 		}
-		if loc := rec.Header().Get("Location"); loc != "/app/camkeep/?foo=bar" {
-			t.Fatalf("expected location /app/camkeep/?foo=bar, got %s", loc)
+		if recordedPath != "/" {
+			t.Fatalf("expected path /, got %s", recordedPath)
 		}
 	})
 
