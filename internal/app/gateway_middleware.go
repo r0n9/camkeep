@@ -12,10 +12,10 @@ import (
 )
 
 const (
-	CtxKeyViaGateway      = "viaGateway"
-	CtxKeyTrimUser        = "trimUser"
-	CtxKeyIsAdmin         = "isAdmin"
-	DefaultGatewayPrefix  = "/app/camkeep"
+	CtxKeyViaGateway     = "viaGateway"
+	CtxKeyTrimUser       = "trimUser"
+	CtxKeyIsAdmin        = "isAdmin"
+	DefaultGatewayPrefix = "/app/camkeep"
 )
 
 type serverContextKey string

@@ -79,7 +79,7 @@ func motionDetectionShouldRunAt(cam constant.Camera, now time.Time) bool {
 		return false
 	}
 
-	return currentStreamState(cam.ID) != "offline"
+	return control == "start" || currentStreamState(cam.ID) != "offline"
 }
 
 func motionFrameDiffDetectionShouldRunAt(cam constant.Camera, now time.Time) bool {

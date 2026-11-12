@@ -130,7 +130,7 @@ function buildCameraCardView(id, cam) {
     const isSelected = currentSelectedCam === id;
     const streamState = cam.stream_state || 'offline';
     const recordSchedule = buildRecordScheduleDisplay(cam.record_time, overrideState);
-    const recordStateView = buildRecordStateView(recordState, overrideState);
+    const recordStateView = buildRecordStateView(recordState, overrideState, cam.storage_writable !== false, cam.storage_error);
     const startActionClass = overrideState === 'start' ? 'is-active' : '';
     const stopActionClass = overrideState === 'stop' ? 'is-active' : '';
     const autoActionClass = overrideState === 'auto' ? 'is-active' : '';
@@ -276,8 +276,17 @@ function buildCameraCardView(id, cam) {
     return {className, html, style};
 }
 
-function buildRecordStateView(recordState, overrideState) {
+function buildRecordStateView(recordState, overrideState, storageWritable = true, storageError = '') {
     const overrideClass = buildRecordOverrideCardClass(overrideState);
+
+    if (storageWritable === false) {
+        return {
+            cardClass: `is-record-error ${overrideClass}`,
+            chipClass: 'camera-node-record-chip--record-error',
+            label: '存储只读',
+            title: `录像存储目录无写入权限 (Permission Denied): ${storageError || '请检查挂载目录权限'}`
+        };
+    }
 
     if (recordState === 'motion_recording') {
         return {
@@ -569,6 +578,22 @@ function renderStatusLoadFailure(key, message, detail = '') {
     window.PTZ?.hidePanel?.();
 }
 
+function updateStorageWarningBanner(writable, errorMsg) {
+    const banner = document.getElementById('storageWarningBanner');
+    if (!banner) return;
+    if (writable) {
+        banner.classList.add('hidden');
+    } else {
+        banner.classList.remove('hidden');
+        const textEl = document.getElementById('storageWarningText');
+        if (textEl) {
+            textEl.textContent = errorMsg
+                ? `录像存储目录无写入权限: ${errorMsg}。请检查宿主机挂载目录权限 (如在 Docker 宿主机执行 chmod -R 777 ./records)。`
+                : '录像存储目录没有写入权限 (Permission Denied)，导致无法保存录像。请检查宿主机挂载目录权限 (如在 Docker 宿主机执行 chmod -R 777 ./records)。';
+        }
+    }
+}
+
 // --- 状态加载 ---
 async function loadStatus() {
     try {
@@ -588,6 +613,23 @@ async function loadStatus() {
         if (!data || typeof data !== 'object' || Array.isArray(data)) {
             throw new Error('状态响应格式异常');
         }
+
+        const storageWritableHeader = resp.headers.get('X-Camkeep-Storage-Writable');
+        const storageErrorHeader = resp.headers.get('X-Camkeep-Storage-Error');
+        let storageWritable = true;
+        let storageError = '';
+        if (storageWritableHeader !== null) {
+            storageWritable = storageWritableHeader !== 'false';
+            storageError = storageErrorHeader ? decodeURIComponent(storageErrorHeader) : '';
+        } else {
+            const firstCamWithStorage = Object.values(data).find(cam => cam && typeof cam.storage_writable === 'boolean');
+            if (firstCamWithStorage) {
+                storageWritable = firstCamWithStorage.storage_writable !== false;
+                storageError = firstCamWithStorage.storage_error || '';
+            }
+        }
+        updateStorageWarningBanner(storageWritable, storageError);
+
         const cameras = Object.entries(data || {});
         latestCameraStatusEntries = cameras.map(([id, cam], index) => ({id, cam, index}));
         updateCameraStats(cameras);

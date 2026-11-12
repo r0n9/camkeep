@@ -6456,3 +6456,17 @@ html.dark .config-form-section-note {
         width: 100%;
     }
 }
+
+html.dark #storageWarningBanner {
+    background-color: rgba(136, 19, 55, 0.28) !important;
+    border-color: rgba(244, 63, 94, 0.4) !important;
+    color: #fecdd3 !important;
+}
+
+html.dark #storageWarningBanner strong {
+    color: #ffe4e6 !important;
+}
+
+html.dark #storageWarningBanner #storageWarningText {
+    color: #fecdd3 !important;
+}

@@ -52,6 +52,7 @@ func startWebServer() {
 	protected.GET("/", handleIndex)
 	protected.GET("/api/me", handleMe(webAuth))
 	protected.GET("/api/status", handleStatus)
+	protected.GET("/api/system/storage", handleStorageStatus)
 	protected.GET("/api/camera/:id/onvif/event-summary", handleCameraOnvifEventSummary)
 	protected.POST("/api/camera/:id/onvif/event-summary/release", handleReleaseCameraOnvifEventSummaryLease)
 	protected.GET("/api/camera/:id/cover", handleCameraCover)
@@ -166,8 +167,8 @@ func startWebServer() {
 	}
 
 	if ctxGlobal != nil {
-		taskWg.Add(1)
-		defer taskWg.Done()
+		serverWg.Add(1)
+		defer serverWg.Done()
 		<-ctxGlobal.Done()
 		log.Println("正在优雅关闭 Web 服务...")
 		ctxTimeout, cancel := context.WithTimeout(context.Background(), 3*time.Second)

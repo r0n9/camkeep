@@ -158,7 +158,11 @@ func runScheduledCameraTask(ctx context.Context, cam constant.Camera, camDir str
 			if ffmpegCancel != nil {
 				ffmpegCancel()
 				if ffmpegDone != nil {
-					<-ffmpegDone
+					select {
+					case <-ffmpegDone:
+					case <-time.After(3 * time.Second):
+						log.Printf("[%s] 等待 FFmpeg 进程退出超时(3s)，强制跳过", cam.ID)
+					}
 				}
 			}
 			service.UpdateStatus(cam.ID, false, statusModeForCamera(cam), cam.RecordTime)
@@ -179,7 +183,8 @@ func runScheduledCameraTask(ctx context.Context, cam constant.Camera, camDir str
 
 			// idle 只表示近期 TCP 可达且等待拉流验证，仍允许录制任务发起一次真实拉流。
 			// 只有明确的 offline 才拦截，避免设备恢复供电后没有消费者触发 go2rtc 刷新。
-			if streamState == "offline" {
+			// 但若用户手动设置了“强制录制”(control == "start")，不应被 offline 拦截，允许发起拉流尝试。
+			if control != "start" && streamState == "offline" {
 				shouldRun = false
 			}
 			if !shouldRun {
@@ -212,35 +217,41 @@ func runScheduledCameraTask(ctx context.Context, cam constant.Camera, camDir str
 			retryBlocked := shouldRun && !isRunning && recordErr != nil && now.Before(nextStartAfter)
 
 			if shouldRun && !isRunning && !retryBlocked {
-				log.Printf("[%s] 启动录制...", cam.ID)
-				var fCtx context.Context
-				fCtx, ffmpegCancel = context.WithCancel(ctx)
-				var err error
-				ffmpegCmd, err = startFFmpeg(fCtx, cam, camDir)
-				if err != nil {
-					recordErr = err
+				if storageHealth := service.CheckStorageHealth(); !storageHealth.Writable {
+					recordErr = fmt.Errorf("存储目录无写入权限: %s", storageHealth.Error)
 					nextStartAfter = now.Add(scheduledRecordRetryDelay)
-					ffmpegCancel()
-					ffmpegCancel = nil
-					ffmpegCmd = nil
-					log.Printf("[%s] 启动 FFmpeg 失败，%s 后重试: %v", cam.ID, scheduledRecordRetryDelay, err)
+					log.Printf("[%s] %v，%s 后重试", cam.ID, recordErr, scheduledRecordRetryDelay)
 				} else {
-					recordErr = nil
-					nextStartAfter = time.Time{}
-					ffmpegDone = make(chan error, 1)
+					log.Printf("[%s] 启动录制...", cam.ID)
+					var fCtx context.Context
+					fCtx, ffmpegCancel = context.WithCancel(ctx)
+					var err error
+					ffmpegCmd, err = startFFmpeg(fCtx, cam, camDir)
+					if err != nil {
+						recordErr = err
+						nextStartAfter = now.Add(scheduledRecordRetryDelay)
+						ffmpegCancel()
+						ffmpegCancel = nil
+						ffmpegCmd = nil
+						log.Printf("[%s] 启动 FFmpeg 失败，%s 后重试: %v", cam.ID, scheduledRecordRetryDelay, err)
+					} else {
+						recordErr = nil
+						nextStartAfter = time.Time{}
+						ffmpegDone = make(chan error, 1)
 
-					go func(c *exec.Cmd) {
-						err := c.Wait()
-						log.Printf("[%s] FFmpeg 进程已退出, err: %v", cam.ID, err)
-						ffmpegDone <- err
-					}(ffmpegCmd)
+						go func(c *exec.Cmd) {
+							err := c.Wait()
+							log.Printf("[%s] FFmpeg 进程已退出, err: %v", cam.ID, err)
+							ffmpegDone <- err
+						}(ffmpegCmd)
 
-					isRunning = true
+						isRunning = true
+					}
 				}
 
 			} else if !shouldRun && isRunning {
 				// 细化日志输出，方便排查是时间到了还是流断了
-				if streamState == "offline" {
+				if control != "start" && streamState == "offline" {
 					log.Printf("[%s] 检测到流状态离线 (Offline)，已强制中断录制...", cam.ID)
 				} else if control == "stop" {
 					log.Printf("[%s] 已被手动停止，停止录制...", cam.ID)
@@ -249,7 +260,11 @@ func runScheduledCameraTask(ctx context.Context, cam constant.Camera, camDir str
 				}
 				ffmpegCancel()
 				if ffmpegDone != nil {
-					<-ffmpegDone
+					select {
+					case <-ffmpegDone:
+					case <-time.After(3 * time.Second):
+						log.Printf("[%s] 停止录制等待 FFmpeg 进程退出超时(3s)，强制跳过", cam.ID)
+					}
 				}
 				ffmpegCmd = nil
 				ffmpegDone = nil
@@ -335,7 +350,11 @@ func runMotionCameraTask(ctx context.Context, cam constant.Camera, camDir string
 			if harvestCancel != nil {
 				harvestCancel()
 				if harvestDone != nil {
-					<-harvestDone
+					select {
+					case <-harvestDone:
+					case <-time.After(3 * time.Second):
+						log.Printf("[%s] 等待动检 Time-Shift 进程退出超时(3s)，强制跳过", cam.ID)
+					}
 				}
 			}
 			if eventSession != nil {
@@ -343,7 +362,7 @@ func runMotionCameraTask(ctx context.Context, cam constant.Camera, camDir string
 				// 下次启动 startMotionTimeShiftFFmpeg 会 RemoveAll 缓存目录，不导出就整体丢失。
 				// ctx 已取消，内部 ffmpeg/ffprobe 必须使用独立的超时 context 才能执行。
 				log.Printf("[%s] 任务退出，导出进行中的动检事件录像...", cam.ID)
-				exportCtx, cancelExport := context.WithTimeout(context.Background(), motionExitExportTimeout)
+				exportCtx, cancelExport := context.WithTimeout(context.Background(), 5*time.Second)
 				finishEventRecordSession(exportCtx, cam, camDir, eventSession, time.Now())
 				cancelExport()
 				eventSession = nil
@@ -358,7 +377,7 @@ func runMotionCameraTask(ctx context.Context, cam constant.Camera, camDir string
 			inTimeRange := util.IsWithinTimeRange(cam.RecordTime)
 			streamState := currentStreamState(cam.ID)
 			recordingWindow := recordingWindowEnabled(control, inTimeRange)
-			harvestShouldRun := recordingWindow && streamState != "offline"
+			harvestShouldRun := recordingWindow && (control == "start" || streamState != "offline")
 			if !harvestShouldRun {
 				resetMotionDetected(cam.ID)
 				clearMotionAutoFrameDiffFollowUp(cam.ID)
@@ -388,27 +407,31 @@ func runMotionCameraTask(ctx context.Context, cam constant.Camera, camDir string
 
 			harvestRunning := harvestCmd != nil
 			if harvestShouldRun && !harvestRunning {
-				log.Printf("[%s] 启动动检 Time-Shift 大块缓存引擎...", cam.ID)
-				var hCtx context.Context
-				hCtx, harvestCancel = context.WithCancel(ctx)
-				var err error
-				harvestCmd, err = startMotionTimeShiftFFmpeg(hCtx, cam)
-				if err != nil {
-					log.Printf("[%s] 启动动检 Time-Shift 缓存引擎失败: %v", cam.ID, err)
-					harvestCancel()
-					harvestCancel = nil
-					harvestCmd = nil
+				if storageHealth := service.CheckStorageHealth(); !storageHealth.Writable {
+					log.Printf("[%s] 存储目录无写入权限: %s，暂不启动动检缓存引擎", cam.ID, storageHealth.Error)
 				} else {
-					harvestDone = make(chan error, 1)
-					go func(c *exec.Cmd) {
-						err := c.Wait()
-						log.Printf("[%s] 动检 Time-Shift 缓存引擎已退出, err: %v", cam.ID, err)
-						harvestDone <- err
-					}(harvestCmd)
-					acquireOnvifMotionEvents()
+					log.Printf("[%s] 启动动检 Time-Shift 大块缓存引擎...", cam.ID)
+					var hCtx context.Context
+					hCtx, harvestCancel = context.WithCancel(ctx)
+					var err error
+					harvestCmd, err = startMotionTimeShiftFFmpeg(hCtx, cam)
+					if err != nil {
+						log.Printf("[%s] 启动动检 Time-Shift 缓存引擎失败: %v", cam.ID, err)
+						harvestCancel()
+						harvestCancel = nil
+						harvestCmd = nil
+					} else {
+						harvestDone = make(chan error, 1)
+						go func(c *exec.Cmd) {
+							err := c.Wait()
+							log.Printf("[%s] 动检 Time-Shift 缓存引擎已退出, err: %v", cam.ID, err)
+							harvestDone <- err
+						}(harvestCmd)
+						acquireOnvifMotionEvents()
+					}
 				}
 			} else if !harvestShouldRun && harvestRunning {
-				if streamState == "offline" {
+				if control != "start" && streamState == "offline" {
 					log.Printf("[%s] 检测到流状态离线 (Offline)，停止动检 Time-Shift 缓存引擎...", cam.ID)
 				} else if control == "stop" {
 					log.Printf("[%s] 已被手动停止，停止动检 Time-Shift 缓存引擎...", cam.ID)
@@ -418,7 +441,11 @@ func runMotionCameraTask(ctx context.Context, cam constant.Camera, camDir string
 				harvestCancel()
 				releaseOnvifMotionEventDemand("")
 				if harvestDone != nil {
-					<-harvestDone
+					select {
+					case <-harvestDone:
+					case <-time.After(3 * time.Second):
+						log.Printf("[%s] 停止动检等待 Time-Shift 进程退出超时(3s)，强制跳过", cam.ID)
+					}
 				}
 				harvestCmd = nil
 				harvestDone = nil
@@ -686,8 +713,12 @@ func ensureCameraDateDirs(camDir string, now time.Time) {
 	// 提前铺路，创建今天和明天的日期目录，防止跨天时目标文件夹不存在。
 	todayDir := filepath.Join(camDir, now.Format("2006-01-02"))
 	tomorrowDir := filepath.Join(camDir, now.AddDate(0, 0, 1).Format("2006-01-02"))
-	os.MkdirAll(todayDir, 0755)
-	os.MkdirAll(tomorrowDir, 0755)
+	if err := os.MkdirAll(todayDir, 0755); err != nil {
+		log.Printf("[%s] 创建录像日期目录失败: %v", filepath.Base(camDir), err)
+	}
+	if err := os.MkdirAll(tomorrowDir, 0755); err != nil {
+		log.Printf("[%s] 创建录像日期目录失败: %v", filepath.Base(camDir), err)
+	}
 }
 
 func currentStreamState(camID string) string {

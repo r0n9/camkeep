@@ -246,6 +246,16 @@ func TestMotionDetectionShouldRunBlocksOfflineStream(t *testing.T) {
 	}
 }
 
+func TestMotionDetectionShouldRunAllowsOfflineStreamWhenForcedStart(t *testing.T) {
+	cam := constant.Camera{ID: "motion-forced-offline-stream", Mode: "normal", MotionDetect: true}
+	setOverridesForTest(t, map[string]string{cam.ID: "start"})
+	setStreamStateForTest(t, cam.ID, "offline")
+
+	if !motionDetectionShouldRun(cam) {
+		t.Fatal("expected forced start override to allow motion detection even when stream is offline")
+	}
+}
+
 func TestMotionDetectionShouldRunAutoFallsBackWhenOnvifUnavailable(t *testing.T) {
 	cam := constant.Camera{
 		ID:                "motion-auto-fallback",

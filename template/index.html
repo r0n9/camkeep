@@ -652,6 +652,26 @@
     </div>
 
     <main id="dashboardPage" class="app-dashboard">
+        <!-- 存储目录权限异常提示横幅 -->
+        <div id="storageWarningBanner" class="hidden mb-4 rounded-xl border border-rose-200 bg-rose-50/90 p-3.5 shadow-sm text-rose-800 transition-all">
+            <div class="flex items-start gap-3">
+                <div class="shrink-0 text-rose-500 mt-0.5">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-2">
+                        <strong class="text-sm font-bold text-rose-800">存储目录写入权限异常 (只读)</strong>
+                        <span class="rounded bg-rose-200/80 px-1.5 py-0.5 text-[10px] font-bold text-rose-900">无法保存录像</span>
+                    </div>
+                    <p id="storageWarningText" class="mt-1 text-xs text-rose-700 leading-relaxed break-all">
+                        录像存储目录没有写入权限 (Permission Denied)，导致录像任务无法保存文件。若使用 Docker 部署，请检查宿主机挂载目录权限 (如执行 chmod -R 777 ./records)。
+                    </p>
+                </div>
+            </div>
+        </div>
+
     <div class="dashboard-main-grid grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] gap-4 lg:gap-5 mb-5 md:mb-6">
 
         <section id="liveNodePanel" class="live-node-panel app-section app-section-devices nm-card nm-card--blue bg-white p-3 rounded-xl shadow-sm border-t-4 border-blue-500 flex flex-col h-[340px] min-h-[300px] max-h-[360px] lg:h-[560px] lg:min-h-0 lg:max-h-none">

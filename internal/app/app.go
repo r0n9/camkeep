@@ -19,7 +19,8 @@ var (
 	currentConfig constant.Config
 	restartMux    sync.Mutex // 热重启专属防并发锁
 	reloadCancel  context.CancelFunc
-	taskWg        sync.WaitGroup
+	taskWg        sync.WaitGroup // 专用于后台可重载任务 (CameraTask, CleanupTask, DailyMergeTask, MotionDetectTask)
+	serverWg      sync.WaitGroup // 专用于 Web 服务生命周期
 	ctxGlobal     context.Context
 	version       string
 )
@@ -84,8 +85,9 @@ func Run(appVersion string) {
 	<-sigChan
 	log.Println("接收到退出信号，正在停止所有任务...")
 
-	cancelGlobal() // 通知所有层级的 Context 退出
-	taskWg.Wait()  // 等待所有任务完成
-	<-go2rtcDone   // 等待 go2rtc 子进程退出，避免留下孤儿进程
+	cancelGlobal()  // 通知所有层级的 Context 退出
+	taskWg.Wait()   // 等待录像与后台任务安全退出
+	serverWg.Wait() // 等待 Web 服务优雅退出
+	<-go2rtcDone    // 等待 go2rtc 子进程退出，避免留下孤儿进程
 	log.Println("程序已安全退出。")
 }

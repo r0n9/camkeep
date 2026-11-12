@@ -50,6 +50,32 @@ func TestHandleStatusIncludesRecordOverride(t *testing.T) {
 	if got := payload[camID]["ptz_state"]; got != service.OnvifStateUnavailable {
 		t.Fatalf("expected non-ONVIF PTZ state unavailable, got %v", got)
 	}
+	if _, ok := payload[camID]["storage_writable"]; !ok {
+		t.Fatalf("expected storage_writable field in status response")
+	}
+	if w.Header().Get("X-Camkeep-Storage-Writable") == "" {
+		t.Fatalf("expected X-Camkeep-Storage-Writable header in status response")
+	}
+}
+
+func TestHandleStorageStatus(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	handleStorageStatus(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var payload service.StorageHealth
+	if err := json.Unmarshal(w.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.Path == "" {
+		t.Fatalf("expected non-empty storage path")
+	}
 }
 
 func TestHandleCameraOnvifEventSummary(t *testing.T) {

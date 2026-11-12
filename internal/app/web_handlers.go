@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -82,6 +83,8 @@ type statusResponseEntry struct {
 	OnvifCapabilityState string    `json:"onvif_capability_state"`
 	PTZState             string    `json:"ptz_state"`
 	ImagingState         string    `json:"imaging_state"`
+	StorageWritable      bool      `json:"storage_writable"`
+	StorageError         string    `json:"storage_error,omitempty"`
 }
 
 type onvifEventSummaryResponse struct {
@@ -227,10 +230,20 @@ func handleStatus(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "生成状态响应失败: " + err.Error()})
 		return
 	}
+	storageHealth := service.CheckStorageHealth()
+	c.Header("X-Camkeep-Storage-Writable", strconv.FormatBool(storageHealth.Writable))
+	if storageHealth.Error != "" {
+		c.Header("X-Camkeep-Storage-Error", storageHealth.Error)
+	}
 	c.Data(http.StatusOK, "application/json; charset=utf-8", body)
 }
 
+func handleStorageStatus(c *gin.Context) {
+	c.JSON(http.StatusOK, service.CheckStorageHealth())
+}
+
 func snapshotStatusEntries() map[string]statusResponseEntry {
+	storageHealth := service.CheckStorageHealth()
 	service.StatusMux.RLock()
 	snapshot := make(map[string]statusResponseEntry, len(service.StatusMap))
 	for id, status := range service.StatusMap {
@@ -238,13 +251,15 @@ func snapshotStatusEntries() map[string]statusResponseEntry {
 			continue
 		}
 		snapshot[id] = statusResponseEntry{
-			ID:          status.ID,
-			IsRunning:   status.IsRunning,
-			RecordState: status.RecordState,
-			StartTime:   status.StartTime,
-			Mode:        status.Mode,
-			RecordTime:  status.RecordTime,
-			StreamState: status.StreamState,
+			ID:              status.ID,
+			IsRunning:       status.IsRunning,
+			RecordState:     status.RecordState,
+			StartTime:       status.StartTime,
+			Mode:            status.Mode,
+			RecordTime:      status.RecordTime,
+			StreamState:     status.StreamState,
+			StorageWritable: storageHealth.Writable,
+			StorageError:    storageHealth.Error,
 		}
 	}
 	service.StatusMux.RUnlock()

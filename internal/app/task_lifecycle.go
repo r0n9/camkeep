@@ -4,6 +4,8 @@ import (
 	"context"
 	"log"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/r0n9/camkeep/constant"
 	"github.com/r0n9/camkeep/internal/onvif"
@@ -53,7 +55,21 @@ func restartTasks(newConfig constant.Config) {
 	if reloadCancel != nil {
 		reloadCancel() // 取消旧的录像和清理任务
 	}
-	taskWg.Wait() // 阻塞等待旧任务全部安全退出 (此时录像已停)
+
+	// 阻塞等待旧任务全部安全退出 (此时录像已停)，带超时保护防止死锁
+	waitDone := make(chan struct{})
+	go func() {
+		taskWg.Wait()
+		close(waitDone)
+	}()
+
+	select {
+	case <-waitDone:
+		log.Println("旧任务全部已安全退出")
+	case <-time.After(10 * time.Second):
+		log.Println("警告: 等待旧任务退出超时(10s)，强制重置 WaitGroup 并启动新配置任务，避免热重启死锁")
+		taskWg = sync.WaitGroup{}
+	}
 
 	// 1. 获取旧配置的快照 (用于注销旧流)，极速释放锁
 	constant.ConfigMux.RLock()
